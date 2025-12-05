@@ -1,6 +1,6 @@
-# Brinex - Traveller Platform Server
+# Brinex - Server
 
-A microservices-based travel platform built with NestJS and Nx monorepo.
+A microservices-based platform built with NestJS and Nx monorepo.
 
 ## Overview
 
