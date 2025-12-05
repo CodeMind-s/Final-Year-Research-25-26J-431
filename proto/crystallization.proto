@@ -1,0 +1,18 @@
+syntax = "proto3";
+package crystallization;
+
+import "google/protobuf/timestamp.proto";
+
+service CrystallizationService {
+  rpc GetLogById(GetLogByIdRequest) returns (GetLogResponse);
+}
+
+message GetLogByIdRequest {
+  string logId = 1;
+}
+
+message GetLogResponse {
+  bool success = 1;
+  string message = 2;
+  string log = 3;
+}

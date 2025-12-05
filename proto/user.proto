@@ -1,0 +1,230 @@
+// Updated user.proto
+syntax = "proto3";
+package user;
+import "google/protobuf/timestamp.proto";
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetAllUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+
+  // New RPCs for personal details and account settings
+  rpc UpdatePersonalDetails(UpdatePersonalDetailsRequest) returns (UpdateProfileResponse);
+  rpc UpdateAccountSettings(UpdateAccountSettingsRequest) returns (UpdateProfileResponse);
+  rpc DeactivateAccount(DeactivateAccountRequest) returns (UpdateProfileResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteUserResponse);
+
+  // New RPCs for subscriptions
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+  rpc HandleStripeWebhook(HandleStripeWebhookRequest) returns (GetUserResponse); // For webhook events
+  rpc CheckSubscriptionAccess(CheckSubscriptionAccessRequest) returns (CheckSubscriptionAccessResponse);
+}
+
+message CreateUserRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+  string role = 4;
+  string preferredLanguage = 5;
+  string preferredCurrency = 6;
+}
+
+
+message ListUsersRequest {
+  int32 page = 1;       // Page number (1-based)
+  int32 limit = 2;  // Number of users per page (max 100)
+}
+
+// Response message for listing users
+message ListUsersResponse {
+  repeated User users = 1;         // List of users
+  int64 total = 2;                // Total number of users (for pagination metadata)
+  // If using cursor-based: string next_page_token = 3;
+}
+
+
+message CreateUserResponse {
+  int32 status = 1;
+  string message = 2;
+  string id = 3;
+}
+
+message GetUserRequest {
+  string email = 1;
+}
+
+message GetUserByIdRequest {
+  string id = 1;
+}
+
+message GetUserResponse {
+  int32 status = 1;
+  string message = 2;
+  User data = 3;
+}
+
+message UpdateUserRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+  string preferredLanguage = 4;
+  string preferredCurrency = 5;
+}
+
+message UpdateUserResponse {
+  int32 status = 1;
+  string message = 2;
+  string id = 3;
+}
+
+message DeleteUserRequest {
+  string email = 1;
+}
+
+message DeleteUserResponse {
+  int32 status = 1;
+  string message = 2;
+}
+
+message UpdateProfileRequest {
+  string user_id = 1;
+  string name = 2;
+  string email = 3;
+  string preferredLanguage = 4;
+  string preferredCurrency = 5;
+  string bio = 6;
+  string profileImage = 7;
+}
+
+message UpdateProfileResponse {
+  int32 status = 1;
+  string message = 2;
+  string id = 3;
+}
+
+// New messages for personal details and account settings
+message UpdatePersonalDetailsRequest {
+  string user_id = 1;
+  string name = 2;
+  string residential_address = 3;
+  string gender = 4;
+  string emergency_contact_name = 5;
+  string emergency_contact_number = 6;
+  string blood_type = 7;
+  string allergies = 8;
+}
+
+message UpdateAccountSettingsRequest {
+  string user_id = 1;
+  string email = 2;
+  bool two_factor_enabled = 3;
+  map<string, bool> linked_accounts = 4; // e.g., { "google": true, "facebook": false }
+  bool profile_visibility = 5;
+}
+
+message DeactivateAccountRequest {
+  string user_id = 1;
+}
+
+message DeleteAccountRequest {
+  string user_id = 1;
+}
+
+// Single User message definition (extended with new fields)
+message User {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string name = 4;
+  string gender = 5;
+  string preferredLanguage = 6;
+  string preferredCurrency = 7;
+  string role = 8;
+  bool isOnboarded = 9;
+  string travelerTypes = 10;
+  repeated string transportationPreferences = 11;
+  repeated string activityPreferences = 12;
+  repeated string foodDrinkPreferences = 13;
+  repeated string sriLankaVibes = 14;
+  google.protobuf.Timestamp createdAt = 15;
+  google.protobuf.Timestamp updatedAt = 16;
+  string plan = 17; // 'free', 'basic', 'premium'
+  bool is_subscribed = 18;
+  google.protobuf.Timestamp subscription_end_date = 19;
+  // New Personal Details fields
+  string residential_address = 20;
+  string emergency_contact_name = 21;
+  string emergency_contact_number = 22;
+  string blood_type = 23;
+  string allergies = 24;
+
+  // New Account Settings fields
+  bool two_factor_enabled = 25;
+  map<string, bool> linked_accounts = 26; // e.g., { "google": true, "facebook": false }
+  bool profile_visibility = 27;
+  bool is_deactivated = 28;
+  string profile_picture_url = 29;
+  string bio = 30;
+  string profileImage = 31;
+}
+
+// New messages for subscriptions
+message CreateSubscriptionRequest {
+  string user_id = 1;
+  string plan = 2; // 'basic' or 'premium'
+}
+
+message CreateSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  string checkout_url = 3;
+}
+
+message GetSubscriptionRequest {
+  string user_id = 1;
+}
+
+message GetSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  SubscriptionData data = 3;
+}
+
+message SubscriptionData {
+  string id = 1;
+  string plan = 2; // 'free', 'basic', 'premium'
+  bool is_active = 3;
+  google.protobuf.Timestamp end_date = 4;
+  string stripe_subscription_id = 5;
+}
+
+message UpdateSubscriptionRequest {
+  string user_id = 1;
+  string plan = 2;
+}
+
+message UpdateSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  string checkout_url = 3;
+}
+
+message HandleStripeWebhookRequest {
+  string event_type = 1; // e.g., 'checkout.session.completed'
+  string data = 2; // JSON string of event data
+}
+
+message CheckSubscriptionAccessRequest {
+  string user_id = 1;
+  int32 required_level = 2; // 0=free, 1=basic, 2=premium
+}
+
+message CheckSubscriptionAccessResponse {
+  bool has_access = 1;
+}

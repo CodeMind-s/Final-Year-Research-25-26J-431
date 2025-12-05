@@ -1,0 +1,239 @@
+// Updated auth.proto
+syntax = "proto3";
+package auth;
+import "google/protobuf/timestamp.proto";
+
+service AuthService {
+  rpc SignIn(SignInRequest) returns (SignInResponse);
+  rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse);
+  rpc CompleteOnboarding(CompleteOnboardingRequest) returns (OnboardingResponse);
+  rpc OAuthSignIn(OAuthSignInRequest) returns (AuthResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetPersonalDetails(GetUserRequest) returns (UserResponse);
+  // Subscription RPCs
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  rpc GetPlans(GetPlansRequest) returns (GetPlansResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+  rpc CheckSubscriptionAccess(CheckSubscriptionAccessRequest) returns (CheckSubscriptionAccessResponse);
+}
+
+message SignInRequest {
+  string email = 1;
+  string phone = 2;
+}
+
+message SignInResponse {
+  bool success = 1;
+  string user = 2;
+  string message = 3;
+}
+
+message VerifyOtpRequest {
+  string email = 1;
+  string phone = 2;
+  string code = 3;
+}
+
+message VerifyOtpResponse {
+  bool success = 1;
+  string message = 2;
+  string accessToken = 3;
+  bool isNewUser = 4;
+  bool isOnboarded = 5;
+}
+
+message CompleteOnboardingRequest {
+  string userId = 1;
+  string name = 2;
+  string gender = 3;
+  string preferredLanguage = 4;
+  string preferredCurrency = 5;
+  string travelerTypes = 6;
+  repeated string transportationPreferences = 7;
+  repeated string activityPreferences = 8;
+  repeated string foodDrinkPreferences = 9;
+  repeated string sriLankaVibes = 10;
+}
+
+message OnboardingResponse {
+  bool success = 1;
+  string message = 2;
+  string id = 3;
+  string email = 4;
+  string phone = 5;
+  string name = 6;
+  string gender = 7;
+  string preferredLanguage = 8;
+  string preferredCurrency = 9;
+  string travelerTypes = 10;
+  repeated string transportationPreferences = 11;
+  repeated string activityPreferences = 12;
+  repeated string foodDrinkPreferences = 13;
+  repeated string sriLankaVibes = 14;
+  string role = 15;
+  bool isOnboarded = 16;
+}
+message GetUserRequest {
+  string userId = 1;
+}
+// message UserResponse {
+//   string id = 1;
+//   string email = 2;
+//   string phone = 3;
+//   string name = 4;
+//   string gender = 5;
+//   string preferredLanguage = 6;
+//   string preferredCurrency = 7;
+//   string role = 8;
+//   bool isOnboarded = 9;
+//   string plan = 10; // 'free', 'basic', 'premium'
+//   bool is_subscribed = 11;
+//   google.protobuf.Timestamp subscription_end_date = 12;
+//   // New Personal Details fields
+//   string residential_address = 13;
+//   string emergency_contact_name = 14;
+//   string emergency_contact_number = 15;
+//   string blood_type = 16;
+//   string allergies = 17;
+//   // New Account Settings fields
+//   bool two_factor_enabled = 18;
+//   map<string, bool> linked_accounts = 19; // e.g., { "google": true, "facebook": false }
+//   bool profile_visibility = 20;
+//   bool is_deactivated = 21;
+//   string profile_picture_url = 22;
+// }
+message UserResponse {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string name = 4;
+  string gender = 5;
+  string preferredLanguage = 6;
+  string preferredCurrency = 7;
+  string role = 8;
+  bool isOnboarded = 9;
+  string travelerTypes = 10;
+  repeated string transportationPreferences = 11;
+  repeated string activityPreferences = 12;
+  repeated string foodDrinkPreferences = 13;
+  repeated string sriLankaVibes = 14;
+  google.protobuf.Timestamp createdAt = 15;
+  google.protobuf.Timestamp updatedAt = 16;
+  string plan = 17; // 'free', 'basic', 'premium'
+  bool is_subscribed = 18;
+  google.protobuf.Timestamp subscription_end_date = 19;
+  // New Personal Details fields
+  string residential_address = 20;
+  string emergency_contact_name = 21;
+  string emergency_contact_number = 22;
+  string blood_type = 23;
+  string allergies = 24;
+
+  // New Account Settings fields
+  bool two_factor_enabled = 25;
+  map<string, bool> linked_accounts = 26; // e.g., { "google": true, "facebook": false }
+  bool profile_visibility = 27;
+  bool is_deactivated = 28;
+  string profile_picture_url = 29;
+}
+
+message OAuthSignInRequest {
+  string email = 1;
+  string name = 2;
+  string providerId = 3;
+  string provider = 4;
+}
+
+message AuthResponse {
+  string accessToken = 1;
+  bool isNewUser = 2;
+  bool isOnboarded = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  UserResponse user = 2;
+}
+
+// Subscription messages
+message Plan {
+  string id = 1;
+  string name = 2; // 'Free', 'Basic', 'Premium'
+  int32 level = 3; // 0: Free, 1: Basic, 2: Premium
+  double price = 4;
+  repeated string features = 5;
+  string duration = 6; // 'lifetime', 'monthly'
+}
+
+message Subscription {
+  string id = 1;
+  string user_id = 2;
+  string plan_id = 3;
+  string status = 4; // 'active', 'inactive', 'expired'
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+}
+
+message CreateSubscriptionRequest {
+  string user_id = 1;
+  string plan_id = 2;
+}
+
+message CreateSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  Subscription subscription = 3;
+}
+
+message GetSubscriptionRequest {
+  string user_id = 1;
+}
+
+message GetSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  Subscription subscription = 3;
+}
+
+message GetPlansRequest {}
+
+message GetPlansResponse {
+  bool success = 1;
+  repeated Plan plans = 2;
+}
+
+message GetPlanRequest {
+  string plan_id = 1;
+}
+
+message GetPlanResponse {
+  bool success = 1;
+  Plan plan = 2;
+}
+
+message UpdateSubscriptionRequest {
+  string subscription_id = 1;
+  string plan_id = 2;
+}
+
+message UpdateSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  Subscription subscription = 3;
+}
+
+message CheckSubscriptionAccessRequest {
+  string user_id = 1;
+  int32 required_level = 2; // 0=free, 1=basic, 2=premium
+}
+
+message CheckSubscriptionAccessResponse {
+  bool has_access = 1;
+}

@@ -45,5 +45,9 @@ Thumbs.db
 
 test-output
 
+
 .env
 .env.example
+
+package-lock.json
+yarn.lock
