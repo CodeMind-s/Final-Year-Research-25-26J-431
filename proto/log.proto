@@ -1,0 +1,188 @@
+// Updated log.proto
+syntax = "proto3";
+package log;
+import "google/protobuf/timestamp.proto";
+
+service LogService {
+    rpc CreateLog(CreateLogRequest) returns (CreateLogResponse);
+}
+
+// Create log request
+message CreateLogRequest {
+    // Service identification
+    ServiceName service_name = 4;
+    string service_version = 5;
+    string service_instance_id = 6; // For tracking specific service instances
+    LogLevel level = 3;
+  
+  // Message and details
+  string message = 7;
+  string error_message = 8; // Specific error message if applicable
+  string stack_trace = 9; // Stack trace for errors
+  
+  // Request context
+  RequestContext request_context = 10;
+  
+  // User context
+  UserContext user_context = 12;
+  
+  // Additional metadata
+  map<string, string> metadata = 13;
+  
+  // Trace and correlation IDs for distributed tracing
+  string trace_id = 14;
+  string span_id = 15;
+  string parent_span_id = 16;
+  string correlation_id = 17; // For tracking requests across services
+  
+  // Performance metrics
+  PerformanceMetrics performance = 18;
+  
+  // Environment info
+  string environment = 19; // dev, staging, production
+  string region = 20; // Geographic region if applicable
+}
+
+message CreateLogResponse {
+  string log_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// HTTP method types
+enum HttpMethod {
+  HTTP_METHOD_UNSPECIFIED = 0;
+  GET = 1;
+  POST = 2;
+  PUT = 3;
+  PATCH = 4;
+  DELETE = 5;
+  OPTIONS = 6;
+  HEAD = 7;
+}
+
+// Log severity levels
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  DEBUG = 1;
+  INFO = 2;
+  WARNING = 3;
+  ERROR = 4;
+  CRITICAL = 5;
+}
+
+// Service names enum for type safety
+enum ServiceName {
+  SERVICE_UNSPECIFIED = 0;
+  API_GATEWAY = 1;
+  AUTH_SERVICE = 2;
+  COMMUNITY_SERVICE = 3;
+  EMAIL_SERVICE = 4;
+  ITINERARY_SERVICE = 5;
+  NOTIFICATION_SERVICE = 6;
+  RECOMMENDATION_SERVICE = 7;
+  TRIP_SERVICE = 8;
+  TOOLS_SERVICE = 9;
+  USER_SERVICE = 10;
+}
+
+// HTTP method types
+enum HttpMethod {
+  HTTP_METHOD_UNSPECIFIED = 0;
+  GET = 1;
+  POST = 2;
+  PUT = 3;
+  PATCH = 4;
+  DELETE = 5;
+  OPTIONS = 6;
+  HEAD = 7;
+}
+
+// Performance and timing metrics
+message PerformanceMetrics {
+  int64 duration_ms = 1; // Request duration in milliseconds
+  int64 db_query_time_ms = 2;
+  int64 external_api_time_ms = 3;
+  int32 db_query_count = 4;
+  int32 cache_hit_count = 5;
+  int32 cache_miss_count = 6;
+  int64 memory_usage_bytes = 7;
+  float cpu_usage_percent = 8;
+}
+
+// User context for authentication/authorization tracking
+message UserContext {
+  string user_id = 1;
+  string username = 2;
+  string email = 3;
+  string role = 4;
+  repeated string permissions = 5;
+  string session_id = 6;
+  string tenant_id = 7; // For multi-tenant systems
+}
+
+// Request context information
+message RequestContext {
+  string request_id = 1;
+  HttpMethod method = 2;
+  string path = 3;
+  string query_params = 4;
+  map<string, string> headers = 5;
+  string body = 6; // Be careful with sensitive data
+  string client_ip = 7;
+  string user_agent = 8;
+  string referer = 9;
+  string grpc_method = 10; // Full gRPC method name if applicable
+}
+
+// Response context information
+message ResponseContext {
+  int32 status_code = 1;
+  string status_message = 2;
+  map<string, string> headers = 3;
+  string body = 4; // Be careful with sensitive data
+  int64 response_size_bytes = 5;
+}
+  LogLevel level = 3;
+  ServiceName service_name = 4;
+// Main log entry structure
+message LogEntry {
+  string id = 1;
+  int64 timestamp = 2;
+  LogLevel level = 3;
+  
+  // Service identification
+  ServiceName service_name = 4;
+  string service_version = 5;
+  string service_instance_id = 6; // For tracking specific service instances
+  
+  // Message and details
+  string message = 7;
+  string error_message = 8; // Specific error message if applicable
+  string stack_trace = 9; // Stack trace for errors
+  
+  // Request context
+  RequestContext request_context = 10;
+  
+  // Response context
+  ResponseContext response_context = 11;
+  
+  // User context
+  UserContext user_context = 12;
+  
+  // Additional metadata
+  map<string, string> metadata = 13;
+  
+  // Trace and correlation IDs for distributed tracing
+  string trace_id = 14;
+  string span_id = 15;
+  string parent_span_id = 16;
+  string correlation_id = 17; // For tracking requests across services
+  
+  // Performance metrics
+  PerformanceMetrics performance = 18;
+  
+  // Environment info
+  string environment = 19; // dev, staging, production
+  string region = 20; // Geographic region if applicable
+}
