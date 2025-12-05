@@ -1,0 +1,23 @@
+{
+  "name": "@brinex-server/crystallization-ml-service",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "serve": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "python src/main.py",
+          "cwd": "apps/crystallization-ml-service"
+        }
+      },
+      "install": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "pip install -r requirements.txt",
+          "cwd": "apps/crystallization-ml-service"
+        }
+      }
+    }
+  }
+}
