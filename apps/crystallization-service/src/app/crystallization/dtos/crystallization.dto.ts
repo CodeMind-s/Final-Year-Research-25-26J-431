@@ -1,9 +1,17 @@
-export class GetLogByIdDto {
-  logId: string;
+export class CreateDailyMeasurementDto {
+  date: string;
+  waterTemperature: number;
+  lagoon: number;
+  orBrineLevel: number;
+  orBoundLevel: number;
+  irBrineLevel: number;
+  irBoundLevel: number;
+  eastChannel: number;
+  westChannel: number;
 }
 
-export class GetLogResponseDto {
+export class CreateDailyMeasurementResponseDto {
   success: boolean;
   message: string;
-  log?: any;
+  daily_measurement?: any;
 }
