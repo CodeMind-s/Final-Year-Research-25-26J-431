@@ -5,31 +5,54 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Log } from './schemas/crystallization.schema';
-import { GetLogByIdDto, GetLogResponseDto } from './dtos/crystallization.dto';
+import { DailyMeasurement } from './schemas/crystallization.schema';
+import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto } from './dtos/crystallization.dto';
 
 @Injectable()
 export class CrystallizationService {
-  constructor(@InjectModel(Log.name) private logModel: Model<Log>) {}
+  constructor(@InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>) { }
 
-  async GetLogById(data: GetLogByIdDto): Promise<GetLogResponseDto> {
+  async CreateDailyMeasurement(data: CreateDailyMeasurementDto): Promise<CreateDailyMeasurementResponseDto> {
     try {
-      const log = await this.logModel.findById(data.logId).exec();
+      console.log('Creating daily measurement with data:', data);
+      const dailyMeasurement = await this.dailyMeasurementModel.create(data);
 
-      if (!log) {
-        throw new NotFoundException('Log not found');
+      if (!dailyMeasurement) {
+        throw new NotFoundException('Daily Measurement not found');
       }
 
-      return {
+      // Convert to plain object and return all fields
+      const result = dailyMeasurement.toObject();
+
+      const response = {
         success: true,
-        message: 'Log retrieved successfully',
-        log: log,
+        message: 'Daily Measurement created successfully',
+        daily_measurement: {
+          _id: result._id?.toString() || '',
+          date: typeof result.date === 'string' ? result.date : result.date?.toISOString().split('T')[0] || '',
+          waterTemperature: result.waterTemperature || 0,
+          lagoon: result.lagoon || 0,
+          orBrineLevel: result.orBrineLevel || 0,
+          orBoundLevel: result.orBoundLevel || 0,
+          irBrineLevel: result.irBrineLevel || 0,
+          irBoundLevel: result.irBoundLevel || 0,
+          eastChannel: result.eastChannel || 0,
+          westChannel: result.westChannel || 0,
+          createdAt: result.createdAt?.toISOString() || '',
+          updatedAt: result.updatedAt?.toISOString() || '',
+        },
       };
+
+      console.log('=== SERVICE RETURNING ===');
+      console.log(JSON.stringify(response, null, 2));
+
+      return response;
     } catch (error) {
+      console.error('Error creating daily measurement:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException('Failed to retrieve log');
+      throw new BadRequestException(`Failed to create daily measurement: ${error.message}`);
     }
   }
 }

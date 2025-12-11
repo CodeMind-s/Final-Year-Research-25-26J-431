@@ -16,6 +16,13 @@ async function bootstrap() {
       package: 'crystallization',
       protoPath: join(__dirname, '../../../proto/crystallization.proto'),
       url: process.env.GRPC_URL || 'localhost:50054',
+      loader: {
+        keepCase: true,
+        longs: String,
+        enums: String,
+        defaults: true,
+        oneofs: true,
+      },
     },
   });
 

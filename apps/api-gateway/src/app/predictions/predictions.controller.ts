@@ -13,7 +13,7 @@ interface CurrentValues {
   waterTemperature: number;
   lagoon: number;
   orBrineLevel: number;
-  orBundLevel: number;
+  orBoundLevel: number;
   irBrineLevel: number;
   irBoundLevel: number;
   eastChannel: number;
@@ -58,14 +58,14 @@ export class PredictionsController implements OnModuleInit {
         startDate: predictionRequest.start_date,
         forecastDays: predictionRequest.forecast_days,
         currentValues: {
-          waterTemperature: predictionRequest.current_values.water_temperature,
+          waterTemperature: predictionRequest.current_values.waterTemperature,
           lagoon: predictionRequest.current_values.lagoon,
-          orBrineLevel: predictionRequest.current_values.OR_brine_level,
-          orBundLevel: predictionRequest.current_values.OR_bund_level,
-          irBrineLevel: predictionRequest.current_values.IR_brine_level,
-          irBoundLevel: predictionRequest.current_values.IR_bound_level,
-          eastChannel: predictionRequest.current_values.East_channel,
-          westChannel: predictionRequest.current_values.West_channel,
+          orBrineLevel: predictionRequest.current_values.orBrineLevel,
+          orBoundLevel: predictionRequest.current_values.orBoundLevel,
+          irBrineLevel: predictionRequest.current_values.irBrineLevel,
+          irBoundLevel: predictionRequest.current_values.irBoundLevel,
+          eastChannel: predictionRequest.current_values.eastChannel,
+          westChannel: predictionRequest.current_values.westChannel,
         },
       };
       
