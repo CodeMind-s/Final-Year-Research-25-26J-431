@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy proto files and generate Python code
 COPY proto/ ./proto/
-RUN python -m grpc_tools.protoc -I./proto --python_out=./src --grpc_python_out=./src ./proto/predictions.proto
+RUN mkdir -p ./src && python -m grpc_tools.protoc -I./proto --python_out=./src --grpc_python_out=./src ./proto/predictions.proto
 
 # Copy application code
 COPY src/ ./src/

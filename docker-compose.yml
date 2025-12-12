@@ -12,7 +12,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      test: [ "CMD", "nc", "-z", "localhost", "2181" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,29 +35,29 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      test: [ "CMD", "nc", "-z", "localhost", "9092" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # crystallization-ml-service:
-  #   build:
-  #     context: ./apps/crystallization-ml-service
-  #     dockerfile: Dockerfile
-  #   container_name: crystallization-ml-service
-  #   ports:
-  #     - "50055:50055"
-  #   networks:
-  #     - app-network
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #   volumes:
-  #     - ./apps/crystallization-ml-service/models:/app/models
-  #   healthcheck:
-  #     test: ["CMD", "python", "-c", "import grpc; channel = grpc.insecure_channel('localhost:50055'); channel.close()"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  crystallization-ml-service:
+    build:
+      context: ./apps/crystallization-ml-service
+      dockerfile: Dockerfile
+    container_name: crystallization-ml-service
+    ports:
+      - "50055:50055"
+    networks:
+      - app-network
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./apps/crystallization-ml-service/models:/app/models
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import grpc; channel = grpc.insecure_channel('localhost:50055'); channel.close()" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   app-network:
