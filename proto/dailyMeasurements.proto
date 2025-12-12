@@ -1,0 +1,83 @@
+syntax = "proto3";
+package crystallization;
+
+import "google/protobuf/timestamp.proto";
+
+service CrystallizationService {
+  rpc CreateDailyMeasurement(CreateDailyMeasurementRequest) returns (CreateDailyMeasurementResponse);
+  rpc GetDailyMeasurementByDate(GetDailyMeasurementByDateRequest) returns (GetDailyMeasurementByDateResponse);
+  rpc UpdateDailyMeasurementById(UpdateDailyMeasurementByIdRequest) returns (UpdateDailyMeasurementByIdResponse);
+  rpc DeleteDailyMeasurementById(DeleteDailyMeasurementByIdRequest) returns (DeleteDailyMeasurementByIdResponse);
+}
+
+message CreateDailyMeasurementRequest {
+  string date = 1;
+  double waterTemperature = 2;
+  double lagoon = 3;
+  double orBrineLevel = 4;
+  double orBoundLevel = 5;
+  double irBrineLevel = 6;
+  double irBoundLevel = 7;
+  double eastChannel = 8;
+  double westChannel = 9;
+}
+
+message CreateDailyMeasurementResponse {
+  bool success = 1;
+  string message = 2;
+  DailyMeasurement daily_measurement = 3;
+}
+
+message DailyMeasurement {
+  string _id = 1;
+  string date = 2;
+  double waterTemperature = 3;
+  double lagoon = 4;
+  double orBrineLevel = 5;
+  double orBoundLevel = 6;
+  double irBrineLevel = 7;
+  double irBoundLevel = 8;
+  double eastChannel = 9;
+  double westChannel = 10;
+  string createdAt = 11;
+  string updatedAt = 12;
+}
+
+message GetDailyMeasurementByDateRequest {
+  string date = 1;
+}
+
+message GetDailyMeasurementByDateResponse {
+  bool success = 1;
+  string message = 2;
+  DailyMeasurement daily_measurement = 3;
+}
+
+message UpdateDailyMeasurementByIdRequest {
+  string id = 1;
+  double waterTemperature = 2;
+  double lagoon = 3;
+  double orBrineLevel = 4;
+  double orBoundLevel = 5;
+  double irBrineLevel = 6;
+  double irBoundLevel = 7;
+  double eastChannel = 8;
+  double westChannel = 9;
+}
+
+message UpdateDailyMeasurementByIdResponse {
+  bool success = 1;
+  string message = 2;
+  DailyMeasurement daily_measurement = 3;
+}
+
+message DeleteDailyMeasurementByIdRequest {
+  string id = 1;
+}
+
+message DeleteDailyMeasurementByIdResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+
