@@ -52,28 +52,28 @@ export class DailyMeasurementDataDto {
   @ApiProperty({ example: '2025-12-05', description: 'Date' })
   date: string;
 
-  @ApiProperty({ example: 28.5, description: 'Water Temperature' })
+  @ApiProperty({ example: 32, description: 'Water Temperature' })
   waterTemperature: number;
 
   @ApiProperty({ example: 2, description: 'Lagoon' })
   lagoon: number;
 
-  @ApiProperty({ example: 232, description: 'OR Brine Level' })
+  @ApiProperty({ example: 3, description: 'OR Brine Level' })
   orBrineLevel: number;
 
-  @ApiProperty({ example: 45, description: 'OR Bund Level' })
+  @ApiProperty({ example: 1, description: 'OR Bund Level' })
   orBoundLevel: number;
 
-  @ApiProperty({ example: 52, description: 'IR Brine Level' })
+  @ApiProperty({ example: 5, description: 'IR Brine Level' })
   irBrineLevel: number;
 
-  @ApiProperty({ example: 27, description: 'IR Bund Level' })
+  @ApiProperty({ example: 1, description: 'IR Bund Level' })
   irBoundLevel: number;
 
-  @ApiProperty({ example: 28, description: 'East Channel' })
+  @ApiProperty({ example: 4, description: 'East Channel' })
   eastChannel: number;
 
-  @ApiProperty({ example: 288, description: 'West Channel' })
+  @ApiProperty({ example: 5, description: 'West Channel' })
   westChannel: number;
 
   @ApiProperty({ example: '675945c5d1234567890abcde', description: 'ID' })
@@ -95,4 +95,81 @@ export class CreateDailyMeasurementResponseDto {
 
   @ApiProperty({ type: DailyMeasurementDataDto, description: 'Daily Measurement data' })
   data?: DailyMeasurementDataDto;
+}
+
+export class GetDailyMeasurementDto {
+  @ApiProperty({ example: '2025-12-05', description: 'Date' })
+  date: string;
+}
+
+export class GetDailyMeasurementResponseDto {
+  @ApiProperty({ example: true, description: 'Success flag' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Daily Measurement fetched successfully', description: 'Message' })
+  message: string;
+
+  @ApiProperty({ type: DailyMeasurementDataDto, description: 'Daily Measurement data' })
+  data?: DailyMeasurementDataDto;
+}
+
+export class UpdateDailyMeasurementByIdDto {
+  @ApiProperty({ example: 28.5, description: 'Water Temperature' })
+  @IsNumber({}, { message: 'Water Temperature must be a number' })
+  @IsOptional()
+  waterTemperature?: number;
+
+  @ApiProperty({ example: 2, description: 'Lagoon' })
+  @IsNumber({}, { message: 'Lagoon must be a number' })
+  @IsOptional()
+  lagoon?: number;
+
+  @ApiProperty({ example: 2, description: 'OR Brine Level' })
+  @IsNumber({}, { message: 'OR Brine Level must be a number' })
+  @IsOptional()
+  orBrineLevel?: number;
+
+  @ApiProperty({ example: 2, description: 'OR Bund Level' })
+  @IsNumber({}, { message: 'OR Bund Level must be a number' })
+  @IsOptional()
+  orBoundLevel?: number;
+
+  @ApiProperty({ example: 2, description: 'IR Brine Level' })
+  @IsNumber({}, { message: 'IR Brine Level must be a number' })
+  @IsOptional()
+  irBrineLevel?: number;
+
+  @ApiProperty({ example: 2, description: 'IR Bund Level' })
+  @IsNumber({}, { message: 'IR Bund Level must be a number' })
+  @IsOptional()
+  irBoundLevel?: number;
+
+  @ApiProperty({ example: 2, description: 'East Channel' })
+  @IsNumber({}, { message: 'East Channel must be a number' })
+  @IsOptional()
+  eastChannel?: number;
+
+  @ApiProperty({ example: 2, description: 'West Channel' })
+  @IsNumber({}, { message: 'West Channel must be a number' })
+  @IsOptional()
+  westChannel?: number;
+}
+
+export class UpdateDailyMeasurementByIdResponseDto {
+  @ApiProperty({ example: true, description: 'Success flag' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Daily Measurement updated successfully', description: 'Message' })
+  message: string;
+
+  @ApiProperty({ type: DailyMeasurementDataDto, description: 'Updated Daily Measurement data' })
+  data?: DailyMeasurementDataDto;
+}
+
+export class DeleteDailyMeasurementByIdResponseDto {
+  @ApiProperty({ example: true, description: 'Success flag' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Daily Measurement deleted successfully', description: 'Message' })
+  message: string;
 }

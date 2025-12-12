@@ -21,11 +21,11 @@ import { PredictionsController } from './predictions.controller';
         options: {
           package: 'predictions',
           protoPath: join(__dirname, 'proto/predictions.proto'),
-          url: 'localhost:50057',
+          url: 'localhost:50055',
         },
       },
     ]),
   ],
   controllers: [PredictionsController],
 })
-export class PredictionsModule {}
+export class PredictionsModule { }

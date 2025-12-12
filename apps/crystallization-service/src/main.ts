@@ -14,7 +14,7 @@ async function bootstrap() {
     transport: Transport.GRPC,
     options: {
       package: 'crystallization',
-      protoPath: join(__dirname, '../../../proto/crystallization.proto'),
+      protoPath: join(__dirname, '../../../proto/dailyMeasurements.proto'),
       url: process.env.GRPC_URL || 'localhost:50054',
       loader: {
         keepCase: true,

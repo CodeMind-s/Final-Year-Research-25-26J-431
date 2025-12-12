@@ -23,7 +23,7 @@ import { CrystallizationController } from './crystallization.controller';
         transport: Transport.GRPC,
         options: {
           package: 'crystallization',
-          protoPath: join(__dirname, 'proto/crystallization.proto'),
+          protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
           url: 'localhost:50054', // Assume port for itineraries service
           loader: {
             keepCase: true,
