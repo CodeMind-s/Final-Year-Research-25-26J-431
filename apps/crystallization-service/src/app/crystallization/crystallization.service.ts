@@ -2,15 +2,80 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Inject,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { Observable, firstValueFrom } from 'rxjs';
 import { DailyMeasurement } from './schemas/crystallization.schema';
-import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/crystallization.dto';
+import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto } from './dtos/crystallization.dto';
+
+interface CurrentValues {
+  water_temperature: number;
+  lagoon: number;
+  OR_brine_level: number;
+  OR_bund_level: number;
+  IR_brine_level: number;
+  IR_bound_level: number;
+  East_channel: number;
+  West_channel: number;
+}
+
+interface PredictionRequest {
+  start_date: string;
+  forecast_days: number;
+  current_values: CurrentValues;
+}
+
+interface PredictionsMLService {
+  GetPredictions(data: PredictionRequest): Observable<any>;
+}
 
 @Injectable()
-export class CrystallizationService {
-  constructor(@InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>) { }
+export class CrystallizationService implements OnModuleInit {
+  private predictionsMLService: PredictionsMLService;
+
+  constructor(
+    @InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>,
+    @Inject('PREDICTIONS_PACKAGE') private mlClient: ClientGrpc,
+  ) { }
+
+  onModuleInit() {
+    this.predictionsMLService = this.mlClient.getService<PredictionsMLService>('PredictionsService');
+  }
+
+  async GetPredictions(data: GetPredictionsDto): Promise<GetPredictionsResponseDto> {
+    try {
+      console.log('GetPredictions called with data:', JSON.stringify(data, null, 2));
+      const payload: PredictionRequest = {
+        start_date: data.start_date,
+        forecast_days: data.forecast_days,
+        current_values: {
+          water_temperature: data.current_values.water_temperature,
+          lagoon: data.current_values.lagoon,
+          OR_brine_level: data.current_values.OR_brine_level,
+          OR_bund_level: data.current_values.OR_bund_level,
+          IR_brine_level: data.current_values.IR_brine_level,
+          IR_bound_level: data.current_values.IR_bound_level,
+          East_channel: data.current_values.East_channel,
+          West_channel: data.current_values.West_channel,
+        },
+      };
+
+      console.log('Crystallization Service: Forwarding prediction request to ML service');
+      const result = await firstValueFrom(
+        this.predictionsMLService.GetPredictions(payload)
+      );
+      console.log('Crystallization Service: Received predictions from ML service');
+
+      return result;
+    } catch (error) {
+      console.error('Error getting predictions from ML service:', error);
+      throw new BadRequestException(`Failed to get predictions: ${error.message}`);
+    }
+  }
 
   async CreateDailyMeasurement(data: CreateDailyMeasurementDto): Promise<CreateDailyMeasurementResponseDto> {
     try {

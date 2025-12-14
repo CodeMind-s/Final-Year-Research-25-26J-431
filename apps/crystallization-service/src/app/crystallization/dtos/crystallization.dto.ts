@@ -53,3 +53,30 @@ export class DeleteDailyMeasurementByIdResponseDto {
   message: string;
 }
 
+export class CurrentValuesDto {
+  water_temperature: number;
+  lagoon: number;
+  OR_brine_level: number;
+  OR_bund_level: number;
+  IR_brine_level: number;
+  IR_bound_level: number;
+  East_channel: number;
+  West_channel: number;
+}
+
+export class GetPredictionsDto {
+  start_date: string;
+  forecast_days: number;
+  current_values: CurrentValuesDto;
+}
+
+export class GetPredictionsResponseDto {
+  status: string;
+  daily_parameters_forecast?: any;
+  monthly_production_6months?: any;
+  monthly_production_12months?: any;
+  seasonal_production?: any;
+  model_info?: any;
+  summary?: any;
+}
+
