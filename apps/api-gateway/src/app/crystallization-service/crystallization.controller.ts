@@ -11,6 +11,7 @@ import { Logger } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { HttpException } from '@nestjs/common';
 import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/dailyMeasurement.dto';
+import { PredictionRequestDto } from './dtos/prediction-request.dto';
 
 @ApiTags('Crystallization')
 @Controller('crystallization')
@@ -273,6 +274,48 @@ export class CrystallizationController {
       };
     } catch (error: any) {
       throw error;
+    }
+  }
+
+  @Post("/predictions")
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @Roles(Role.TRAVELER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get ML predictions for crystallization parameters' })
+  @ApiBody({ type: PredictionRequestDto })
+  @ApiResponse({ status: 200, description: 'Predictions generated successfully' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async getPredictions(@Body() predictionRequest: PredictionRequestDto) {
+    try {
+      const payload = {
+        start_date: predictionRequest.start_date,
+        forecast_days: predictionRequest.forecast_days,
+        current_values: {
+          water_temperature: predictionRequest.current_values.waterTemperature,
+          lagoon: predictionRequest.current_values.lagoon,
+          OR_brine_level: predictionRequest.current_values.orBrineLevel,
+          OR_bund_level: predictionRequest.current_values.orBoundLevel,
+          IR_brine_level: predictionRequest.current_values.irBrineLevel,
+          IR_bound_level: predictionRequest.current_values.irBoundLevel,
+          East_channel: predictionRequest.current_values.eastChannel,
+          West_channel: predictionRequest.current_values.westChannel,
+        },
+      };
+      
+      const result = await firstValueFrom(
+        this.crystallizationService.GetPredictions(payload)
+      );
+
+      return result;
+    } catch (error: any) {
+      throw new HttpException(
+        {
+          status: 'error',
+          message: error.message || 'Failed to get predictions',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

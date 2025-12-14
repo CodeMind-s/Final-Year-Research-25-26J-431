@@ -6,7 +6,6 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
 import { LogsModule } from './logs/logs.module';
-import { PredictionsModule } from './predictions/predictions.module';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 
 @Module({
@@ -34,10 +33,10 @@ import { CrystallizationModule } from './crystallization-service/crystallization
     ]),
     UserModule,
     LogsModule,
-    PredictionsModule,
     CrystallizationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+
