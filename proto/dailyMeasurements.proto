@@ -2,12 +2,14 @@ syntax = "proto3";
 package crystallization;
 
 import "google/protobuf/timestamp.proto";
+import "crystallization-prediction.proto";
 
 service CrystallizationService {
   rpc CreateDailyMeasurement(CreateDailyMeasurementRequest) returns (CreateDailyMeasurementResponse);
   rpc GetDailyMeasurementByDate(GetDailyMeasurementByDateRequest) returns (GetDailyMeasurementByDateResponse);
   rpc UpdateDailyMeasurementById(UpdateDailyMeasurementByIdRequest) returns (UpdateDailyMeasurementByIdResponse);
   rpc DeleteDailyMeasurementById(DeleteDailyMeasurementByIdRequest) returns (DeleteDailyMeasurementByIdResponse);
+  rpc GetPredictions(predictions.PredictionRequest) returns (predictions.PredictionResponse);
 }
 
 message CreateDailyMeasurementRequest {
