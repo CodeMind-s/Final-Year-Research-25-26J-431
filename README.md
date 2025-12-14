@@ -137,6 +137,29 @@ docker-compose ps
 
 ## 🚀 Running the Project
 
+### Quick Start
+
+**1. Start Docker services:**
+```bash
+docker-compose up -d
+```
+
+**2. Start all NestJS services:**
+```bash
+nx run-many -t serve --all
+```
+
+**3. Start ML service (in a separate terminal):**
+```bash
+.venv\Scripts\Activate.ps1  # Activate virtual environment
+cd apps/crystallization-ml-service
+python src/main.py
+```
+
+> **Note:** The ML service runs separately from the NestJS services.
+
+---
+
 ### Option 1: Run All Services Together
 
 Start all NestJS microservices:
