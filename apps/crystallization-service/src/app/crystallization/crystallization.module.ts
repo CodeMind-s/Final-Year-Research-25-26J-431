@@ -5,10 +5,16 @@ import { join } from 'path';
 import { CrystallizationController } from './crystallization.controller';
 import { CrystallizationService } from './crystallization.service';
 import { DailyMeasurement, DailyMeasurementSchema } from './schemas/crystallization.schema';
+import { DailyParameterPrediction, DailyParameterPredictionSchema } from './schemas/daily-parameter-prediction.schema';
+import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from './schemas/monthly-production-prediction.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: DailyMeasurement.name, schema: DailyMeasurementSchema }]),
+    MongooseModule.forFeature([
+      { name: DailyMeasurement.name, schema: DailyMeasurementSchema },
+      { name: DailyParameterPrediction.name, schema: DailyParameterPredictionSchema },
+      { name: MonthlyProductionPrediction.name, schema: MonthlyProductionPredictionSchema }
+    ]),
     ClientsModule.register([
       {
         name: 'PREDICTIONS_PACKAGE',
