@@ -10,6 +10,8 @@ import { Model } from 'mongoose';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { DailyMeasurement } from './schemas/crystallization.schema';
+import { DailyParameterPrediction } from './schemas/daily-parameter-prediction.schema';
+import { MonthlyProductionPrediction } from './schemas/monthly-production-prediction.schema';
 import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto } from './dtos/crystallization.dto';
 
 interface CurrentValues {
@@ -39,6 +41,8 @@ export class CrystallizationService implements OnModuleInit {
 
   constructor(
     @InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>,
+    @InjectModel(DailyParameterPrediction.name) private dailyParameterPredictionModel: Model<DailyParameterPrediction>,
+    @InjectModel(MonthlyProductionPrediction.name) private monthlyProductionPredictionModel: Model<MonthlyProductionPrediction>,
     @Inject('PREDICTIONS_PACKAGE') private mlClient: ClientGrpc,
   ) { }
 
@@ -69,6 +73,92 @@ export class CrystallizationService implements OnModuleInit {
         this.predictionsMLService.GetPredictions(payload)
       );
       console.log('Crystallization Service: Received predictions from ML service');
+      console.log('Response keys:', Object.keys(result));
+
+      // Save daily parameter predictions to database
+      console.log('Checking for daily_parameters_forecast...');
+      console.log('daily_parameters_forecast keys:', result.daily_parameters_forecast ? Object.keys(result.daily_parameters_forecast) : 'N/A');
+      
+      const dailyForecast = result.daily_parameters_forecast?.forecasts;
+      console.log('dailyForecast exists:', !!dailyForecast);
+      console.log('dailyForecast is Array:', Array.isArray(dailyForecast));
+      
+      if (dailyForecast && Array.isArray(dailyForecast)) {
+        console.log(`Saving ${dailyForecast.length} daily parameter predictions to database`);
+        
+        for (const dailyPrediction of dailyForecast) {
+          try {
+            await this.dailyParameterPredictionModel.findOneAndUpdate(
+              { date: dailyPrediction.date }, // Filter by date
+              {
+                date: dailyPrediction.date,
+                dayNumber: dailyPrediction.day_number,
+                parameters: {
+                  water_temperature: dailyPrediction.parameters.water_temperature,
+                  lagoon: dailyPrediction.parameters.lagoon,
+                  OR_brine_level: dailyPrediction.parameters.OR_brine_level,
+                  OR_bund_level: dailyPrediction.parameters.OR_bund_level,
+                  IR_brine_level: dailyPrediction.parameters.IR_brine_level,
+                  IR_bound_level: dailyPrediction.parameters.IR_bound_level,
+                  East_channel: dailyPrediction.parameters.East_channel,
+                  West_channel: dailyPrediction.parameters.West_channel,
+                },
+                weather: {
+                  temperature_mean: dailyPrediction.weather.temperature_mean,
+                  temperature_min: dailyPrediction.weather.temperature_min,
+                  temperature_max: dailyPrediction.weather.temperature_max,
+                  rain_sum: dailyPrediction.weather.rain_sum,
+                  wind_speed_max: dailyPrediction.weather.wind_speed_max,
+                  wind_gusts_max: dailyPrediction.weather.wind_gusts_max,
+                  relative_humidity_mean: dailyPrediction.weather.relative_humidity_mean,
+                },
+              },
+              { upsert: true, new: true } // Create if not exists, return new document
+            );
+          } catch (error) {
+            console.error(`Error saving daily prediction for date ${dailyPrediction.date}:`, error);
+          }
+        }
+        
+        console.log('Daily parameter predictions saved successfully');
+      } else {
+        console.log('Skipping daily predictions save - condition not met');
+      }
+
+      // Save monthly production predictions to database (using 12 months forecast)
+      console.log('Checking for monthly_production_12months...');
+      console.log('monthly_production_12months keys:', result.monthly_production_12months ? Object.keys(result.monthly_production_12months) : 'N/A');
+      
+      const monthlyForecast = result.monthly_production_12months?.forecasts;
+      console.log('monthlyForecast exists:', !!monthlyForecast);
+      console.log('monthlyForecast is Array:', Array.isArray(monthlyForecast));
+      
+      if (monthlyForecast && Array.isArray(monthlyForecast)) {
+        console.log(`Saving ${monthlyForecast.length} monthly production predictions to database`);
+        
+        for (const monthlyPrediction of monthlyForecast) {
+          try {
+            await this.monthlyProductionPredictionModel.findOneAndUpdate(
+              { month: monthlyPrediction.month }, // Filter by month
+              {
+                month: monthlyPrediction.month,
+                monthNumber: monthlyPrediction.month_number,
+                productionForecast: monthlyPrediction.production_forecast,
+                lowerBound: monthlyPrediction.lower_bound,
+                upperBound: monthlyPrediction.upper_bound,
+                season: monthlyPrediction.season,
+              },
+              { upsert: true, new: true } // Create if not exists, return new document
+            );
+          } catch (error) {
+            console.error(`Error saving monthly prediction for month ${monthlyPrediction.month}:`, error);
+          }
+        }
+        
+        console.log('Monthly production predictions saved successfully');
+      } else {
+        console.log('Skipping monthly predictions save - condition not met');
+      }
 
       return result;
     } catch (error) {
