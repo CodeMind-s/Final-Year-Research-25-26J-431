@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { CrystallizationService } from './crystallization.service';
-import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto } from './dtos/crystallization.dto';
+import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto } from './dtos/crystallization.dto';
 
 @Controller('Crystallization')
 export class CrystallizationController {
@@ -32,6 +32,16 @@ export class CrystallizationController {
   @GrpcMethod('CrystallizationService', 'GetPredictions')
   async GetPredictions(data: GetPredictionsDto): Promise<GetPredictionsResponseDto> {
     return this.CrystallizationService.GetPredictions(data);
+  }
+
+  @GrpcMethod('CrystallizationService', 'GetPredictedDailyMeasurement')
+  async GetPredictedDailyMeasurement(data: GetPredictedDailyMeasurementDto): Promise<GetPredictedDailyMeasurementResponseDto> {
+    return this.CrystallizationService.GetPredictedDailyMeasurement(data);
+  }
+
+  @GrpcMethod('CrystallizationService', 'GetPredictedMonthlyProduction')
+  async GetPredictedMonthlyProduction(data: GetPredictedMonthlyProductionDto): Promise<GetPredictedMonthlyProductionResponseDto> {
+    return this.CrystallizationService.GetPredictedMonthlyProduction(data);
   }
 }
 
