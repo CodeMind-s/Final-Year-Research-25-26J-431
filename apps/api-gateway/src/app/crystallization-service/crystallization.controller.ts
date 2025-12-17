@@ -1,7 +1,7 @@
-import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/guards/subscription.guard';
 import { SubscriptionCheck } from '../auth/decorators/public.decorator';
@@ -12,6 +12,8 @@ import { HttpStatus } from '@nestjs/common';
 import { HttpException } from '@nestjs/common';
 import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/dailyMeasurement.dto';
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
+import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
+import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
 
 @ApiTags('Crystallization')
 @Controller('crystallization')
@@ -316,6 +318,98 @@ export class CrystallizationController {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  @Get("/predicted-daily-measurement")
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @Roles(Role.TRAVELER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get predicted daily measurements by date range' })
+  @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
+  @ApiQuery({ name: 'endDate', type: String, description: 'End date in YYYY-MM-DD format', example: '2025-12-31' })
+  @ApiResponse({ status: 200, description: 'Predicted daily measurements fetched successfully', type: GetPredictedDailyMeasurementResponseDto })
+  @ApiResponse({ status: 404, description: 'No predicted daily measurements found' })
+  async getPredictedDailyMeasurement(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string
+  ): Promise<GetPredictedDailyMeasurementResponseDto> {
+    try {
+      if (!startDate || !endDate) {
+        throw new HttpException('Both startDate and endDate parameters are required', HttpStatus.BAD_REQUEST);
+      }
+
+      const requestData = {
+        startDate: startDate,
+        endDate: endDate,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetPredictedDailyMeasurement(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Predicted Daily Measurement error: ${error.message}`);
+            throw new HttpException('Failed to fetch predicted daily measurements', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(JSON.stringify(result, null, 2));
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get("/predicted-monthly-productions")
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @Roles(Role.TRAVELER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get predicted monthly productions by month range' })
+  @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-06' })
+  @ApiQuery({ name: 'endMonth', type: String, description: 'End month in YYYY-MM format', example: '2025-12' })
+  @ApiResponse({ status: 200, description: 'Predicted monthly productions fetched successfully', type: GetPredictedMonthlyProductionResponseDto })
+  @ApiResponse({ status: 404, description: 'No predicted monthly productions found' })
+  async getPredictedMonthlyProduction(
+    @Query('startMonth') startMonth: string,
+    @Query('endMonth') endMonth: string
+  ): Promise<GetPredictedMonthlyProductionResponseDto> {
+    try {
+      if (!startMonth || !endMonth) {
+        throw new HttpException('Both startMonth and endMonth parameters are required', HttpStatus.BAD_REQUEST);
+      }
+
+      const requestData = {
+        startMonth: startMonth,
+        endMonth: endMonth,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetPredictedMonthlyProduction(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Predicted Monthly Production error: ${error.message}`);
+            throw new HttpException('Failed to fetch predicted monthly productions', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(JSON.stringify(result, null, 2));
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
     }
   }
 
