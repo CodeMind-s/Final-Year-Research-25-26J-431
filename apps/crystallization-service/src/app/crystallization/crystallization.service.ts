@@ -12,7 +12,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { DailyMeasurement } from './schemas/crystallization.schema';
 import { DailyParameterPrediction } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction } from './schemas/monthly-production-prediction.schema';
-import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto } from './dtos/crystallization.dto';
+import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto } from './dtos/crystallization.dto';
 
 interface CurrentValues {
   water_temperature: number;
@@ -362,6 +362,78 @@ export class CrystallizationService implements OnModuleInit {
     } catch (error) {
       console.error('Error deleting daily measurement:', error);
       throw new BadRequestException(`Failed to delete daily measurement: ${error.message}`);
+    }
+  }
+
+  async GetPredictedDailyMeasurement(data: GetPredictedDailyMeasurementDto): Promise<GetPredictedDailyMeasurementResponseDto> {
+    try {
+      console.log('Getting predicted daily measurements from', data.startDate, 'to', data.endDate);
+
+      // Query the database for predictions between the dates (inclusive)
+      const predictions = await this.dailyParameterPredictionModel.find({
+        date: {
+          $gte: data.startDate,
+          $lte: data.endDate,
+        },
+      }).sort({ date: 1 }); // Sort by date ascending
+
+      if (!predictions || predictions.length === 0) {
+        return {
+          success: false,
+          message: `No predicted daily measurements found between ${data.startDate} and ${data.endDate}`,
+          data: [],
+        };
+      }
+
+      // Convert to plain objects
+      const result = predictions.map((prediction) => prediction.toObject());
+
+      console.log(`Found ${result.length} predicted daily measurements`);
+
+      return {
+        success: true,
+        message: 'Predicted daily measurements fetched successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error fetching predicted daily measurements:', error);
+      throw new BadRequestException(`Failed to fetch predicted daily measurements: ${error.message}`);
+    }
+  }
+
+  async GetPredictedMonthlyProduction(data: GetPredictedMonthlyProductionDto): Promise<GetPredictedMonthlyProductionResponseDto> {
+    try {
+      console.log('Getting predicted monthly productions from', data.startMonth, 'to', data.endMonth);
+
+      // Query the database for predictions between the months (inclusive)
+      const predictions = await this.monthlyProductionPredictionModel.find({
+        month: {
+          $gte: data.startMonth,
+          $lte: data.endMonth,
+        },
+      }).sort({ month: 1 }); // Sort by month ascending
+
+      if (!predictions || predictions.length === 0) {
+        return {
+          success: false,
+          message: `No predicted monthly productions found between ${data.startMonth} and ${data.endMonth}`,
+          data: [],
+        };
+      }
+
+      // Convert to plain objects
+      const result = predictions.map((prediction) => prediction.toObject());
+
+      console.log(`Found ${result.length} predicted monthly productions`);
+
+      return {
+        success: true,
+        message: 'Predicted monthly productions fetched successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error fetching predicted monthly productions:', error);
+      throw new BadRequestException(`Failed to fetch predicted monthly productions: ${error.message}`);
     }
   }
 }
