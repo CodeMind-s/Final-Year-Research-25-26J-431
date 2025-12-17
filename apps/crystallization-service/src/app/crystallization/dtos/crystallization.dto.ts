@@ -80,3 +80,25 @@ export class GetPredictionsResponseDto {
   summary?: any;
 }
 
+export class GetPredictedDailyMeasurementDto {
+  startDate: string;
+  endDate: string;
+}
+
+export class GetPredictedDailyMeasurementResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
+}
+
+export class GetPredictedMonthlyProductionDto {
+  startMonth: string;
+  endMonth: string;
+}
+
+export class GetPredictedMonthlyProductionResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
+}
+
