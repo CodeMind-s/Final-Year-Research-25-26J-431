@@ -5,7 +5,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CurrentValuesDto {
   @ApiProperty({ example: 28.5, description: 'Water temperature in degrees Celsius' })
   @IsNumber()
-  water_temperature: number;
+  waterTemperature: number;
 
   @ApiProperty({ example: 2, description: 'Lagoon level' })
   @IsNumber()
@@ -13,27 +13,27 @@ export class CurrentValuesDto {
 
   @ApiProperty({ example: 4.5, description: 'Outer Ring brine level' })
   @IsNumber()
-  OR_brine_level: number;
+  orBrineLevel: number;
 
   @ApiProperty({ example: 1.5, description: 'Outer Ring bund level' })
   @IsNumber()
-  OR_bund_level: number;
+  orBoundLevel: number;
 
   @ApiProperty({ example: 5.5, description: 'Inner Ring brine level' })
   @IsNumber()
-  IR_brine_level: number;
+  irBrineLevel: number;
 
   @ApiProperty({ example: 1.5, description: 'Inner Ring bound level' })
   @IsNumber()
-  IR_bound_level: number;
+  irBoundLevel: number;
 
   @ApiProperty({ example: 7, description: 'East channel level' })
   @IsNumber()
-  East_channel: number;
+  eastChannel: number;
 
   @ApiProperty({ example: 6.5, description: 'West channel level' })
   @IsNumber()
-  West_channel: number;
+  westChannel: number;
 }
 
 export class PredictionRequestDto {

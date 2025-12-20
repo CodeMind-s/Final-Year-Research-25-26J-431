@@ -1,9 +1,104 @@
-export class GetLogByIdDto {
-  logId: string;
+export class CreateDailyMeasurementDto {
+  date: string;
+  waterTemperature: number;
+  lagoon: number;
+  orBrineLevel: number;
+  orBoundLevel: number;
+  irBrineLevel: number;
+  irBoundLevel: number;
+  eastChannel: number;
+  westChannel: number;
 }
 
-export class GetLogResponseDto {
+export class CreateDailyMeasurementResponseDto {
   success: boolean;
   message: string;
-  log?: any;
+  daily_measurement?: any;
 }
+
+export class GetDailyMeasurementByDateDto {
+  date: string;
+}
+
+export class GetDailyMeasurementByDateResponseDto {
+  success: boolean;
+  message: string;
+  daily_measurement?: any;
+}
+
+export class UpdateDailyMeasurementByIdDto {
+  id: string;
+  waterTemperature: number;
+  lagoon: number;
+  orBrineLevel: number;
+  orBoundLevel: number;
+  irBrineLevel: number;
+  irBoundLevel: number;
+  eastChannel: number;
+  westChannel: number;
+}
+
+export class UpdateDailyMeasurementByIdResponseDto {
+  success: boolean;
+  message: string;
+  daily_measurement?: any;
+}
+
+export class DeleteDailyMeasurementByIdDto {
+  id: string;
+}
+
+export class DeleteDailyMeasurementByIdResponseDto {
+  success: boolean;
+  message: string;
+}
+
+export class CurrentValuesDto {
+  water_temperature: number;
+  lagoon: number;
+  OR_brine_level: number;
+  OR_bund_level: number;
+  IR_brine_level: number;
+  IR_bound_level: number;
+  East_channel: number;
+  West_channel: number;
+}
+
+export class GetPredictionsDto {
+  start_date: string;
+  forecast_days: number;
+  current_values: CurrentValuesDto;
+}
+
+export class GetPredictionsResponseDto {
+  status: string;
+  daily_parameters_forecast?: any;
+  monthly_production_6months?: any;
+  monthly_production_12months?: any;
+  seasonal_production?: any;
+  model_info?: any;
+  summary?: any;
+}
+
+export class GetPredictedDailyMeasurementDto {
+  startDate: string;
+  endDate: string;
+}
+
+export class GetPredictedDailyMeasurementResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
+}
+
+export class GetPredictedMonthlyProductionDto {
+  startMonth: string;
+  endMonth: string;
+}
+
+export class GetPredictedMonthlyProductionResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
+}
+

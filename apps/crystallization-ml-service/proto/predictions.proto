@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package predictions;
+
+service PredictionsService {
+  rpc GetPredictions (PredictionRequest) returns (PredictionResponse);
+}
+
+message PredictionRequest {
+  string start_date = 1;
+  int32 forecast_days = 2;
+  CurrentValues current_values = 3;
+}
+
+message CurrentValues {
+  double water_temperature = 1;
+  double lagoon = 2;
+  double OR_brine_level = 3;
+  double OR_bund_level = 4;
+  double IR_brine_level = 5;
+  double IR_bound_level = 6;
+  double East_channel = 7;
+  double West_channel = 8;
+}
+
+message PredictionResponse {
+  string status = 1;
+  DailyParametersForecast daily_parameters_forecast = 2;
+  MonthlyProductionForecast monthly_production_6months = 3;
+  MonthlyProductionForecast monthly_production_12months = 4;
+  SeasonalProduction seasonal_production = 5;
+  ModelInfo model_info = 6;
+  Summary summary = 7;
+}
+
+message DailyParametersForecast {
+  string forecast_type = 1;
+  string forecast_start_date = 2;
+  string forecast_end_date = 3;
+  int32 total_days = 4;
+  repeated DailyForecast forecasts = 5;
+}
+
+message DailyForecast {
+  string date = 1;
+  int32 day_number = 2;
+  Parameters parameters = 3;
+  Weather weather = 4;
+}
+
+message Parameters {
+  double water_temperature = 1;
+  double lagoon = 2;
+  double OR_brine_level = 3;
+  double OR_bund_level = 4;
+  double IR_brine_level = 5;
+  double IR_bound_level = 6;
+  double East_channel = 7;
+  double West_channel = 8;
+}
+
+message Weather {
+  double temperature_mean = 1;
+  double temperature_min = 2;
+  double temperature_max = 3;
+  double rain_sum = 4;
+  double wind_speed_max = 5;
+  double wind_gusts_max = 6;
+  double relative_humidity_mean = 7;
+}
+
+message MonthlyProductionForecast {
+  string forecast_type = 1;
+  string forecast_period = 2;
+  string forecast_start_month = 3;
+  string forecast_end_month = 4;
+  int32 total_months = 5;
+  double total_production = 6;
+  repeated MonthlyForecast forecasts = 7;
+}
+
+message MonthlyForecast {
+  string month = 1;
+  int32 month_number = 2;
+  double production_forecast = 3;
+  double lower_bound = 4;
+  double upper_bound = 5;
+  string season = 6;
+}
+
+message SeasonalProduction {
+  string forecast_type = 1;
+  string forecast_period = 2;
+  map<string, SeasonData> seasons = 3;
+}
+
+message SeasonData {
+  int32 months_count = 1;
+  double total_production = 2;
+  repeated MonthProduction months = 3;
+}
+
+message MonthProduction {
+  string month = 1;
+  double production = 2;
+}
+
+message ModelInfo {
+  string model_type = 1;
+  string forecast_generated = 2;
+  PerformanceMetrics performance_metrics = 3;
+}
+
+message PerformanceMetrics {
+  double test_mae = 1;
+  double test_rmse = 2;
+  double test_r2_score = 3;
+  double test_accuracy = 4;
+  double validation_r2_score = 5;
+  double validation_accuracy = 6;
+}
+
+message Summary {
+  int32 daily_forecast_days = 1;
+  double monthly_6_total_production = 2;
+  double monthly_12_total_production = 3;
+  double maha_season_total = 4;
+  double yala_season_total = 5;
+}

@@ -23,8 +23,15 @@ import { CrystallizationController } from './crystallization.controller';
         transport: Transport.GRPC,
         options: {
           package: 'crystallization',
-          protoPath: join(__dirname, 'proto/crystallization.proto'),
+          protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
           url: 'localhost:50054', // Assume port for itineraries service
+          loader: {
+            keepCase: true,
+            longs: String,
+            enums: String,
+            defaults: true,
+            oneofs: true,
+          },
         },
       },
       {
@@ -52,4 +59,4 @@ import { CrystallizationController } from './crystallization.controller';
     SubscriptionGuard, // Optional global; use per-route
   ],
 })
-export class CrystallizationModule {}
+export class CrystallizationModule { }

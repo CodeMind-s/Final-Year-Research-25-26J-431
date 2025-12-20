@@ -1,8 +1,3 @@
-/**
- * This is not a production server yet!
- * This is only a minimal backend to get started.
- */
-
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -14,8 +9,15 @@ async function bootstrap() {
     transport: Transport.GRPC,
     options: {
       package: 'crystallization',
-      protoPath: join(__dirname, '../../../proto/crystallization.proto'),
+      protoPath: join(__dirname, '../../../proto/dailyMeasurements.proto'),
       url: process.env.GRPC_URL || 'localhost:50054',
+      loader: {
+        keepCase: true,
+        longs: String,
+        enums: String,
+        defaults: true,
+        oneofs: true,
+      },
     },
   });
 

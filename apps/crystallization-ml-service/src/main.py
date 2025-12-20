@@ -192,7 +192,7 @@ def serve():
         print("Please run: generate_proto.bat (Windows) or generate_proto.sh (Linux/Mac)")
         return
     
-    port = os.getenv('GRPC_PORT', '50057')
+    port = os.getenv('GRPC_PORT', '50055')
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     
     predictions_pb2_grpc.add_PredictionsServiceServicer_to_server(
