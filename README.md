@@ -1,4 +1,7 @@
+<img width="4362" height="875" alt="logo" src="https://github.com/user-attachments/assets/9c7085ea-bac9-4bda-b541-28f876b849ac" />
+
 # Brinex Server - Crystallization Prediction System
+
 
 A microservices-based salt crystallization management and prediction system built with NestJS, Python ML services, and gRPC.
 
