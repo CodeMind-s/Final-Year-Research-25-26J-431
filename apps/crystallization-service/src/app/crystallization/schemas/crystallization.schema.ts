@@ -1,34 +1,70 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
+@Schema({ _id: false })
+export class Parameters {
+  @Prop({ required: true })
+  water_temperature: number;
+
+  @Prop({ required: true })
+  lagoon: number;
+
+  @Prop({ required: true })
+  OR_brine_level: number;
+
+  @Prop({ required: true })
+  OR_bund_level: number;
+
+  @Prop({ required: true })
+  IR_brine_level: number;
+
+  @Prop({ required: true })
+  IR_bound_level: number;
+
+  @Prop({ required: true })
+  East_channel: number;
+
+  @Prop({ required: true })
+  West_channel: number;
+}
+
+@Schema({ _id: false })
+export class Weather {
+  @Prop({ required: true })
+  temperature_mean: number;
+
+  @Prop({ required: true })
+  temperature_max: number;
+
+  @Prop({ required: true })
+  temperature_min: number;
+
+  @Prop({ required: true })
+  rain_sum: number;
+
+  @Prop({ required: true })
+  wind_speed_max: number;
+
+  @Prop({ required: true })
+  wind_gusts_max: number;
+
+  @Prop({ required: true })
+  relative_humidity_mean: number;
+}
+
 @Schema({ timestamps: true })
 export class DailyMeasurement extends Document {
   @Prop({ required: true })
   date: Date;
 
-  @Prop({ required: false, default: null })
-  waterTemperature: number;
-
   @Prop({ required: true })
-  lagoon: number;
+  dayNumber: number;
 
-  @Prop({ required: false, default: 0 })
-  orBrineLevel: number;
+  @Prop({ required: true, type: Parameters })
+  parameters: Parameters;
 
-  @Prop({ required: false, default: 0 })
-  orBoundLevel: number;
-
-  @Prop({ required: false, default: 0 })
-  irBrineLevel: number;
-
-  @Prop({ required: false, default: 0 })
-  irBoundLevel: number;
-
-  @Prop({ required: false, default: 0 })
-  eastChannel: number;
-
-  @Prop({ required: false, default: 0 })
-  westChannel: number;
+  @Prop({ required: true, type: Weather })
+  weather: Weather;
 
   // Mongoose timestamps - automatically managed by Mongoose
   createdAt?: Date;
