@@ -7,6 +7,7 @@ import { join } from 'path';
 import { UserModule } from './user/user.module';
 import { LogsModule } from './logs/logs.module';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
+import { SaltProductionModule } from './salt-production/salt-production.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CrystallizationModule } from './crystallization-service/crystallization
     UserModule,
     LogsModule,
     CrystallizationModule,
+    SaltProductionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

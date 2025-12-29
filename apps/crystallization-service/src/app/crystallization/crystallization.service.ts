@@ -9,10 +9,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 import { DailyMeasurement } from './schemas/crystallization.schema';
 import { DailyParameterPrediction } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction } from './schemas/monthly-production-prediction.schema';
-import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto } from './dtos/crystallization.dto';
+import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto } from './dtos/crystallization.dto';
 
 interface CurrentValues {
   water_temperature: number;
@@ -44,10 +46,59 @@ export class CrystallizationService implements OnModuleInit {
     @InjectModel(DailyParameterPrediction.name) private dailyParameterPredictionModel: Model<DailyParameterPrediction>,
     @InjectModel(MonthlyProductionPrediction.name) private monthlyProductionPredictionModel: Model<MonthlyProductionPrediction>,
     @Inject('PREDICTIONS_PACKAGE') private mlClient: ClientGrpc,
+    private configService: ConfigService,
   ) { }
 
   onModuleInit() {
     this.predictionsMLService = this.mlClient.getService<PredictionsMLService>('PredictionsService');
+  }
+
+  /**
+   * Fetches current weather data from OpenWeatherMap API
+   * @returns Weather object or null if fetch fails
+   */
+  private async fetchWeatherData(): Promise<any | null> {
+    try {
+      const apiKey = this.configService.get<string>('OPENWEATHER_API_KEY');
+      const lat = this.configService.get<string>('OPENWEATHER_LAT');
+      const lon = this.configService.get<string>('OPENWEATHER_LON');
+
+      if (!apiKey || !lat || !lon) {
+        console.warn('OpenWeatherMap API credentials not configured. Skipping weather data fetch.');
+        return null;
+      }
+
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+      console.log('Fetching weather data from OpenWeatherMap API...');
+      
+      const response = await axios.get(url);
+      
+      if (response.data && response.data.main) {
+        // Convert temperatures from Kelvin to Celsius
+        const tempCelsius = response.data.main.temp - 273.15;
+        const tempMinCelsius = response.data.main.temp_min - 273.15;
+        const tempMaxCelsius = response.data.main.temp_max - 273.15;
+        
+        const weatherData = {
+          temperature_mean: Math.round(tempCelsius * 100) / 100,
+          temperature_max: Math.round(tempMaxCelsius * 100) / 100,
+          temperature_min: Math.round(tempMinCelsius * 100) / 100,
+          rain_sum: response.data.rain?.['1h'] || 0,
+          wind_speed_max: response.data.wind?.speed || 0,
+          wind_gusts_max: response.data.wind?.gust || 0,
+          relative_humidity_mean: response.data.main.humidity || 0,
+        };
+        
+        console.log(`Weather data fetched successfully:`, weatherData);
+        return weatherData;
+      }
+
+      console.warn('Weather data response missing required fields');
+      return null;
+    } catch (error) {
+      console.error('Error fetching weather data from OpenWeatherMap:', error.message);
+      return null;
+    }
   }
 
   async GetPredictions(data: GetPredictionsDto): Promise<GetPredictionsResponseDto> {
@@ -167,10 +218,58 @@ export class CrystallizationService implements OnModuleInit {
     }
   }
 
-  async CreateDailyMeasurement(data: CreateDailyMeasurementDto): Promise<CreateDailyMeasurementResponseDto> {
+  async CreateDailyMeasurement(data: CreateDailyMeasurementDto | any): Promise<CreateDailyMeasurementResponseDto> {
     try {
       console.log('Creating daily measurement with data:', data);
-      const dailyMeasurement = await this.dailyMeasurementModel.create(data);
+      
+      // Fetch weather data from OpenWeatherMap API
+      const weatherData = await this.fetchWeatherData();
+      
+      // Check if data is in old format (flat structure) or new format (nested)
+      let measurementData;
+      
+      if (data.parameters && data.weather) {
+        // New format - use as is
+        measurementData = {
+          date: data.date,
+          dayNumber: data.dayNumber,
+          parameters: data.parameters,
+          weather: weatherData !== null ? weatherData : data.weather,
+        };
+      } else {
+        // Old format - transform to new structure
+        // Calculate dayNumber from date (days since epoch start date)
+        const epochStart = new Date('2023-01-01');
+        const currentDate = new Date(data.date);
+        const dayNumber = Math.floor((currentDate.getTime() - epochStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        measurementData = {
+          date: data.date,
+          dayNumber: dayNumber,
+          parameters: {
+            water_temperature: data.waterTemperature || 0,
+            lagoon: data.lagoon || 0,
+            OR_brine_level: data.orBrineLevel || 0,
+            OR_bund_level: data.orBoundLevel || 0,
+            IR_brine_level: data.irBrineLevel || 0,
+            IR_bound_level: data.irBoundLevel || 0,
+            East_channel: data.eastChannel || 0,
+            West_channel: data.westChannel || 0,
+          },
+          weather: weatherData !== null ? weatherData : {
+            temperature_mean: data.waterTemperature || 0,
+            temperature_max: data.waterTemperature || 0,
+            temperature_min: data.waterTemperature || 0,
+            rain_sum: 0,
+            wind_speed_max: 0,
+            wind_gusts_max: 0,
+            relative_humidity_mean: 0,
+          },
+        };
+      }
+      
+      console.log('Creating measurement with weather data:', measurementData.weather);
+      const dailyMeasurement = await this.dailyMeasurementModel.create(measurementData);
 
       if (!dailyMeasurement) {
         throw new NotFoundException('Daily Measurement not found');
@@ -182,17 +281,12 @@ export class CrystallizationService implements OnModuleInit {
       const response = {
         success: true,
         message: 'Daily Measurement created successfully',
-        daily_measurement: {
+        data: {
+          date: typeof result.date === 'string' ? result.date : result.date?.toISOString() || '',
+          dayNumber: result.dayNumber,
+          parameters: result.parameters,
+          weather: result.weather,
           _id: result._id?.toString() || '',
-          date: typeof result.date === 'string' ? result.date : result.date?.toISOString().split('T')[0] || '',
-          waterTemperature: result.waterTemperature || 0,
-          lagoon: result.lagoon || 0,
-          orBrineLevel: result.orBrineLevel || 0,
-          orBoundLevel: result.orBoundLevel || 0,
-          irBrineLevel: result.irBrineLevel || 0,
-          irBoundLevel: result.irBoundLevel || 0,
-          eastChannel: result.eastChannel || 0,
-          westChannel: result.westChannel || 0,
           createdAt: result.createdAt?.toISOString() || '',
           updatedAt: result.updatedAt?.toISOString() || '',
         },
@@ -222,7 +316,7 @@ export class CrystallizationService implements OnModuleInit {
         return {
           success: false,
           message: `No daily measurement found for date: ${data.date}`,
-          daily_measurement: null,
+          data: null,
         };
       }
 
@@ -232,17 +326,12 @@ export class CrystallizationService implements OnModuleInit {
       const response = {
         success: true,
         message: 'Daily Measurement fetched successfully',
-        daily_measurement: {
+        data: {
+          date: typeof result.date === 'string' ? result.date : result.date?.toISOString() || '',
+          dayNumber: result.dayNumber,
+          parameters: result.parameters,
+          weather: result.weather,
           _id: result._id?.toString() || '',
-          date: typeof result.date === 'string' ? result.date : result.date?.toISOString().split('T')[0] || '',
-          waterTemperature: result.waterTemperature || 0,
-          lagoon: result.lagoon || 0,
-          orBrineLevel: result.orBrineLevel || 0,
-          orBoundLevel: result.orBoundLevel || 0,
-          irBrineLevel: result.irBrineLevel || 0,
-          irBoundLevel: result.irBoundLevel || 0,
-          eastChannel: result.eastChannel || 0,
-          westChannel: result.westChannel || 0,
           createdAt: result.createdAt?.toISOString() || '',
           updatedAt: result.updatedAt?.toISOString() || '',
         },
@@ -258,41 +347,108 @@ export class CrystallizationService implements OnModuleInit {
     }
   }
 
+  async GetDailyMeasurementsByDateRange(data: GetDailyMeasurementsByDateRangeDto): Promise<GetDailyMeasurementsByDateRangeResponseDto> {
+    try {
+      console.log('Getting daily measurements for date range:', data.startDate, 'to', data.endDate);
+
+      // Query the database for measurements within the date range
+      const dailyMeasurements = await this.dailyMeasurementModel.find({
+        date: {
+          $gte: new Date(data.startDate),
+          $lte: new Date(data.endDate),
+        },
+      }).sort({ date: 1 }); // Sort by date ascending
+
+      if (!dailyMeasurements || dailyMeasurements.length === 0) {
+        return {
+          success: true,
+          message: `No daily measurements found for date range: ${data.startDate} to ${data.endDate}`,
+          data: [],
+        };
+      }
+
+      // Convert to plain objects and map to response format
+      const measurements = dailyMeasurements.map(measurement => {
+        const result = measurement.toObject();
+        return {
+          date: typeof result.date === 'string' ? result.date : result.date?.toISOString() || '',
+          dayNumber: result.dayNumber,
+          parameters: result.parameters,
+          weather: result.weather,
+          _id: result._id?.toString() || '',
+          createdAt: result.createdAt?.toISOString() || '',
+          updatedAt: result.updatedAt?.toISOString() || '',
+        };
+      });
+
+      const response = {
+        success: true,
+        message: `Found ${measurements.length} daily measurements`,
+        data: measurements,
+      };
+
+      console.log('=== SERVICE RETURNING ===');
+      console.log(`Returning ${measurements.length} measurements`);
+
+      return response;
+    } catch (error) {
+      console.error('Error fetching daily measurements by date range:', error);
+      throw new BadRequestException(`Failed to fetch daily measurements: ${error.message}`);
+    }
+  }
+
   async UpdateDailyMeasurementById(data: UpdateDailyMeasurementByIdDto): Promise<UpdateDailyMeasurementByIdResponseDto> {
     try {
       console.log('Updating daily measurement with ID:', data.id);
       console.log('Update data:', data);
 
-      // Prepare update object excluding the ID and any undefined/0 values
-      // This ensures we only update fields that were actually provided
+      // Prepare update object - transform old flat structure to new nested structure
       const { id, ...allFields } = data;
-      const updateData: Record<string, number> = {};
+      
+      // Build the nested parameters object from flat fields
+      const parametersUpdate: any = {};
+      if (allFields.waterTemperature !== undefined && allFields.waterTemperature !== 0) {
+        parametersUpdate.water_temperature = allFields.waterTemperature;
+      }
+      if (allFields.lagoon !== undefined && allFields.lagoon !== 0) {
+        parametersUpdate.lagoon = allFields.lagoon;
+      }
+      if (allFields.orBrineLevel !== undefined && allFields.orBrineLevel !== 0) {
+        parametersUpdate.OR_brine_level = allFields.orBrineLevel;
+      }
+      if (allFields.orBoundLevel !== undefined && allFields.orBoundLevel !== 0) {
+        parametersUpdate.OR_bund_level = allFields.orBoundLevel;
+      }
+      if (allFields.irBrineLevel !== undefined && allFields.irBrineLevel !== 0) {
+        parametersUpdate.IR_brine_level = allFields.irBrineLevel;
+      }
+      if (allFields.irBoundLevel !== undefined && allFields.irBoundLevel !== 0) {
+        parametersUpdate.IR_bound_level = allFields.irBoundLevel;
+      }
+      if (allFields.eastChannel !== undefined && allFields.eastChannel !== 0) {
+        parametersUpdate.East_channel = allFields.eastChannel;
+      }
+      if (allFields.westChannel !== undefined && allFields.westChannel !== 0) {
+        parametersUpdate.West_channel = allFields.westChannel;
+      }
 
-      // Only add fields that are defined and not 0 (to avoid overwriting with defaults)
-      // Exception: allow 0 if it's explicitly set (we check for undefined instead)
-      Object.keys(allFields).forEach(key => {
-        const value = (allFields as Record<string, number>)[key];
-        // Only include the field if it's defined and not the default proto value (0)
-        // For fields that legitimately can be 0, we need to distinguish between
-        // "not provided" vs "set to 0". Since proto3 defaults numbers to 0,
-        // we treat 0 as "not provided" to preserve existing values
-        if (value !== undefined && value !== 0) {
-          updateData[key] = value;
-        }
-      });
-
-      console.log('Filtered update data (excluding undefined and 0):', updateData);
+      console.log('Parameters update:', parametersUpdate);
 
       // Check if there's anything to update
-      if (Object.keys(updateData).length === 0) {
+      if (Object.keys(parametersUpdate).length === 0) {
         return {
           success: false,
           message: 'No valid fields provided to update',
-          daily_measurement: null,
+          data: null,
         };
       }
 
-      // Update the measurement by ID
+      // Update the measurement by ID using dot notation for nested fields
+      const updateData: any = {};
+      Object.keys(parametersUpdate).forEach(key => {
+        updateData[`parameters.${key}`] = parametersUpdate[key];
+      });
+
       const dailyMeasurement = await this.dailyMeasurementModel.findByIdAndUpdate(
         id,
         updateData,
@@ -303,7 +459,7 @@ export class CrystallizationService implements OnModuleInit {
         return {
           success: false,
           message: `No daily measurement found with ID: ${id}`,
-          daily_measurement: null,
+          data: null,
         };
       }
 
@@ -313,17 +469,12 @@ export class CrystallizationService implements OnModuleInit {
       const response = {
         success: true,
         message: 'Daily Measurement updated successfully',
-        daily_measurement: {
+        data: {
+          date: typeof result.date === 'string' ? result.date : result.date?.toISOString() || '',
+          dayNumber: result.dayNumber,
+          parameters: result.parameters,
+          weather: result.weather,
           _id: result._id?.toString() || '',
-          date: typeof result.date === 'string' ? result.date : result.date?.toISOString().split('T')[0] || '',
-          waterTemperature: result.waterTemperature || 0,
-          lagoon: result.lagoon || 0,
-          orBrineLevel: result.orBrineLevel || 0,
-          orBoundLevel: result.orBoundLevel || 0,
-          irBrineLevel: result.irBrineLevel || 0,
-          irBoundLevel: result.irBoundLevel || 0,
-          eastChannel: result.eastChannel || 0,
-          westChannel: result.westChannel || 0,
           createdAt: result.createdAt?.toISOString() || '',
           updatedAt: result.updatedAt?.toISOString() || '',
         },

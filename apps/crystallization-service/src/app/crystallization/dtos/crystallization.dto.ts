@@ -1,19 +1,35 @@
+export class ParametersDto {
+  water_temperature: number;
+  lagoon: number;
+  OR_brine_level: number;
+  OR_bund_level: number;
+  IR_brine_level: number;
+  IR_bound_level: number;
+  East_channel: number;
+  West_channel: number;
+}
+
+export class WeatherDto {
+  temperature_mean: number;
+  temperature_max: number;
+  temperature_min: number;
+  rain_sum: number;
+  wind_speed_max: number;
+  wind_gusts_max: number;
+  relative_humidity_mean: number;
+}
+
 export class CreateDailyMeasurementDto {
   date: string;
-  waterTemperature: number;
-  lagoon: number;
-  orBrineLevel: number;
-  orBoundLevel: number;
-  irBrineLevel: number;
-  irBoundLevel: number;
-  eastChannel: number;
-  westChannel: number;
+  dayNumber: number;
+  parameters: ParametersDto;
+  weather: WeatherDto;
 }
 
 export class CreateDailyMeasurementResponseDto {
   success: boolean;
   message: string;
-  daily_measurement?: any;
+  data?: any;
 }
 
 export class GetDailyMeasurementByDateDto {
@@ -23,7 +39,18 @@ export class GetDailyMeasurementByDateDto {
 export class GetDailyMeasurementByDateResponseDto {
   success: boolean;
   message: string;
-  daily_measurement?: any;
+  data?: any;
+}
+
+export class GetDailyMeasurementsByDateRangeDto {
+  startDate: string;
+  endDate: string;
+}
+
+export class GetDailyMeasurementsByDateRangeResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
 }
 
 export class UpdateDailyMeasurementByIdDto {
@@ -41,7 +68,7 @@ export class UpdateDailyMeasurementByIdDto {
 export class UpdateDailyMeasurementByIdResponseDto {
   success: boolean;
   message: string;
-  daily_measurement?: any;
+  data?: any;
 }
 
 export class DeleteDailyMeasurementByIdDto {

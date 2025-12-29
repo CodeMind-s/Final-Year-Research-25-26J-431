@@ -39,7 +39,9 @@ export class UserController {
             if (error.code === 2 || error.code === 'INTERNAL') {
               throw new HttpException('Internal server error during user creation', HttpStatus.INTERNAL_SERVER_ERROR);
             } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
-              throw new HttpException('Invalid user data', HttpStatus.BAD_REQUEST);
+              // Pass through the actual error message from the service
+              const errorMessage = error.details || error.message || 'Invalid user data';
+              throw new HttpException(errorMessage, HttpStatus.BAD_REQUEST);
             } else {
               throw new HttpException('User creation failed', HttpStatus.BAD_REQUEST);
             }

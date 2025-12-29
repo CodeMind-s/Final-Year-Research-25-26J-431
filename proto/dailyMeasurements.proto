@@ -7,6 +7,7 @@ import "crystallization-prediction.proto";
 service CrystallizationService {
   rpc CreateDailyMeasurement(CreateDailyMeasurementRequest) returns (CreateDailyMeasurementResponse);
   rpc GetDailyMeasurementByDate(GetDailyMeasurementByDateRequest) returns (GetDailyMeasurementByDateResponse);
+  rpc GetDailyMeasurementsByDateRange(GetDailyMeasurementsByDateRangeRequest) returns (GetDailyMeasurementsByDateRangeResponse);
   rpc UpdateDailyMeasurementById(UpdateDailyMeasurementByIdRequest) returns (UpdateDailyMeasurementByIdResponse);
   rpc DeleteDailyMeasurementById(DeleteDailyMeasurementByIdRequest) returns (DeleteDailyMeasurementByIdResponse);
   rpc GetPredictions(predictions.PredictionRequest) returns (predictions.PredictionResponse);
@@ -29,22 +30,38 @@ message CreateDailyMeasurementRequest {
 message CreateDailyMeasurementResponse {
   bool success = 1;
   string message = 2;
-  DailyMeasurement daily_measurement = 3;
+  DailyMeasurement data = 3;
+}
+
+message Parameters {
+  double water_temperature = 1;
+  double lagoon = 2;
+  double OR_brine_level = 3;
+  double OR_bund_level = 4;
+  double IR_brine_level = 5;
+  double IR_bound_level = 6;
+  double East_channel = 7;
+  double West_channel = 8;
+}
+
+message Weather {
+  double temperature_mean = 1;
+  double temperature_max = 2;
+  double temperature_min = 3;
+  double rain_sum = 4;
+  double wind_speed_max = 5;
+  double wind_gusts_max = 6;
+  double relative_humidity_mean = 7;
 }
 
 message DailyMeasurement {
-  string _id = 1;
-  string date = 2;
-  double waterTemperature = 3;
-  double lagoon = 4;
-  double orBrineLevel = 5;
-  double orBoundLevel = 6;
-  double irBrineLevel = 7;
-  double irBoundLevel = 8;
-  double eastChannel = 9;
-  double westChannel = 10;
-  string createdAt = 11;
-  string updatedAt = 12;
+  string date = 1;
+  int32 dayNumber = 2;
+  Parameters parameters = 3;
+  Weather weather = 4;
+  string _id = 5;
+  string createdAt = 6;
+  string updatedAt = 7;
 }
 
 message GetDailyMeasurementByDateRequest {
@@ -54,7 +71,18 @@ message GetDailyMeasurementByDateRequest {
 message GetDailyMeasurementByDateResponse {
   bool success = 1;
   string message = 2;
-  DailyMeasurement daily_measurement = 3;
+  DailyMeasurement data = 3;
+}
+
+message GetDailyMeasurementsByDateRangeRequest {
+  string startDate = 1;
+  string endDate = 2;
+}
+
+message GetDailyMeasurementsByDateRangeResponse {
+  bool success = 1;
+  string message = 2;
+  repeated DailyMeasurement data = 3;
 }
 
 message UpdateDailyMeasurementByIdRequest {
@@ -72,7 +100,7 @@ message UpdateDailyMeasurementByIdRequest {
 message UpdateDailyMeasurementByIdResponse {
   bool success = 1;
   string message = 2;
-  DailyMeasurement daily_measurement = 3;
+  DailyMeasurement data = 3;
 }
 
 message DeleteDailyMeasurementByIdRequest {

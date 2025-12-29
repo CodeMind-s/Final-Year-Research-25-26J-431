@@ -3,6 +3,7 @@ import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { SubscriptionGuard } from '../auth/guards/subscription.guard';
 import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -15,7 +16,7 @@ import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
 import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
 
-@ApiTags('Crystallization')
+@ApiTags('Crystallization Predictions')
 @Controller('crystallization')
 export class CrystallizationController {
   private crystallizationService: any;
@@ -26,8 +27,8 @@ export class CrystallizationController {
   }
 
   @Post("/daily-measurement")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Daily Measurement' })
@@ -56,45 +57,18 @@ export class CrystallizationController {
             throw new HttpException('Failed to create daily measurement', HttpStatus.BAD_REQUEST);
           })
         )
-      ) as { success: boolean; message: string; daily_measurement?: any };
+      ) as { success: boolean; message: string; data?: any };
 
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
       this.logger.log('Result keys:', Object.keys(result));
-      this.logger.log('daily_measurement:', result.daily_measurement);
-      this.logger.log('dailyMeasurement (camelCase):', result['dailyMeasurement']);
-      this.logger.log('Has daily_measurement?', 'daily_measurement' in result);
-      this.logger.log('Has dailyMeasurement?', 'dailyMeasurement' in result);
+      this.logger.log('data:', result.data);
 
-      // Map gRPC response to DTO structure
-      // Transform the daily_measurement data if it exists
-      let data = null;
-      const measurement = result.daily_measurement || result['dailyMeasurement'];
-
-      if (measurement) {
-        this.logger.log('Found measurement data:', measurement);
-        data = {
-          date: measurement.date,
-          waterTemperature: measurement.waterTemperature,
-          lagoon: measurement.lagoon,
-          orBrineLevel: measurement.orBrineLevel,
-          orBoundLevel: measurement.orBoundLevel,
-          irBrineLevel: measurement.irBrineLevel,
-          irBoundLevel: measurement.irBoundLevel,
-          eastChannel: measurement.eastChannel,
-          westChannel: measurement.westChannel,
-          _id: measurement._id,
-          createdAt: measurement.createdAt,
-          updatedAt: measurement.updatedAt,
-        };
-      } else {
-        this.logger.warn('No measurement data found in response!');
-      }
-
+      // Return the data directly from the gRPC response
       return {
         success: result.success,
         message: result.message,
-        data,
+        data: result.data || null,
       };
     } catch (error: any) {
       throw error;
@@ -102,8 +76,8 @@ export class CrystallizationController {
   }
 
   @Get("daily-measurement/:date")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurement by Date' })
@@ -127,39 +101,63 @@ export class CrystallizationController {
             throw new HttpException('Failed to fetch daily measurement', HttpStatus.BAD_REQUEST);
           })
         )
-      ) as { success: boolean; message: string; daily_measurement?: any };
+      ) as { success: boolean; message: string; data?: any };
 
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
-      // Map gRPC response to DTO structure
-      let data = null;
-      const measurement = result.daily_measurement || result['dailyMeasurement'];
-
-      if (measurement) {
-        this.logger.log('Found measurement data:', measurement);
-        data = {
-          date: measurement.date,
-          waterTemperature: measurement.waterTemperature,
-          lagoon: measurement.lagoon,
-          orBrineLevel: measurement.orBrineLevel,
-          orBoundLevel: measurement.orBoundLevel,
-          irBrineLevel: measurement.irBrineLevel,
-          irBoundLevel: measurement.irBoundLevel,
-          eastChannel: measurement.eastChannel,
-          westChannel: measurement.westChannel,
-          _id: measurement._id,
-          createdAt: measurement.createdAt,
-          updatedAt: measurement.updatedAt,
-        };
-      } else {
-        this.logger.log('No measurement data found in response');
-      }
-
+      // Return the data directly from the gRPC response
       return {
         success: result.success,
         message: result.message,
-        data,
+        data: result.data || null,
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get("daily-measurement")
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Daily Measurements by Date Range' })
+  @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
+  @ApiQuery({ name: 'endDate', type: String, description: 'End date in YYYY-MM-DD format', example: '2025-12-29' })
+  @ApiResponse({ status: 200, description: 'Daily measurements fetched successfully' })
+  @ApiResponse({ status: 404, description: 'No daily measurements found' })
+  async getDailyMeasurementsByDateRange(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string
+  ) {
+    try {
+      if (!startDate || !endDate) {
+        throw new HttpException('Both startDate and endDate parameters are required', HttpStatus.BAD_REQUEST);
+      }
+
+      const requestData = {
+        startDate: startDate,
+        endDate: endDate,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetDailyMeasurementsByDateRange(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Daily Measurements by Date Range error: ${error.message}`);
+            throw new HttpException('Failed to fetch daily measurements', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(`Fetched ${result.data?.length || 0} measurements`);
+
+      // Return the data directly from the gRPC response
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
       };
     } catch (error: any) {
       throw error;
@@ -167,8 +165,8 @@ export class CrystallizationController {
   }
 
   @Patch("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update Daily Measurement by ID' })
@@ -204,39 +202,16 @@ export class CrystallizationController {
             throw new HttpException('Failed to update daily measurement', HttpStatus.BAD_REQUEST);
           })
         )
-      ) as { success: boolean; message: string; daily_measurement?: any };
+      ) as { success: boolean; message: string; data?: any };
 
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
-      // Map gRPC response to DTO structure
-      let data = null;
-      const measurement = result.daily_measurement || result['dailyMeasurement'];
-
-      if (measurement) {
-        this.logger.log('Found measurement data:', measurement);
-        data = {
-          date: measurement.date,
-          waterTemperature: measurement.waterTemperature,
-          lagoon: measurement.lagoon,
-          orBrineLevel: measurement.orBrineLevel,
-          orBoundLevel: measurement.orBoundLevel,
-          irBrineLevel: measurement.irBrineLevel,
-          irBoundLevel: measurement.irBoundLevel,
-          eastChannel: measurement.eastChannel,
-          westChannel: measurement.westChannel,
-          _id: measurement._id,
-          createdAt: measurement.createdAt,
-          updatedAt: measurement.updatedAt,
-        };
-      } else {
-        this.logger.log('No measurement data found in response');
-      }
-
+      // Return the data directly from the gRPC response
       return {
         success: result.success,
         message: result.message,
-        data,
+        data: result.data || null,
       };
     } catch (error: any) {
       throw error;
@@ -244,8 +219,8 @@ export class CrystallizationController {
   }
 
   @Delete("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete Daily Measurement by ID' })
@@ -280,8 +255,8 @@ export class CrystallizationController {
   }
 
   @Post("/predictions")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get ML predictions for crystallization parameters' })
@@ -322,8 +297,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-daily-measurement")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted daily measurements by date range' })
@@ -368,8 +343,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-monthly-productions")
-  @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  @Roles(Role.TRAVELER)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted monthly productions by month range' })

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
 import { CrystallizationController } from './crystallization.controller';
 import { CrystallizationService } from './crystallization.service';
@@ -10,6 +11,10 @@ import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from '
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     MongooseModule.forFeature([
       { name: DailyMeasurement.name, schema: DailyMeasurementSchema },
       { name: DailyParameterPrediction.name, schema: DailyParameterPredictionSchema },

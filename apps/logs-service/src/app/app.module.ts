@@ -9,7 +9,7 @@ import { LogsModule } from './logs/logs.module';
     LogsModule,
     MongooseModule.forRoot(
       process.env.MONGO_URI || 
-      'mongodb+srv://brinexAdmin:1no83DWF6n31kkj3@cluster0.tk0ipzf.mongodb.net/?appName=Cluster0'
+      'mongodb+srv://brinexAdmin:1no83DWF6n31kkj3@cluster0.tk0ipzf.mongodb.net/brinex?appName=Cluster0'
     ),
   ],
   controllers: [AppController],
