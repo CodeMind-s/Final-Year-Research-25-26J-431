@@ -27,7 +27,7 @@ import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from '
         options: {
           package: 'predictions',
           protoPath: join(__dirname, '../../../proto/crystallization-prediction.proto'),
-          url: 'localhost:50055',
+          url: process.env.ML_SERVICE_GRPC_URL || 'localhost:50055',
           loader: {
             keepCase: true,
           },
@@ -38,4 +38,4 @@ import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from '
   controllers: [CrystallizationController],
   providers: [CrystallizationService],
 })
-export class CrystallizationModule {}
+export class CrystallizationModule { }

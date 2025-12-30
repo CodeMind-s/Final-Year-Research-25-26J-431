@@ -21,6 +21,18 @@ export class MonthlyProductionPrediction extends Document {
   @Prop({ required: true })
   season: string;
 
+  @Prop({ type: Object, required: false })
+  metadata?: {
+    water_temperature?: number;
+    lagoon?: number;
+    OR_brine_level?: number;
+    OR_bund_level?: number;
+    IR_brine_level?: number;
+    IR_bound_level?: number;
+    East_channel?: number;
+    West_channel?: number;
+  };
+
   // Mongoose timestamps - automatically managed by Mongoose
   createdAt?: Date;
   updatedAt?: Date;

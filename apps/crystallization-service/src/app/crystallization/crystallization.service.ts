@@ -70,15 +70,15 @@ export class CrystallizationService implements OnModuleInit {
 
       const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}`;
       console.log('Fetching weather data from OpenWeatherMap API...');
-      
+
       const response = await axios.get(url);
-      
+
       if (response.data && response.data.main) {
         // Convert temperatures from Kelvin to Celsius
         const tempCelsius = response.data.main.temp - 273.15;
         const tempMinCelsius = response.data.main.temp_min - 273.15;
         const tempMaxCelsius = response.data.main.temp_max - 273.15;
-        
+
         const weatherData = {
           temperature_mean: Math.round(tempCelsius * 100) / 100,
           temperature_max: Math.round(tempMaxCelsius * 100) / 100,
@@ -88,7 +88,7 @@ export class CrystallizationService implements OnModuleInit {
           wind_gusts_max: response.data.wind?.gust || 0,
           relative_humidity_mean: response.data.main.humidity || 0,
         };
-        
+
         console.log(`Weather data fetched successfully:`, weatherData);
         return weatherData;
       }
@@ -129,14 +129,14 @@ export class CrystallizationService implements OnModuleInit {
       // Save daily parameter predictions to database
       console.log('Checking for daily_parameters_forecast...');
       console.log('daily_parameters_forecast keys:', result.daily_parameters_forecast ? Object.keys(result.daily_parameters_forecast) : 'N/A');
-      
+
       const dailyForecast = result.daily_parameters_forecast?.forecasts;
       console.log('dailyForecast exists:', !!dailyForecast);
       console.log('dailyForecast is Array:', Array.isArray(dailyForecast));
-      
+
       if (dailyForecast && Array.isArray(dailyForecast)) {
         console.log(`Saving ${dailyForecast.length} daily parameter predictions to database`);
-        
+
         for (const dailyPrediction of dailyForecast) {
           try {
             await this.dailyParameterPredictionModel.findOneAndUpdate(
@@ -170,7 +170,7 @@ export class CrystallizationService implements OnModuleInit {
             console.error(`Error saving daily prediction for date ${dailyPrediction.date}:`, error);
           }
         }
-        
+
         console.log('Daily parameter predictions saved successfully');
       } else {
         console.log('Skipping daily predictions save - condition not met');
@@ -179,14 +179,14 @@ export class CrystallizationService implements OnModuleInit {
       // Save monthly production predictions to database (using 12 months forecast)
       console.log('Checking for monthly_production_12months...');
       console.log('monthly_production_12months keys:', result.monthly_production_12months ? Object.keys(result.monthly_production_12months) : 'N/A');
-      
+
       const monthlyForecast = result.monthly_production_12months?.forecasts;
       console.log('monthlyForecast exists:', !!monthlyForecast);
       console.log('monthlyForecast is Array:', Array.isArray(monthlyForecast));
-      
+
       if (monthlyForecast && Array.isArray(monthlyForecast)) {
         console.log(`Saving ${monthlyForecast.length} monthly production predictions to database`);
-        
+
         for (const monthlyPrediction of monthlyForecast) {
           try {
             await this.monthlyProductionPredictionModel.findOneAndUpdate(
@@ -198,6 +198,16 @@ export class CrystallizationService implements OnModuleInit {
                 lowerBound: monthlyPrediction.lower_bound,
                 upperBound: monthlyPrediction.upper_bound,
                 season: monthlyPrediction.season,
+                metadata: {
+                  water_temperature: data.current_values.water_temperature,
+                  lagoon: data.current_values.lagoon,
+                  OR_brine_level: data.current_values.OR_brine_level,
+                  OR_bund_level: data.current_values.OR_bund_level,
+                  IR_brine_level: data.current_values.IR_brine_level,
+                  IR_bound_level: data.current_values.IR_bound_level,
+                  East_channel: data.current_values.East_channel,
+                  West_channel: data.current_values.West_channel,
+                }
               },
               { upsert: true, new: true } // Create if not exists, return new document
             );
@@ -205,7 +215,7 @@ export class CrystallizationService implements OnModuleInit {
             console.error(`Error saving monthly prediction for month ${monthlyPrediction.month}:`, error);
           }
         }
-        
+
         console.log('Monthly production predictions saved successfully');
       } else {
         console.log('Skipping monthly predictions save - condition not met');
@@ -221,13 +231,13 @@ export class CrystallizationService implements OnModuleInit {
   async CreateDailyMeasurement(data: CreateDailyMeasurementDto | any): Promise<CreateDailyMeasurementResponseDto> {
     try {
       console.log('Creating daily measurement with data:', data);
-      
+
       // Fetch weather data from OpenWeatherMap API
       const weatherData = await this.fetchWeatherData();
-      
+
       // Check if data is in old format (flat structure) or new format (nested)
       let measurementData;
-      
+
       if (data.parameters && data.weather) {
         // New format - use as is
         measurementData = {
@@ -242,7 +252,7 @@ export class CrystallizationService implements OnModuleInit {
         const epochStart = new Date('2023-01-01');
         const currentDate = new Date(data.date);
         const dayNumber = Math.floor((currentDate.getTime() - epochStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        
+
         measurementData = {
           date: data.date,
           dayNumber: dayNumber,
@@ -267,7 +277,7 @@ export class CrystallizationService implements OnModuleInit {
           },
         };
       }
-      
+
       console.log('Creating measurement with weather data:', measurementData.weather);
       const dailyMeasurement = await this.dailyMeasurementModel.create(measurementData);
 
@@ -404,7 +414,7 @@ export class CrystallizationService implements OnModuleInit {
 
       // Prepare update object - transform old flat structure to new nested structure
       const { id, ...allFields } = data;
-      
+
       // Build the nested parameters object from flat fields
       const parametersUpdate: any = {};
       if (allFields.waterTemperature !== undefined && allFields.waterTemperature !== 0) {
