@@ -153,8 +153,15 @@ nx run-many -t serve --all
 ```
 
 **3. Start ML service (in a separate terminal):**
+for windows
 ```bash
 .venv\Scripts\Activate.ps1  # Activate virtual environment
+cd apps/crystallization-ml-service
+python src/main.py
+```
+for mac
+```bash
+source .venv/bin/activate
 cd apps/crystallization-ml-service
 python src/main.py
 ```
