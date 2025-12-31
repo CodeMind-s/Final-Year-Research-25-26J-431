@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package analytics;
+
+// Analytics Service
+service AnalyticsService {
+  rpc GetLandownerAnalytics(GetLandownerAnalyticsRequest) returns (GetLandownerAnalyticsResponse);
+  rpc GetSellerAnalytics(GetSellerAnalyticsRequest) returns (GetSellerAnalyticsResponse);
+}
+
+// Messages for GetLandownerAnalytics
+message GetLandownerAnalyticsRequest {
+  string landownerId = 1;
+  string period = 2; // "week|month|year"
+}
+
+message TopBuyer {
+  string sellerId = 1;
+  string sellerName = 2;
+  double totalTonsPurchased = 3;
+}
+
+message GetLandownerAnalyticsResponse {
+  bool success = 1;
+  string message = 2;
+  double totalRevenue = 3;
+  double totalProfit = 4;
+  double totalTonsSold = 5;
+  double averagePricePerTon = 6;
+  int32 dealCount = 7;
+  repeated TopBuyer topBuyers = 8;
+}
+
+// Messages for GetSellerAnalytics
+message GetSellerAnalyticsRequest {
+  string sellerId = 1;
+  string period = 2; // "week|month|year"
+}
+
+message TopSupplier {
+  string landownerId = 1;
+  string landownerName = 2;
+  double totalTonsSold = 3;
+}
+
+message GetSellerAnalyticsResponse {
+  bool success = 1;
+  string message = 2;
+  double totalInvestment = 3;
+  double totalTonsPurchased = 4;
+  double averagePricePerTon = 5;
+  int32 dealCount = 6;
+  repeated TopSupplier topSuppliers = 7;
+}

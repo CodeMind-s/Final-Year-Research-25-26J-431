@@ -1,0 +1,248 @@
+syntax = "proto3";
+
+package landowner;
+
+// Landowner Service
+service LandownerService {
+  rpc GetLandownerProfile(GetLandownerProfileRequest) returns (GetLandownerProfileResponse);
+  rpc UpdateProductionCosts(UpdateProductionCostsRequest) returns (UpdateProductionCostsResponse);
+  rpc GetHarvestPrediction(GetHarvestPredictionRequest) returns (GetHarvestPredictionResponse);
+  rpc GetPricePrediction(GetPricePredictionRequest) returns (GetPricePredictionResponse);
+  rpc GetDemandPrediction(GetDemandPredictionRequest) returns (GetDemandPredictionResponse);
+  rpc GetSellerRecommendations(GetSellerRecommendationsRequest) returns (GetSellerRecommendationsResponse);
+  rpc GetSellerOffers(GetSellerOffersRequest) returns (GetSellerOffersResponse);
+  rpc CreateDeal(CreateDealRequest) returns (CreateDealResponse);
+  rpc GetDeals(GetDealsRequest) returns (GetDealsResponse);
+  rpc UpdateDealStatus(UpdateDealStatusRequest) returns (UpdateDealStatusResponse);
+}
+
+// Messages for GetLandownerProfile
+message GetLandownerProfileRequest {
+  string landownerId = 1;
+}
+
+message LandownerProfile {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  double totalProductionTons = 5;
+  double availableTons = 6;
+  double soldTons = 7;
+}
+
+message GetLandownerProfileResponse {
+  bool success = 1;
+  string message = 2;
+  LandownerProfile data = 3;
+}
+
+// Messages for UpdateProductionCosts
+message UpdateProductionCostsRequest {
+  string landownerId = 1;
+  double fertilizerCost = 2;
+  double laborCost = 3;
+  double transportCost = 4;
+}
+
+message ProductionCosts {
+  double fertilizerCost = 1;
+  double laborCost = 2;
+  double transportCost = 3;
+}
+
+message UpdateProductionCostsResponse {
+  bool success = 1;
+  string message = 2;
+  ProductionCosts costs = 3;
+}
+
+// Messages for GetHarvestPrediction
+message MonthData {
+  string month = 1;
+  double tons = 2;
+}
+
+message GetHarvestPredictionRequest {
+  string landownerId = 1;
+  repeated MonthData past6Months = 2;
+}
+
+message PredictionData {
+  string month = 1;
+  double tons = 2;
+  bool isPrediction = 3;
+  double confidence = 4;
+}
+
+message GetHarvestPredictionResponse {
+  bool success = 1;
+  string message = 2;
+  repeated PredictionData predictions = 3;
+  repeated PredictionData historicalData = 4;
+}
+
+// Messages for GetPricePrediction
+message PriceData {
+  string month = 1;
+  double avgPrice = 2;
+}
+
+message GetPricePredictionRequest {
+  string region = 1;
+  repeated PriceData historicalPrices = 2;
+}
+
+message PricePredictionData {
+  string month = 1;
+  double avgPrice = 2;
+  double minPrice = 3;
+  double maxPrice = 4;
+  bool isPrediction = 5;
+}
+
+message GetPricePredictionResponse {
+  bool success = 1;
+  string message = 2;
+  repeated PricePredictionData predictions = 3;
+  repeated PricePredictionData historicalData = 4;
+}
+
+// Messages for GetDemandPrediction
+message GetDemandPredictionRequest {
+  string region = 1;
+  string productType = 2;
+}
+
+message DemandPredictionData {
+  string month = 1;
+  double demandTons = 2;
+  bool isPrediction = 3;
+  string trend = 4; // "increasing|stable|decreasing"
+}
+
+message GetDemandPredictionResponse {
+  bool success = 1;
+  string message = 2;
+  repeated DemandPredictionData predictions = 3;
+  repeated DemandPredictionData historicalData = 4;
+}
+
+// Messages for GetSellerRecommendations
+message GetSellerRecommendationsRequest {
+  string landownerId = 1;
+  double availableTons = 2;
+  string region = 3;
+}
+
+message SellerRecommendation {
+  int32 seller_id = 1;
+  string sellerName = 2;
+  double confidence = 3;
+  string confidence_percentage = 4;
+  int32 ranking = 5; // 1, 2, or 3
+}
+
+message GetSellerRecommendationsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated SellerRecommendation recommendations = 3;
+}
+
+// Messages for GetSellerOffers
+message GetSellerOffersRequest {
+  string landownerId = 1;
+}
+
+message SellerOffer {
+  string id = 1;
+  string sellerId = 2;
+  string sellerName = 3;
+  double pricePerTon = 4;
+  double demandTons = 5;
+  string reliability = 6; // "High|Medium|Low"
+  bool isRecommended = 7;
+  int64 timestamp = 8;
+}
+
+message GetSellerOffersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated SellerOffer offers = 3;
+}
+
+// Messages for CreateDeal
+message DealAllocation {
+  string sellerId = 1;
+  string sellerName = 2;
+  double quantity = 3;
+  double pricePerTon = 4;
+  double revenue = 5;
+}
+
+message CreateDealRequest {
+  string sellerId = 1;
+  string sellerName = 2;
+  string landownerId = 3;
+  string landownerName = 4;
+  repeated DealAllocation allocations = 5;
+  double totalQuantity = 6;
+  double totalRevenue = 7;
+  double productionCosts = 8;
+  double netProfit = 9;
+  string status = 10; // "accepted|negotiating"
+}
+
+message CreateDealResponse {
+  bool success = 1;
+  string message = 2;
+  string dealId = 3;
+}
+
+// Messages for GetDeals
+message GetDealsRequest {
+  string landownerId = 1;
+  string status = 2; // "accepted|completed|negotiating|all"
+}
+
+message Negotiation {
+  string id = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}
+
+message Deal {
+  string id = 1;
+  string sellerId = 2;
+  string sellerName = 3;
+  string landownerId = 4;
+  string landownerName = 5;
+  double quantity = 6;
+  double pricePerTon = 7;
+  double totalPrice = 8;
+  double productionCosts = 9;
+  double netProfit = 10;
+  string status = 11;
+  int64 createdAt = 12;
+  int64 acceptedAt = 13;
+  int64 completedAt = 14;
+  repeated Negotiation negotiations = 15;
+}
+
+message GetDealsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Deal deals = 3;
+}
+
+// Messages for UpdateDealStatus
+message UpdateDealStatusRequest {
+  string dealId = 1;
+  string status = 2; // "completed|rejected"
+}
+
+message UpdateDealStatusResponse {
+  bool success = 1;
+  string message = 2;
+  Deal updatedDeal = 3;
+}

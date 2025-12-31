@@ -1,0 +1,181 @@
+syntax = "proto3";
+
+package seller;
+
+// Seller Service
+service SellerService {
+  rpc GetSellerProfile(GetSellerProfileRequest) returns (GetSellerProfileResponse);
+  rpc GetMarketDemandTrends(GetMarketDemandTrendsRequest) returns (GetMarketDemandTrendsResponse);
+  rpc CreateOffer(CreateOfferRequest) returns (CreateOfferResponse);
+  rpc GetCurrentOffer(GetCurrentOfferRequest) returns (GetCurrentOfferResponse);
+  rpc UpdateOffer(UpdateOfferRequest) returns (UpdateOfferResponse);
+  rpc DeleteOffer(DeleteOfferRequest) returns (DeleteOfferResponse);
+  rpc GetAvailableLandowners(GetAvailableLandownersRequest) returns (GetAvailableLandownersResponse);
+  rpc GetSellerDeals(GetSellerDealsRequest) returns (GetSellerDealsResponse);
+  rpc GetDealProgress(GetDealProgressRequest) returns (GetDealProgressResponse);
+}
+
+// Messages for GetSellerProfile
+message GetSellerProfileRequest {
+  string sellerId = 1;
+}
+
+message SellerProfile {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string reliability = 5; // "High|Medium|Low"
+  double totalPurchased = 6;
+  int32 activeCampaigns = 7;
+}
+
+message GetSellerProfileResponse {
+  bool success = 1;
+  string message = 2;
+  SellerProfile data = 3;
+}
+
+// Messages for GetMarketDemandTrends
+message GetMarketDemandTrendsRequest {
+  int32 months = 1;
+  string region = 2;
+}
+
+message DemandTrend {
+  string month = 1;
+  double demand = 2;
+}
+
+message GetMarketDemandTrendsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated DemandTrend trends = 3;
+  double currentDemand = 4;
+  string trend = 5; // "up|down|stable"
+}
+
+// Messages for CreateOffer
+message CreateOfferRequest {
+  string sellerId = 1;
+  string sellerName = 2;
+  double pricePerTon = 3;
+  double demandTons = 4;
+  string reliability = 5; // "High|Medium|Low"
+  bool isRecommended = 6;
+}
+
+message CreateOfferResponse {
+  bool success = 1;
+  string message = 2;
+  string offerId = 3;
+}
+
+// Messages for GetCurrentOffer
+message GetCurrentOfferRequest {
+  string sellerId = 1;
+}
+
+message Offer {
+  string id = 1;
+  string sellerId = 2;
+  double pricePerTon = 3;
+  double demandTons = 4;
+  string reliability = 5;
+  int64 timestamp = 6;
+}
+
+message GetCurrentOfferResponse {
+  bool success = 1;
+  string message = 2;
+  Offer offer = 3;
+}
+
+// Messages for UpdateOffer
+message UpdateOfferRequest {
+  string sellerId = 1;
+  string offerId = 2;
+  double pricePerTon = 3;
+  double demandTons = 4;
+}
+
+message UpdateOfferResponse {
+  bool success = 1;
+  string message = 2;
+  Offer updatedOffer = 3;
+}
+
+// Messages for DeleteOffer
+message DeleteOfferRequest {
+  string sellerId = 1;
+  string offerId = 2;
+}
+
+message DeleteOfferResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Messages for GetAvailableLandowners
+message GetAvailableLandownersRequest {
+  string sellerId = 1;
+}
+
+message AvailableLandowner {
+  string id = 1;
+  string name = 2;
+  double productionTons = 3;
+  double availableTons = 4;
+  string harvestDate = 5;
+  bool priority = 6;
+}
+
+message GetAvailableLandownersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated AvailableLandowner landowners = 3;
+}
+
+// Messages for GetSellerDeals
+message GetSellerDealsRequest {
+  string sellerId = 1;
+  string status = 2; // "accepted|completed|all"
+}
+
+message SellerDeal {
+  string id = 1;
+  string sellerId = 2;
+  string sellerName = 3;
+  string landownerId = 4;
+  string landownerName = 5;
+  double quantity = 6;
+  double pricePerTon = 7;
+  double totalPrice = 8;
+  string status = 9;
+  int64 createdAt = 10;
+  int64 acceptedAt = 11;
+  int64 completedAt = 12;
+}
+
+message GetSellerDealsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated SellerDeal deals = 3;
+  double securedTons = 4;
+  double remainingTons = 5;
+}
+
+// Messages for GetDealProgress
+message GetDealProgressRequest {
+  string sellerId = 1;
+}
+
+message GetDealProgressResponse {
+  bool success = 1;
+  string message = 2;
+  double targetQuantity = 3;
+  double securedTons = 4;
+  double remainingTons = 5;
+  double progressPercentage = 6;
+  int32 activeDealCount = 7;
+}

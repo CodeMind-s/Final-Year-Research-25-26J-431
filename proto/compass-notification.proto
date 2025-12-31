@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package notification;
+
+// Notification Service
+service NotificationService {
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+  rpc MarkAllAsRead(MarkAllAsReadRequest) returns (MarkAllAsReadResponse);
+  rpc CreateNotification(CreateNotificationRequest) returns (CreateNotificationResponse);
+}
+
+// Messages for GetNotifications
+message GetNotificationsRequest {
+  string userId = 1;
+  bool unreadOnly = 2;
+}
+
+message Notification {
+  string id = 1;
+  string type = 2; // "new_offer|deal_accepted|deal_completed|counter_offer"
+  string title = 3;
+  string message = 4;
+  string dealId = 5;
+  int64 timestamp = 6;
+  bool read = 7;
+  string recipientId = 8;
+}
+
+message GetNotificationsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Notification notifications = 3;
+  int32 unreadCount = 4;
+}
+
+// Messages for MarkAsRead
+message MarkAsReadRequest {
+  string notificationId = 1;
+}
+
+message MarkAsReadResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Messages for MarkAllAsRead
+message MarkAllAsReadRequest {
+  string userId = 1;
+}
+
+message MarkAllAsReadResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Messages for CreateNotification
+message CreateNotificationRequest {
+  string type = 1; // "new_offer|deal_accepted|deal_completed|counter_offer"
+  string title = 2;
+  string message = 3;
+  string dealId = 4;
+  string recipientId = 5;
+}
+
+message CreateNotificationResponse {
+  bool success = 1;
+  string message = 2;
+  string notificationId = 3;
+}

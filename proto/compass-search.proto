@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package search;
+
+// Search Service
+service SearchService {
+  rpc SearchSellers(SearchSellersRequest) returns (SearchSellersResponse);
+  rpc SearchLandowners(SearchLandownersRequest) returns (SearchLandownersResponse);
+}
+
+// Messages for SearchSellers
+message SearchSellersRequest {
+  string name = 1;
+  double minPrice = 2;
+  double maxPrice = 3;
+  string reliability = 4; // "High|Medium|Low"
+}
+
+message SellerSearchResult {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string reliability = 5;
+  double currentPricePerTon = 6;
+  double demandTons = 7;
+}
+
+message SearchSellersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated SellerSearchResult sellers = 3;
+}
+
+// Messages for SearchLandowners
+message SearchLandownersRequest {
+  string name = 1;
+  double minTons = 2;
+  bool priority = 3;
+}
+
+message LandownerSearchResult {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  double totalProductionTons = 5;
+  double availableTons = 6;
+  bool priority = 7;
+}
+
+message SearchLandownersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated LandownerSearchResult landowners = 3;
+}

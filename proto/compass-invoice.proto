@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package invoice;
+
+// Invoice Service
+service InvoiceService {
+  rpc GenerateInvoice(GenerateInvoiceRequest) returns (GenerateInvoiceResponse);
+  rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse);
+  rpc DownloadInvoice(DownloadInvoiceRequest) returns (DownloadInvoiceResponse);
+}
+
+// Messages for GenerateInvoice
+message GenerateInvoiceRequest {
+  string dealId = 1;
+}
+
+message DealDetails {
+  string dealId = 1;
+  string sellerId = 2;
+  string sellerName = 3;
+  string landownerId = 4;
+  string landownerName = 5;
+  double quantity = 6;
+  double pricePerTon = 7;
+  double totalPrice = 8;
+  string date = 9;
+}
+
+message GenerateInvoiceResponse {
+  bool success = 1;
+  string message = 2;
+  string invoiceId = 3;
+  DealDetails dealDetails = 4;
+  string pdfUrl = 5;
+}
+
+// Messages for GetInvoice
+message GetInvoiceRequest {
+  string invoiceId = 1;
+}
+
+message Invoice {
+  string invoiceId = 1;
+  DealDetails dealDetails = 2;
+  string pdfUrl = 3;
+  int64 createdAt = 4;
+}
+
+message GetInvoiceResponse {
+  bool success = 1;
+  string message = 2;
+  Invoice invoice = 3;
+}
+
+// Messages for DownloadInvoice
+message DownloadInvoiceRequest {
+  string invoiceId = 1;
+}
+
+message DownloadInvoiceResponse {
+  bool success = 1;
+  string message = 2;
+  bytes pdfData = 3;
+  string filename = 4;
+}
