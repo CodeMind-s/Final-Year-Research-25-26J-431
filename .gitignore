@@ -47,6 +47,7 @@ test-output
 
 
 .env
+.venv
 
 package-lock.json
 yarn.lock
