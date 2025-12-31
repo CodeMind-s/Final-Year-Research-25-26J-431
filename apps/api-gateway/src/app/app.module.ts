@@ -8,6 +8,7 @@ import { UserModule } from './user/user.module';
 import { LogsModule } from './logs/logs.module';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
+import { CompassModule } from './compass/compass.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
     LogsModule,
     CrystallizationModule,
     SaltProductionModule,
+    CompassModule,
   ],
   controllers: [AppController],
   providers: [AppService],
