@@ -8,7 +8,7 @@ import { UserModule } from './user/user.module';
 import { LogsModule } from './logs/logs.module';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
-import { CompassModule } from './compass/compass.module';
+import { CompassModule } from './compass-service/compass.module';
 
 @Module({
   imports: [
