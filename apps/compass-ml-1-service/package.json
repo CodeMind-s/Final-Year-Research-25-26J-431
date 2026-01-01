@@ -1,0 +1,23 @@
+{
+  "name": "@brinex-server/compass-ml-1-service",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "serve": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "python src/main.py",
+          "cwd": "apps/compass-ml-1-service"
+        }
+      },
+      "install": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "pip install -r requirements.txt",
+          "cwd": "apps/compass-ml-1-service"
+        }
+      }
+    }
+  }
+}

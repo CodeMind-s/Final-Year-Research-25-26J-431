@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package seller_recommendations;
+
+service SellerRecommendationService {
+  rpc GetSellerRecommendations (RecommendationRequest) returns (RecommendationResponse);
+  rpc LearnFromDeal (DealData) returns (LearningResponse);
+}
+
+message RecommendationRequest {
+  // Landowner production details
+  double total_production_bags = 1;
+  double price_per_bag = 2; // Asking price
+  double area_sqft = 3;
+  string season = 4; // "summer" or "winter"
+  string date = 5; // Format: YYYY-MM-DD (optional, defaults to today)
+  int32 top_k = 6; // Number of top sellers to recommend (default: 5)
+}
+
+message RecommendationResponse {
+  string status = 1;
+  repeated SellerRecommendation recommendations = 2;
+  InputSummary input_summary = 3;
+  string timestamp = 4;
+}
+
+message SellerRecommendation {
+  string seller_id = 1;
+  double confidence = 2; // Confidence score (0.0 to 1.0)
+  int32 rank = 3; // Ranking position
+}
+
+message InputSummary {
+  double production_bags = 1;
+  double asking_price = 2;
+  double area_sqft = 3;
+  string season = 4;
+  string date = 5;
+}
+
+message DealData {
+  // Deal information after completion
+  string seller_id = 1;
+  double price_per_bag = 2;
+  double total_production_bags = 3;
+  double area_sqft = 4;
+  string season = 5;
+  string date = 6; // Format: YYYY-MM-DD
+}
+
+message LearningResponse {
+  string status = 1; // "success" or "error"
+  string update_type = 2; // "updated_existing" or "created_new"
+  string seller_id = 3;
+  UpdatedStats updated_stats = 4;
+  string timestamp = 5;
+}
+
+message UpdatedStats {
+  double avg_price = 1;
+  double median_production = 2;
+}

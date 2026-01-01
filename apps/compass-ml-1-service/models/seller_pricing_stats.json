@@ -1,0 +1,15 @@
+{
+  "S012": {
+    "avg_price": 1602.71974522293,
+    "avg_price_by_prod": {
+      "very_low": 1602.3779527559054,
+      "low": 1605.0892857142858,
+      "medium": 1591.25,
+      "high": NaN,
+      "very_high": NaN,
+      "extremely_high": NaN
+    },
+    "median_production": 10376.0,
+    "price_std": 19.88267002560325
+  }
+}

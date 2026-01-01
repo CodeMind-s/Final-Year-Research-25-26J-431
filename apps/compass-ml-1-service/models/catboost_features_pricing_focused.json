@@ -1,0 +1,69 @@
+{
+  "all_features": [
+    "total_production_bags",
+    "price_per_bag",
+    "area_sqft",
+    "month",
+    "price_per_sqft",
+    "bags_per_sqft",
+    "seller_avg_price_for_tier",
+    "seller_median_production",
+    "seller_price_consistency",
+    "production_diff_from_seller_pref",
+    "price_vs_seller_avg",
+    "season",
+    "production_level",
+    "price_level",
+    "area_level",
+    "quarter"
+  ],
+  "numerical_features": [
+    "total_production_bags",
+    "price_per_bag",
+    "area_sqft",
+    "month",
+    "price_per_sqft",
+    "bags_per_sqft",
+    "seller_avg_price_for_tier",
+    "seller_median_production",
+    "seller_price_consistency",
+    "production_diff_from_seller_pref",
+    "price_vs_seller_avg"
+  ],
+  "categorical_features": [
+    "season",
+    "production_level",
+    "price_level",
+    "area_level",
+    "quarter"
+  ],
+  "seller_classes": [
+    "S001",
+    "S002",
+    "S003",
+    "S004",
+    "S005",
+    "S006",
+    "S007",
+    "S008",
+    "S009",
+    "S010",
+    "S011",
+    "S012"
+  ],
+  "best_hyperparameters": {
+    "learning_rate": 0.0764136186923332,
+    "depth": 10,
+    "l2_leaf_reg": 1.7964325184672756,
+    "border_count": 51,
+    "random_strength": 0.45227288910538066,
+    "bagging_temperature": 0.32533033076326434
+  },
+  "pricing_features": [
+    "price_per_bag",
+    "seller_avg_price_for_tier",
+    "price_vs_seller_avg",
+    "seller_median_production",
+    "seller_price_consistency"
+  ]
+}

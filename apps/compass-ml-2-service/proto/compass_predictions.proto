@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package compass;
+
+service CompassPredictionService {
+  rpc GetDemandPricePrediction (PredictionRequest) returns (PredictionResponse);
+}
+
+message PredictionRequest {
+  // Input parameters for the prediction model
+  // These can be adjusted based on your actual model's input requirements
+  string date = 1; // Date for which prediction is requested
+  map<string, double> features = 2; // Additional features if needed
+}
+
+message PredictionResponse {
+  string status = 1;
+  PredictionData prediction_data = 2;
+  ModelInfo model_info = 3;
+}
+
+message PredictionData {
+  // Historical data (past 6 months)
+  repeated MonthlyData historical_data = 1;
+  
+  // Future predictions (next 6 months or as configured)
+  repeated MonthlyData future_predictions = 2;
+  
+  // Summary statistics
+  PredictionSummary summary = 3;
+}
+
+message MonthlyData {
+  string month = 1; // Format: YYYY-MM
+  int32 month_number = 2; // 1-12
+  double predicted_demand = 3; // Demand in tons
+  double predicted_price = 4; // Price per unit
+  double demand_lower_bound = 5; // Confidence interval lower bound for demand
+  double demand_upper_bound = 6; // Confidence interval upper bound for demand
+  double price_lower_bound = 7; // Confidence interval lower bound for price
+  double price_upper_bound = 8; // Confidence interval upper bound for price
+}
+
+message PredictionSummary {
+  double total_historical_demand = 1;
+  double average_historical_price = 2;
+  double total_predicted_demand = 3;
+  double average_predicted_price = 4;
+  double demand_trend = 5; // Percentage change in demand
+  double price_trend = 6; // Percentage change in price
+}
+
+message ModelInfo {
+  string model_type = 1;
+  string prediction_generated = 2;
+  PerformanceMetrics performance_metrics = 3;
+}
+
+message PerformanceMetrics {
+  double train_accuracy = 1;
+  double test_accuracy = 2;
+  double validation_accuracy = 3;
+  double mae = 4; // Mean Absolute Error
+  double rmse = 5; // Root Mean Square Error
+  double r2_score = 6; // R-squared score
+}
