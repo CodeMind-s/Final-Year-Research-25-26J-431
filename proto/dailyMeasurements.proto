@@ -13,6 +13,7 @@ service CrystallizationService {
   rpc GetPredictions(predictions.PredictionRequest) returns (predictions.PredictionResponse);
   rpc GetPredictedDailyMeasurement(GetPredictedDailyMeasurementRequest) returns (GetPredictedDailyMeasurementResponse);
   rpc GetPredictedMonthlyProduction(GetPredictedMonthlyProductionRequest) returns (GetPredictedMonthlyProductionResponse);
+  rpc GetModelPerformance(GetModelPerformanceRequest) returns (GetModelPerformanceResponse);
 }
 
 message CreateDailyMeasurementRequest {
@@ -175,5 +176,33 @@ message GetPredictedMonthlyProductionResponse {
   bool success = 1;
   string message = 2;
   repeated PredictedMonthlyProduction data = 3;
+}
+
+message GetModelPerformanceRequest {
+  int32 limit = 1;
+}
+
+message PerformanceMetrics {
+  double test_mae = 1;
+  double test_rmse = 2;
+  double test_r2_score = 3;
+  double test_accuracy = 4;
+  double validation_r2_score = 5;
+  double validation_accuracy = 6;
+}
+
+message ModelPerformance {
+  string _id = 1;
+  string model_type = 2;
+  string forecast_generated = 3;
+  PerformanceMetrics performance_metrics = 4;
+  string createdAt = 5;
+  string updatedAt = 6;
+}
+
+message GetModelPerformanceResponse {
+  bool success = 1;
+  string message = 2;
+  repeated ModelPerformance data = 3;
 }
 
