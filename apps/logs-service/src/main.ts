@@ -14,7 +14,7 @@ async function bootstrap() {
     transport: Transport.GRPC,
     options: {
       package: 'logs',
-      protoPath: join(__dirname, '../../../proto/logs.proto'),
+      protoPath: join(__dirname, 'proto/logs.proto'),
       url: process.env.GRPC_URL || 'localhost:50056',
     },
   });

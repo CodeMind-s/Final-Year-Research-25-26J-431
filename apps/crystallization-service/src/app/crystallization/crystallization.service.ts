@@ -14,7 +14,8 @@ import axios from 'axios';
 import { DailyMeasurement } from './schemas/crystallization.schema';
 import { DailyParameterPrediction } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction } from './schemas/monthly-production-prediction.schema';
-import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto } from './dtos/crystallization.dto';
+import { CrystallizationModelPerformance } from './schemas/crystallization-model-performance.schema';
+import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto, GetModelPerformanceDto, GetModelPerformanceResponseDto } from './dtos/crystallization.dto';
 
 interface CurrentValues {
   water_temperature: number;
@@ -45,6 +46,7 @@ export class CrystallizationService implements OnModuleInit {
     @InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>,
     @InjectModel(DailyParameterPrediction.name) private dailyParameterPredictionModel: Model<DailyParameterPrediction>,
     @InjectModel(MonthlyProductionPrediction.name) private monthlyProductionPredictionModel: Model<MonthlyProductionPrediction>,
+    @InjectModel(CrystallizationModelPerformance.name) private crystallizationModelPerformanceModel: Model<CrystallizationModelPerformance>,
     @Inject('PREDICTIONS_PACKAGE') private mlClient: ClientGrpc,
     private configService: ConfigService,
   ) { }
@@ -125,6 +127,35 @@ export class CrystallizationService implements OnModuleInit {
       );
       console.log('Crystallization Service: Received predictions from ML service');
       console.log('Response keys:', Object.keys(result));
+
+      // Save model performance metrics to database
+      if (result.model_info && result.model_info.performance_metrics) {
+        try {
+          console.log('Saving model performance metrics to database...');
+
+          const performanceData = {
+            model_type: result.model_info.model_type,
+            forecast_generated: new Date(result.model_info.forecast_generated),
+            performance_metrics: {
+              test_mae: result.model_info.performance_metrics.test_mae,
+              test_rmse: result.model_info.performance_metrics.test_rmse,
+              test_r2_score: result.model_info.performance_metrics.test_r2_score,
+              test_accuracy: result.model_info.performance_metrics.test_accuracy,
+              validation_r2_score: result.model_info.performance_metrics.validation_r2_score,
+              validation_accuracy: result.model_info.performance_metrics.validation_accuracy,
+            },
+          };
+
+          await this.crystallizationModelPerformanceModel.create(performanceData);
+          console.log('Model performance metrics saved successfully');
+        } catch (error) {
+          console.error('Error saving model performance metrics:', error);
+          // Don't throw error - we still want to return predictions even if performance save fails
+        }
+      } else {
+        console.log('No model_info found in response, skipping performance metrics save');
+      }
+
 
       // Save daily parameter predictions to database
       console.log('Checking for daily_parameters_forecast...');
@@ -595,6 +626,42 @@ export class CrystallizationService implements OnModuleInit {
     } catch (error) {
       console.error('Error fetching predicted monthly productions:', error);
       throw new BadRequestException(`Failed to fetch predicted monthly productions: ${error.message}`);
+    }
+  }
+
+  async GetModelPerformance(data: GetModelPerformanceDto): Promise<GetModelPerformanceResponseDto> {
+    try {
+      const limit = data.limit && data.limit > 0 && data.limit <= 100 ? data.limit : 10;
+
+      console.log(`Getting model performance records with limit: ${limit}`);
+
+      // Query the database for model performance records, sorted by most recent first
+      const performanceRecords = await this.crystallizationModelPerformanceModel
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(limit);
+
+      if (!performanceRecords || performanceRecords.length === 0) {
+        return {
+          success: true,
+          message: 'No model performance records found',
+          data: [],
+        };
+      }
+
+      // Convert to plain objects
+      const result = performanceRecords.map((record) => record.toObject());
+
+      console.log(`Found ${result.length} model performance records`);
+
+      return {
+        success: true,
+        message: 'Model performance records fetched successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error fetching model performance records:', error);
+      throw new BadRequestException(`Failed to fetch model performance records: ${error.message}`);
     }
   }
 }

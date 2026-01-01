@@ -8,6 +8,7 @@ import { CrystallizationService } from './crystallization.service';
 import { DailyMeasurement, DailyMeasurementSchema } from './schemas/crystallization.schema';
 import { DailyParameterPrediction, DailyParameterPredictionSchema } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from './schemas/monthly-production-prediction.schema';
+import { CrystallizationModelPerformance, CrystallizationModelPerformanceSchema } from './schemas/crystallization-model-performance.schema';
 
 @Module({
   imports: [
@@ -18,7 +19,8 @@ import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from '
     MongooseModule.forFeature([
       { name: DailyMeasurement.name, schema: DailyMeasurementSchema },
       { name: DailyParameterPrediction.name, schema: DailyParameterPredictionSchema },
-      { name: MonthlyProductionPrediction.name, schema: MonthlyProductionPredictionSchema }
+      { name: MonthlyProductionPrediction.name, schema: MonthlyProductionPredictionSchema },
+      { name: CrystallizationModelPerformance.name, schema: CrystallizationModelPerformanceSchema }
     ]),
     ClientsModule.register([
       {
@@ -26,7 +28,7 @@ import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from '
         transport: Transport.GRPC,
         options: {
           package: 'predictions',
-          protoPath: join(__dirname, '../../../proto/crystallization-prediction.proto'),
+          protoPath: join(__dirname, 'proto/crystallization-prediction.proto'),
           url: process.env.ML_SERVICE_GRPC_URL || 'localhost:50055',
           loader: {
             keepCase: true,

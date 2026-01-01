@@ -129,3 +129,13 @@ export class GetPredictedMonthlyProductionResponseDto {
   data?: any[];
 }
 
+export class GetModelPerformanceDto {
+  limit?: number;
+}
+
+export class GetModelPerformanceResponseDto {
+  success: boolean;
+  message: string;
+  data?: any[];
+}
+
