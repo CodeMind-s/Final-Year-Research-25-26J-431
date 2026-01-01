@@ -9,23 +9,23 @@ import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
 import { Logger, HttpStatus, HttpException } from '@nestjs/common';
+import { GetLandownerProfileResponseDto } from './dtos/profile.dto';
+import { UpdateProductionCostsDto, UpdateProductionCostsResponseDto } from './dtos/production-costs.dto';
 import {
-  GetLandownerProfileResponseDto,
-  UpdateProductionCostsDto,
-  UpdateProductionCostsResponseDto,
   GetPricePredictionDto,
   GetPricePredictionResponseDto,
   GetDemandPredictionDto,
   GetDemandPredictionResponseDto,
-  GetSellerRecommendationsDto,
-  GetSellerRecommendationsResponseDto,
-  GetSellerOffersResponseDto,
+} from './dtos/predictions.dto';
+import { GetSellerRecommendationsDto, GetSellerRecommendationsResponseDto } from './dtos/recommendations.dto';
+import { GetSellerOffersResponseDto } from './dtos/offers.dto';
+import {
   CreateDealDto,
   CreateDealResponseDto,
   GetDealsResponseDto,
   UpdateDealStatusDto,
   UpdateDealStatusResponseDto,
-} from './dtos/landowner.dto';
+} from './dtos/deals.dto';
 
 @ApiTags('Compass - Landowner')
 @Controller('compass/landowner')
@@ -54,7 +54,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch landowner profile', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetLandownerProfileResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -78,7 +78,7 @@ export class LandownerController {
             throw new HttpException('Failed to update production costs', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as UpdateProductionCostsResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -102,7 +102,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch price predictions', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetPricePredictionResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -126,7 +126,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch demand predictions', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetDemandPredictionResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -150,7 +150,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch seller recommendations', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetSellerRecommendationsResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -174,7 +174,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch seller offers', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetSellerOffersResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -198,7 +198,7 @@ export class LandownerController {
             throw new HttpException('Failed to create deal', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as CreateDealResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -226,7 +226,7 @@ export class LandownerController {
             throw new HttpException('Failed to fetch deals', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetDealsResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -254,7 +254,7 @@ export class LandownerController {
             throw new HttpException('Failed to update deal status', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as UpdateDealStatusResponseDto;
       return result;
     } catch (error: any) {
       throw error;

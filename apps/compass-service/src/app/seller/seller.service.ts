@@ -10,11 +10,9 @@ import { SellerOfferModel } from './schemas/seller-offer.schema';
 import { MarketDemandTrend } from './schemas/market-demand-trend.schema';
 import { LandownerProfile } from '../landowner/schemas/landowner-profile.schema';
 import { Deal } from '../landowner/schemas/deal.schema';
+import { GetSellerProfileRequestDto, GetSellerProfileResponseDto } from '../dtos/profile.dto';
+import { GetMarketDemandTrendsRequestDto, GetMarketDemandTrendsResponseDto } from '../dtos/market-trends.dto';
 import {
-  GetSellerProfileRequestDto,
-  GetSellerProfileResponseDto,
-  GetMarketDemandTrendsRequestDto,
-  GetMarketDemandTrendsResponseDto,
   CreateOfferRequestDto,
   CreateOfferResponseDto,
   GetCurrentOfferRequestDto,
@@ -23,13 +21,10 @@ import {
   UpdateOfferResponseDto,
   DeleteOfferRequestDto,
   DeleteOfferResponseDto,
-  GetAvailableLandownersRequestDto,
-  GetAvailableLandownersResponseDto,
-  GetSellerDealsRequestDto,
-  GetSellerDealsResponseDto,
-  GetDealProgressRequestDto,
-  GetDealProgressResponseDto,
-} from './dtos/seller.dto';
+} from '../dtos/offers.dto';
+import { GetAvailableLandownersRequestDto, GetAvailableLandownersResponseDto } from '../dtos/recommendations.dto';
+import { GetSellerDealsRequestDto, GetSellerDealsResponseDto, GetDealProgressRequestDto, GetDealProgressResponseDto } from '../dtos/deals.dto';
+
 
 @Injectable()
 export class SellerService {

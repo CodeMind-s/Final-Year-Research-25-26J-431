@@ -12,26 +12,24 @@ import { DemandPrediction } from './schemas/demand-prediction.schema';
 import { SellerRecommendation } from './schemas/seller-recommendation.schema';
 import { SellerOffer } from './schemas/seller-offer.schema';
 import { Deal } from './schemas/deal.schema';
+import { GetLandownerProfileRequestDto, GetLandownerProfileResponseDto } from '../dtos/profile.dto';
+import { UpdateProductionCostsRequestDto, UpdateProductionCostsResponseDto } from '../dtos/production-costs.dto';
 import {
-  GetLandownerProfileRequestDto,
-  GetLandownerProfileResponseDto,
-  UpdateProductionCostsRequestDto,
-  UpdateProductionCostsResponseDto,
   GetPricePredictionRequestDto,
   GetPricePredictionResponseDto,
   GetDemandPredictionRequestDto,
   GetDemandPredictionResponseDto,
-  GetSellerRecommendationsRequestDto,
-  GetSellerRecommendationsResponseDto,
-  GetSellerOffersRequestDto,
-  GetSellerOffersResponseDto,
+} from '../dtos/predictions.dto';
+import { GetSellerRecommendationsRequestDto, GetSellerRecommendationsResponseDto } from '../dtos/recommendations.dto';
+import { GetSellerOffersRequestDto, GetSellerOffersResponseDto } from '../dtos/offers.dto';
+import {
   CreateDealRequestDto,
   CreateDealResponseDto,
   GetDealsRequestDto,
   GetDealsResponseDto,
   UpdateDealStatusRequestDto,
   UpdateDealStatusResponseDto,
-} from './dtos/landowner.dto';
+} from '../dtos/deals.dto';
 
 @Injectable()
 export class LandownerService {

@@ -1,11 +1,9 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { SellerService } from './seller.service';
+import { GetSellerProfileRequestDto, GetSellerProfileResponseDto } from '../dtos/profile.dto';
+import { GetMarketDemandTrendsRequestDto, GetMarketDemandTrendsResponseDto } from '../dtos/market-trends.dto';
 import {
-  GetSellerProfileRequestDto,
-  GetSellerProfileResponseDto,
-  GetMarketDemandTrendsRequestDto,
-  GetMarketDemandTrendsResponseDto,
   CreateOfferRequestDto,
   CreateOfferResponseDto,
   GetCurrentOfferRequestDto,
@@ -14,13 +12,9 @@ import {
   UpdateOfferResponseDto,
   DeleteOfferRequestDto,
   DeleteOfferResponseDto,
-  GetAvailableLandownersRequestDto,
-  GetAvailableLandownersResponseDto,
-  GetSellerDealsRequestDto,
-  GetSellerDealsResponseDto,
-  GetDealProgressRequestDto,
-  GetDealProgressResponseDto,
-} from './dtos/seller.dto';
+} from '../dtos/offers.dto';
+import { GetAvailableLandownersRequestDto, GetAvailableLandownersResponseDto } from '../dtos/recommendations.dto';
+import { GetSellerDealsRequestDto, GetSellerDealsResponseDto, GetDealProgressRequestDto, GetDealProgressResponseDto } from '../dtos/deals.dto';
 
 @Controller('Seller')
 export class SellerController {

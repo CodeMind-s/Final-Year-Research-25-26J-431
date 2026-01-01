@@ -9,21 +9,18 @@ import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
 import { Logger, HttpStatus, HttpException } from '@nestjs/common';
+import { GetSellerProfileResponseDto } from './dtos/profile.dto';
+import { GetMarketDemandTrendsDto, GetMarketDemandTrendsResponseDto } from './dtos/market-trends.dto';
 import {
-  GetSellerProfileResponseDto,
-  GetMarketDemandTrendsDto,
-  GetMarketDemandTrendsResponseDto,
   CreateOfferDto,
   CreateOfferResponseDto,
   GetCurrentOfferResponseDto,
   UpdateOfferDto,
   UpdateOfferResponseDto,
   DeleteOfferResponseDto,
-  GetAvailableLandownersResponseDto,
-  GetSellerDealsResponseDto,
-  GetDealProgressResponseDto,
-} from './dtos/seller.dto';
-import { UpdateDealStatusDto, UpdateDealStatusResponseDto } from './dtos/landowner.dto';
+} from './dtos/offers.dto';
+import { GetAvailableLandownersResponseDto } from './dtos/recommendations.dto';
+import { GetSellerDealsResponseDto, GetDealProgressResponseDto } from './dtos/deals.dto';
 
 @ApiTags('Compass - Seller')
 @Controller('compass/seller')
@@ -52,7 +49,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch seller profile', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetSellerProfileResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -76,7 +73,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch market demand trends', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetMarketDemandTrendsResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -100,7 +97,7 @@ export class SellerController {
             throw new HttpException('Failed to create offer', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as CreateOfferResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -124,7 +121,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch current offer', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetCurrentOfferResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -154,7 +151,7 @@ export class SellerController {
             throw new HttpException('Failed to update offer', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as UpdateOfferResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -182,7 +179,7 @@ export class SellerController {
             throw new HttpException('Failed to delete offer', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as DeleteOfferResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -206,7 +203,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch available landowners', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetAvailableLandownersResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -234,7 +231,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch seller deals', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetSellerDealsResponseDto;
       return result;
     } catch (error: any) {
       throw error;
@@ -258,7 +255,7 @@ export class SellerController {
             throw new HttpException('Failed to fetch deal progress', HttpStatus.BAD_REQUEST);
           })
         )
-      );
+      ) as GetDealProgressResponseDto;
       return result;
     } catch (error: any) {
       throw error;
