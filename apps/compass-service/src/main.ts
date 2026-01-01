@@ -8,14 +8,10 @@ async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
     transport: Transport.GRPC,
     options: {
-      package: ['landowner', 'seller', 'notification', 'invoice', 'analytics', 'search'],
+      package: ['landowner', 'seller'],
       protoPath: [
         join(__dirname, '../../../proto/compass-landowner.proto'),
         join(__dirname, '../../../proto/compass-seller.proto'),
-        join(__dirname, '../../../proto/compass-notification.proto'),
-        join(__dirname, '../../../proto/compass-invoice.proto'),
-        join(__dirname, '../../../proto/compass-analytics.proto'),
-        join(__dirname, '../../../proto/compass-search.proto'),
       ],
       url: process.env.GRPC_URL || 'localhost:50056',
       loader: {

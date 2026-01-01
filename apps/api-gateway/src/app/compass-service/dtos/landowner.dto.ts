@@ -99,43 +99,6 @@ export class UpdateProductionCostsResponseDto {
   };
 }
 
-// Get Harvest Prediction
-export class GetHarvestPredictionDto {
-  @ApiProperty({ example: 'landowner123' })
-  @IsString()
-  landownerId: string;
-
-  @ApiProperty({ type: [MonthDataDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MonthDataDto)
-  past6Months: MonthDataDto[];
-}
-
-export class GetHarvestPredictionResponseDto {
-  @ApiProperty()
-  success: boolean;
-
-  @ApiProperty()
-  message: string;
-
-  @ApiPropertyOptional()
-  predictions?: Array<{
-    month: string;
-    tons: number;
-    isPrediction: boolean;
-    confidence: number;
-  }>;
-
-  @ApiPropertyOptional()
-  historicalData?: Array<{
-    month: string;
-    tons: number;
-    isPrediction: boolean;
-    confidence: number;
-  }>;
-}
-
 // Get Price Prediction
 export class GetPricePredictionDto {
   @ApiProperty({ example: 'North' })

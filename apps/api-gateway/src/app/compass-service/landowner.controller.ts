@@ -13,8 +13,6 @@ import {
   GetLandownerProfileResponseDto,
   UpdateProductionCostsDto,
   UpdateProductionCostsResponseDto,
-  GetHarvestPredictionDto,
-  GetHarvestPredictionResponseDto,
   GetPricePredictionDto,
   GetPricePredictionResponseDto,
   GetDemandPredictionDto,
@@ -78,30 +76,6 @@ export class LandownerController {
           catchError((error) => {
             this.logger.error(`Update Production Costs error: ${error.message}`);
             throw new HttpException('Failed to update production costs', HttpStatus.BAD_REQUEST);
-          })
-        )
-      );
-      return result;
-    } catch (error: any) {
-      throw error;
-    }
-  }
-
-  @Post('harvest-prediction')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.LANDOWNER)
-  @SubscriptionCheck(0)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get harvest predictions' })
-  @ApiBody({ type: GetHarvestPredictionDto })
-  @ApiResponse({ status: 200, description: 'Harvest predictions fetched successfully', type: GetHarvestPredictionResponseDto })
-  async getHarvestPrediction(@Body() body: GetHarvestPredictionDto): Promise<GetHarvestPredictionResponseDto> {
-    try {
-      const result = await firstValueFrom(
-        this.landownerService.GetHarvestPrediction(body).pipe(
-          catchError((error) => {
-            this.logger.error(`Get Harvest Prediction error: ${error.message}`);
-            throw new HttpException('Failed to fetch harvest predictions', HttpStatus.BAD_REQUEST);
           })
         )
       );

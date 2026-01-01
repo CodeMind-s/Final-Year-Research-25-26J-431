@@ -6,8 +6,6 @@ import {
   GetLandownerProfileResponseDto,
   UpdateProductionCostsRequestDto,
   UpdateProductionCostsResponseDto,
-  GetHarvestPredictionRequestDto,
-  GetHarvestPredictionResponseDto,
   GetPricePredictionRequestDto,
   GetPricePredictionResponseDto,
   GetDemandPredictionRequestDto,
@@ -40,13 +38,6 @@ export class LandownerController {
     data: UpdateProductionCostsRequestDto
   ): Promise<UpdateProductionCostsResponseDto> {
     return this.landownerService.updateProductionCosts(data);
-  }
-
-  @GrpcMethod('LandownerService', 'GetHarvestPrediction')
-  async GetHarvestPrediction(
-    data: GetHarvestPredictionRequestDto
-  ): Promise<GetHarvestPredictionResponseDto> {
-    return this.landownerService.getHarvestPrediction(data);
   }
 
   @GrpcMethod('LandownerService', 'GetPricePrediction')

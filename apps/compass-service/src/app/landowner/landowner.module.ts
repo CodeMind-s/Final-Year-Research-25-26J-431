@@ -12,10 +12,6 @@ import {
   ProductionCostsSchema,
 } from './schemas/production-costs.schema';
 import {
-  HarvestPrediction,
-  HarvestPredictionSchema,
-} from './schemas/harvest-prediction.schema';
-import {
   PricePrediction,
   PricePredictionSchema,
 } from './schemas/price-prediction.schema';
@@ -42,7 +38,6 @@ import { Deal, DealSchema } from './schemas/deal.schema';
     MongooseModule.forFeature([
       { name: LandownerProfile.name, schema: LandownerProfileSchema },
       { name: ProductionCosts.name, schema: ProductionCostsSchema },
-      { name: HarvestPrediction.name, schema: HarvestPredictionSchema },
       { name: PricePrediction.name, schema: PricePredictionSchema },
       { name: DemandPrediction.name, schema: DemandPredictionSchema },
       { name: SellerRecommendation.name, schema: SellerRecommendationSchema },

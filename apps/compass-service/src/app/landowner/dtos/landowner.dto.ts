@@ -46,34 +46,6 @@ export class UpdateProductionCostsResponseDto {
 }
 
 // ============================================
-// Harvest Prediction DTOs
-// ============================================
-
-export class MonthDataDto {
-  month: string;
-  tons: number;
-}
-
-export class GetHarvestPredictionRequestDto {
-  landownerId: string;
-  past6Months: MonthDataDto[];
-}
-
-export class PredictionDataDto {
-  month: string;
-  tons: number;
-  isPrediction: boolean;
-  confidence?: number;
-}
-
-export class GetHarvestPredictionResponseDto {
-  success: boolean;
-  message: string;
-  predictions: PredictionDataDto[];
-  historicalData: PredictionDataDto[];
-}
-
-// ============================================
 // Price Prediction DTOs
 // ============================================
 

@@ -9,10 +9,6 @@ import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { LandownerController } from './landowner.controller';
 import { SellerController } from './seller.controller';
-import { AnalyticsController } from './analytics.controller';
-import { InvoiceController } from './invoice.controller';
-import { NotificationsController } from './notifications.controller';
-import { SearchController } from './search.controller';
 
 @Module({
   imports: [
@@ -54,70 +50,6 @@ import { SearchController } from './search.controller';
         },
       },
       {
-        name: 'COMPASS_ANALYTICS_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'analytics',
-          protoPath: join(__dirname, 'proto/compass-analytics.proto'),
-          url: 'localhost:50056',
-          loader: {
-            keepCase: true,
-            longs: String,
-            enums: String,
-            defaults: true,
-            oneofs: true,
-          },
-        },
-      },
-      {
-        name: 'COMPASS_INVOICE_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'invoice',
-          protoPath: join(__dirname, 'proto/compass-invoice.proto'),
-          url: 'localhost:50056',
-          loader: {
-            keepCase: true,
-            longs: String,
-            enums: String,
-            defaults: true,
-            oneofs: true,
-          },
-        },
-      },
-      {
-        name: 'COMPASS_NOTIFICATION_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'notification',
-          protoPath: join(__dirname, 'proto/compass-notification.proto'),
-          url: 'localhost:50056',
-          loader: {
-            keepCase: true,
-            longs: String,
-            enums: String,
-            defaults: true,
-            oneofs: true,
-          },
-        },
-      },
-      {
-        name: 'COMPASS_SEARCH_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'search',
-          protoPath: join(__dirname, 'proto/compass-search.proto'),
-          url: 'localhost:50056',
-          loader: {
-            keepCase: true,
-            longs: String,
-            enums: String,
-            defaults: true,
-            oneofs: true,
-          },
-        },
-      },
-      {
         name: 'AUTH_PACKAGE',
         transport: Transport.GRPC,
         options: {
@@ -131,10 +63,6 @@ import { SearchController } from './search.controller';
   controllers: [
     LandownerController,
     SellerController,
-    AnalyticsController,
-    InvoiceController,
-    NotificationsController,
-    SearchController,
   ],
   providers: [
     CompassService,

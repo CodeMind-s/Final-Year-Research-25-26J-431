@@ -7,7 +7,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { LandownerProfile } from './schemas/landowner-profile.schema';
 import { ProductionCosts } from './schemas/production-costs.schema';
-import { HarvestPrediction } from './schemas/harvest-prediction.schema';
 import { PricePrediction } from './schemas/price-prediction.schema';
 import { DemandPrediction } from './schemas/demand-prediction.schema';
 import { SellerRecommendation } from './schemas/seller-recommendation.schema';
@@ -18,8 +17,6 @@ import {
   GetLandownerProfileResponseDto,
   UpdateProductionCostsRequestDto,
   UpdateProductionCostsResponseDto,
-  GetHarvestPredictionRequestDto,
-  GetHarvestPredictionResponseDto,
   GetPricePredictionRequestDto,
   GetPricePredictionResponseDto,
   GetDemandPredictionRequestDto,
@@ -43,8 +40,6 @@ export class LandownerService {
     private landownerProfileModel: Model<LandownerProfile>,
     @InjectModel(ProductionCosts.name)
     private productionCostsModel: Model<ProductionCosts>,
-    @InjectModel(HarvestPrediction.name)
-    private harvestPredictionModel: Model<HarvestPrediction>,
     @InjectModel(PricePrediction.name)
     private pricePredictionModel: Model<PricePrediction>,
     @InjectModel(DemandPrediction.name)
@@ -118,48 +113,6 @@ export class LandownerService {
     } catch (error) {
       throw new BadRequestException(
         `Failed to update production costs: ${error.message}`
-      );
-    }
-  }
-
-  async getHarvestPrediction(
-    data: GetHarvestPredictionRequestDto
-  ): Promise<GetHarvestPredictionResponseDto> {
-    try {
-      // TODO: Integrate with ML service for actual predictions
-      // For now, return mock predictions based on historical data
-      const predictions = data.past6Months.map((month, index) => ({
-        month: this.getNextMonth(month.month, index + 1),
-        tons: month.tons * (1 + Math.random() * 0.2 - 0.1), // ±10% variation
-        isPrediction: true,
-        confidence: 0.75 + Math.random() * 0.2, // 75-95% confidence
-      }));
-
-      const historicalData = data.past6Months.map((month) => ({
-        month: month.month,
-        tons: month.tons,
-        isPrediction: false,
-      }));
-
-      // Save to database
-      await this.harvestPredictionModel.findOneAndUpdate(
-        { landownerId: data.landownerId },
-        {
-          predictions,
-          historicalData,
-        },
-        { upsert: true, new: true }
-      );
-
-      return {
-        success: true,
-        message: 'Harvest predictions generated successfully',
-        predictions,
-        historicalData,
-      };
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to get harvest prediction: ${error.message}`
       );
     }
   }
