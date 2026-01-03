@@ -29,7 +29,14 @@ load_dotenv()
 if proto_loaded:
     class PredictionsServicer(predictions_pb2_grpc.PredictionsServiceServicer):
         def __init__(self):
-            self.prediction_service = PredictionService() if PredictionService else None
+            """Initialize servicer - will raise exception if model cannot be loaded"""
+            if not PredictionService:
+                raise RuntimeError("PredictionService class not available")
+            
+            print("Initializing Prediction Service...")
+            # This will raise an exception if model loading fails
+            self.prediction_service = PredictionService()
+            print("Prediction Service initialized successfully")
 
         def _convert_to_proto_response(self, result):
             """Convert dictionary result to protobuf PredictionResponse"""
@@ -157,6 +164,8 @@ if proto_loaded:
 
         def GetPredictions(self, request, context):
             try:
+                print(f"Received gRPC request: start_date={request.start_date}, forecast_days={request.forecast_days}")
+                
                 if not self.prediction_service:
                     context.set_code(grpc.StatusCode.INTERNAL)
                     context.set_details('Prediction service not initialized')
@@ -178,10 +187,15 @@ if proto_loaded:
                     }
                 )
                 
+                print("Prediction successful, converting to protobuf...")
                 # Convert result to protobuf response
                 return self._convert_to_proto_response(result)
                 
             except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"ERROR in GetPredictions: {str(e)}")
+                print(f"Full traceback:\n{error_details}")
                 context.set_code(grpc.StatusCode.INTERNAL)
                 context.set_details(str(e))
                 return predictions_pb2.PredictionResponse(status='error')
@@ -195,9 +209,20 @@ def serve():
     port = os.getenv('GRPC_PORT', '50055')
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     
-    predictions_pb2_grpc.add_PredictionsServiceServicer_to_server(
-        PredictionsServicer(), server
-    )
+    try:
+        # Initialize the servicer - will raise exception if model loading fails
+        servicer = PredictionsServicer()
+        predictions_pb2_grpc.add_PredictionsServiceServicer_to_server(
+            servicer, server
+        )
+    except Exception as e:
+        print(f"\n{'='*60}")
+        print(f"FATAL ERROR: Failed to initialize service")
+        print(f"Error: {str(e)}")
+        print(f"{'='*60}\n")
+        print("Service cannot start without a valid model.")
+        print("Please ensure the model file exists at the correct path.")
+        return
     
     server.add_insecure_port(f'[::]:{port}')
     server.start()
