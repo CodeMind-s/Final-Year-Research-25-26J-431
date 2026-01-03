@@ -27,17 +27,21 @@ class MLPredictor:
         }
     
     def load_model(self):
-        """Load the Keras model"""
+        """Load the Keras model - MANDATORY"""
+        if not os.path.exists(self.model_path):
+            error_msg = f"CRITICAL: Model file not found at {self.model_path}"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+        
         try:
-            if os.path.exists(self.model_path):
-                self.model = keras.models.load_model(self.model_path)
-                logger.info(f"Model loaded successfully from {self.model_path}")
-            else:
-                logger.warning(f"Model file not found at {self.model_path}")
-                self.model = None
+            self.model = keras.models.load_model(self.model_path)
+            logger.info(f"Model loaded successfully from {self.model_path}")
+            logger.info(f"Model input shape: {self.model.input_shape}")
+            logger.info(f"Model output shape: {self.model.output_shape}")
         except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
-            self.model = None
+            error_msg = f"CRITICAL: Failed to load model from {self.model_path}: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
     
     def predict(self, start_date, forecast_days, current_values):
         """
@@ -103,11 +107,13 @@ class MLPredictor:
         return response
     
     def _generate_daily_forecasts(self, start_date, forecast_days, current_values):
-        """Generate daily forecasts using the ML model"""
+        """Generate daily forecasts using the ML model - NO FALLBACK"""
+        if self.model is None:
+            raise RuntimeError("Model is not loaded. Cannot generate predictions.")
+        
         forecasts = []
         
         # Prepare input features for the model
-        # Note: You'll need to adapt this based on your actual model input shape
         current_params = np.array([
             current_values['water_temperature'],
             current_values['lagoon'],
@@ -119,38 +125,41 @@ class MLPredictor:
             current_values['West_channel']
         ])
         
+        logger.info(f"Starting daily forecast generation for {forecast_days} days")
+        logger.info(f"Initial parameters: {current_params}")
+        
         for day in range(forecast_days):
             forecast_date = start_date + timedelta(days=day)
             
-            # Generate weather predictions (simulated - replace with actual model predictions)
+            # Use the model to predict parameters - NO TRY-CATCH FALLBACK
+            # Reshape input based on model requirements (batch, timesteps, features)
+            model_input = current_params.reshape(1, 1, -1)
+            
+            # Get predictions from model - will raise error if fails
+            predictions = self.model.predict(model_input, verbose=0)
+            
+            # Extract predicted parameters
+            if len(predictions.shape) > 1:
+                predicted_params = predictions[0]
+            else:
+                predicted_params = predictions
+            
+            # Validate we have exactly 8 parameters
+            if len(predicted_params) < 8:
+                raise ValueError(
+                    f"Model returned {len(predicted_params)} parameters, expected 8. "
+                    f"Model output shape: {predictions.shape}"
+                )
+            
+            # Take first 8 parameters (in case model outputs more)
+            predicted_params = predicted_params[:8]
+            
+            # Log progress
+            if day % 10 == 0:
+                logger.info(f"Generated prediction for day {day + 1}/{forecast_days}")
+            
+            # Generate weather forecast (TODO: replace with actual weather API or model)
             weather = self._generate_weather_forecast()
-            
-            # Use the model to predict parameters
-            # Note: Adjust input shape based on your model requirements
-            try:
-                # Example: if model expects shape (batch, timesteps, features)
-                model_input = current_params.reshape(1, 1, -1)
-                predictions = self.model.predict(model_input, verbose=0)
-                
-                # Update parameters based on predictions
-                if len(predictions.shape) > 1:
-                    predicted_params = predictions[0]
-                else:
-                    predicted_params = predictions
-                
-                # Ensure we have 8 parameters
-                if len(predicted_params) < 8:
-                    predicted_params = current_params
-                else:
-                    predicted_params = predicted_params[:8]
-                    
-            except Exception as e:
-                logger.warning(f"Prediction error for day {day}: {str(e)}. Using current values.")
-                predicted_params = current_params
-            
-            # Add small random variations for realism
-            noise = np.random.normal(0, 0.1, size=predicted_params.shape)
-            predicted_params = predicted_params + noise
             
             forecast_item = {
                 'date': forecast_date.strftime('%Y-%m-%d'),
@@ -170,9 +179,10 @@ class MLPredictor:
             
             forecasts.append(forecast_item)
             
-            # Update current parameters for next iteration
+            # Update current parameters for next iteration (using model output)
             current_params = predicted_params
         
+        logger.info(f"Successfully generated {len(forecasts)} daily forecasts")
         return forecasts
     
     def _generate_weather_forecast(self):
@@ -188,18 +198,50 @@ class MLPredictor:
         }
     
     def _generate_monthly_forecast(self, daily_forecasts, start_date, months):
-        """Generate monthly production forecast from daily forecasts"""
+        """Generate monthly production forecast from daily forecasts - CALCULATED FROM MODEL OUTPUT"""
         monthly_forecasts = []
         total_production = 0
         
         current_month_start = start_date.replace(day=1)
         
+        logger.info(f"Calculating monthly production from {len(daily_forecasts)} daily forecasts")
+        
         for month_num in range(months):
             month_date = current_month_start + timedelta(days=30 * month_num)
+            month_str = month_date.strftime('%Y-%m')
             
-            # Calculate production based on daily parameters
-            # This is a simplified calculation - adjust based on your actual model
-            production = np.random.uniform(20000, 30000)
+            # Filter daily forecasts for this month
+            month_daily_forecasts = [
+                f for f in daily_forecasts 
+                if f['date'].startswith(month_str)
+            ]
+            
+            # Calculate production based on daily parameters from model
+            # Using domain-specific formula based on brine levels and channel values
+            production = 0
+            for day_forecast in month_daily_forecasts:
+                params = day_forecast['parameters']
+                # Production formula: weighted sum of relevant parameters
+                # Adjust weights based on your domain knowledge
+                daily_production = (
+                    params['OR_brine_level'] * 50 +
+                    params['IR_brine_level'] * 50 +
+                    params['East_channel'] * 30 +
+                    params['West_channel'] * 30 +
+                    params['lagoon'] * 20
+                )
+                production += daily_production
+            
+            # If no daily forecasts for this month, use average from available forecasts
+            if len(month_daily_forecasts) == 0:
+                logger.warning(f"No daily forecasts available for {month_str}, estimating...")
+                # Estimate based on last known values
+                if len(monthly_forecasts) > 0:
+                    production = monthly_forecasts[-1]['production_forecast']
+                else:
+                    production = 0
+            
+            # Calculate confidence bounds (±15%)
             lower_bound = production * 0.85
             upper_bound = production * 1.15
             
@@ -213,7 +255,7 @@ class MLPredictor:
                 season = "Other"
             
             monthly_forecasts.append({
-                'month': month_date.strftime('%Y-%m'),
+                'month': month_str,
                 'month_number': month_num + 1,
                 'production_forecast': float(production),
                 'lower_bound': float(lower_bound),
@@ -222,6 +264,7 @@ class MLPredictor:
             })
             
             total_production += production
+            logger.info(f"Month {month_str}: {len(month_daily_forecasts)} days, production={production:.2f}")
         
         period = f"{months}_months"
         end_month = (current_month_start + timedelta(days=30 * (months - 1))).strftime('%Y-%m')
