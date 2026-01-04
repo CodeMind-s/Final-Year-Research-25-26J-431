@@ -16,8 +16,13 @@ logger = logging.getLogger(__name__)
 
 class PredictionsService(predictions_pb2_grpc.PredictionsServiceServicer):
     def __init__(self):
-        self.predictor = MLPredictor()
-        logger.info("Predictions service initialized")
+        try:
+            logger.info("Initializing Predictions service...")
+            self.predictor = MLPredictor()
+            logger.info("Predictions service initialized successfully")
+        except Exception as e:
+            logger.error(f"FATAL: Failed to initialize predictor: {str(e)}")
+            raise  # Re-raise to prevent service from starting
 
     def GetPredictions(self, request, context):
         try:
