@@ -22,9 +22,9 @@ The system follows a three-tier microservices architecture deployed in Docker co
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════════╗
-║                        ☸️  KUBERNETES CLUSTER                                      ║
+║                             KUBERNETES CLUSTER                                    ║
 ║  ┌─────────────────────────────────────────────────────────────────────────────┐  ║
-║  │                    🐳 DOCKER CONTAINERS                                     │  ║
+║  │                          DOCKER CONTAINERS                                  │  ║
 ║  │                                                                             │  ║
 ║  │  ┌───────────────────────────────────────────────────────────────────────┐  │  ║
 ║  │  │                     LEVEL 1 - API GATEWAY                             │  │  ║
