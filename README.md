@@ -18,29 +18,70 @@ A microservices-based salt crystallization management and prediction system buil
 
 ## 🏗️ Architecture
 
+The system follows a three-tier microservices architecture deployed in Docker containers orchestrated by Kubernetes.
+
 ```
-┌─────────────┐         ┌──────────────────────┐         ┌──────────────────┐
-│   Client    │────────▶│   API Gateway        │────────▶│ Crystallization  │
-│             │         │   (Port 3400)        │         │ Service (50054)  │
-└─────────────┘         └──────────────────────┘         └──────────────────┘
-                                                                   │
-                                                                   ▼
-                        ┌──────────────────────┐         ┌──────────────────┐
-                        │   Auth Service       │         │ Crystallization  │
-                        │   (gRPC)             │         │ ML Service       │
-                        └──────────────────────┘         │ (Port 50055)     │
-                                                         └──────────────────┘
-                        ┌──────────────────────┐
-                        │   User Service       │         ┌──────────────────┐
-                        │   (gRPC)             │         │   MongoDB        │
-                        └──────────────────────┘         │                  │
-                                                         └──────────────────┘
-                        ┌──────────────────────┐
-                        │   Logs Service       │         ┌──────────────────┐
-                        │   (Port 50056)       │         │   Kafka          │
-                        └──────────────────────┘         │   Zookeeper      │
-                                                         └──────────────────┘
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                             KUBERNETES CLUSTER                                    ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐  ║
+║  │                          DOCKER CONTAINERS                                  │  ║
+║  │                                                                             │  ║
+║  │  ┌───────────────────────────────────────────────────────────────────────┐  │  ║
+║  │  │                     LEVEL 1 - API GATEWAY                             │  │  ║
+║  │  │                   ┌─────────────────────┐                             │  │  ║
+║  │  │                   │   API Gateway       │                             │  │  ║
+║  │  │                   │   (Port 3400)       │                             │  │  ║
+║  │  │                   └──────────┬──────────┘                             │  │  ║
+║  │  └──────────────────────────────┼────────────────────────────────────────┘  │  ║
+║  │                                 │ gRPC                                      │  ║
+║  │      ┌──────────────────────────┼──────────────────────────┐                │  ║
+║  │      ▼                          ▼                          ▼                │  ║
+║  │  ┌───────────────────────────────────────────────────────────────────────┐  │  ║
+║  │  │                   LEVEL 2 - CORE SERVICES (gRPC)                      │  │  ║
+║  │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐          │  │  ║
+║  │  │  │Auth Service│ │Email Svc   │ │Log Service │ │User Service│          │  │  ║
+║  │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘          │  │  ║
+║  │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐          │  │  ║
+║  │  │  │Crystall.   │ │Vision Svc  │ │Valor Svc   │ │Compass Svc │          │  │  ║
+║  │  │  │Service     │ │            │ │            │ │            │          │  │  ║
+║  │  │  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘          │  │  ║
+║  │  └────────┼──────────────┼──────────────┼──────────────┼─────────────────┘  │  ║
+║  │           │ Kafka        │ Kafka        │ Kafka        │ Kafka              │  ║
+║  │           ▼              ▼              ▼              ▼                    │  ║
+║  │  ┌───────────────────────────────────────────────────────────────────────┐  │  ║
+║  │  │                   LEVEL 3 - ML SERVICES (Kafka)                       │  │  ║
+║  │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐          │  │  ║
+║  │  │  │Crystall.   │ │Vision ML   │ │Valor ML    │ │Compass ML  │          │  │  ║
+║  │  │  │ML Service  │ │Service     │ │Service     │ │Service     │          │  │  ║
+║  │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘          │  │  ║
+║  │  └───────────────────────────────────────────────────────────────────────┘  │  ║
+║  │                                                                             │  ║
+║  └─────────────────────────────────────────────────────────────────────────────┘  ║
+║                                                                                   ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐  ║
+║  │                          INFRASTRUCTURE                                     │  ║
+║  │     ┌───────────────────────┐      ┌───────────────────────┐                │  ║
+║  │     │       MongoDB         │      │   Kafka / Zookeeper   │                │  ║
+║  │     │  (L2 Services DB)     │      │  (L2 ↔ L3 Messaging)  │                │  ║
+║  │     └───────────────────────┘      └───────────────────────┘                │  ║
+║  └─────────────────────────────────────────────────────────────────────────────┘  ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
+
+### Communication Patterns
+
+| Layer | Protocol | Description |
+|-------|----------|-------------|
+| **L1 → L2** | gRPC | API Gateway communicates with all core services via gRPC |
+| **L2 → L3** | Kafka | Core services communicate with ML services via Kafka message queue |
+| **L2 → DB** | MongoDB | All Level 2 services persist data in MongoDB |
+
+### Deployment Stack
+
+- **Containerization**: Docker
+- **Orchestration**: Kubernetes
+- **Message Queue**: Apache Kafka with Zookeeper
+- **Database**: MongoDB
 
 ## ✅ Prerequisites
 
@@ -389,7 +430,26 @@ MIT License
 
 ## 👥 Contributors
 
-- Your Team Name
+<a href="https://github.com/bhashanasirimanna">
+  <img src="https://github.com/bhashanasirimanna.png" width="50" height="50" style="border-radius: 50%;" alt="bhashanasirimanna"/>
+</a>
+<a href="https://github.com/thimeshaA">
+  <img src="https://github.com/thimeshaA.png" width="50" height="50" style="border-radius: 50%;" alt="thimeshaA"/>
+</a>
+<a href="https://github.com/arshartisan">
+  <img src="https://github.com/arshartisan.png" width="50" height="50" style="border-radius: 50%;" alt="arshartisan"/>
+</a>
+<a href="https://github.com/randinim">
+  <img src="https://github.com/randinim.png" width="50" height="50" style="border-radius: 50%;" alt="randinim"/>
+</a>
+
+| Contributor | GitHub |
+|-------------|--------|
+| Bhashana Sirimanna | [@bhashanasirimanna](https://github.com/bhashanasirimanna) |
+| Thimesha A | [@thimeshaA](https://github.com/thimeshaA) |
+| Arsh Artisan | [@arshartisan](https://github.com/arshartisan) |
+| Randini M | [@randinim](https://github.com/randinim) |
+
 
 ---
 
