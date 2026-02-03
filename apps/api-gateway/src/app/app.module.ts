@@ -40,5 +40,5 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
 

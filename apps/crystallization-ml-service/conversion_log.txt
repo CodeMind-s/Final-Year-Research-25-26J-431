@@ -1,0 +1,239 @@
+﻿python : 2026-01-19 
+11:45:38.455194: I te
+nsorflow/core/util/po
+rt.cc:153] oneDNN 
+custom operations 
+are on. You may see 
+slightly different 
+numerical results 
+due to 
+floating-point 
+round-off errors 
+from different 
+computation orders. 
+To turn them off, 
+set the environment 
+variable `TF_ENABLE_O
+NEDNN_OPTS=0`.
+At line:1 char:1
++ python -m 
+tf2onnx.convert 
+--saved-model models/
+saved_model_temp 
+--out ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (2026-01   
+ -19 11:4...ONEDN    
+N_OPTS=0`.:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+2026-01-19 
+11:45:41.923538: I te
+nsorflow/core/util/po
+rt.cc:153] oneDNN 
+custom operations 
+are on. You may see 
+slightly different 
+numerical results 
+due to 
+floating-point 
+round-off errors 
+from different 
+computation orders. 
+To turn them off, 
+set the environment 
+variable `TF_ENABLE_O
+NEDNN_OPTS=0`.
+WARNING:tensorflow:Fr
+om C:\Users\dinet\App
+Data\Local\Programs\P
+ython\Python313\Lib\s
+ite-packages\tf2onnx\
+tf_loader.py:69: The 
+name tf.reset_default
+_graph is 
+deprecated. Please 
+use tf.compat.v1.rese
+t_default_graph 
+instead.
+
+WARNING:tensorflow:Fr
+om C:\Users\dinet\App
+Data\Local\Programs\P
+ython\Python313\Lib\s
+ite-packages\tf2onnx\
+tf_loader.py:73: The 
+name tf.train.import_
+meta_graph is 
+deprecated. Please 
+use tf.compat.v1.trai
+n.import_meta_graph 
+instead.
+
+<frozen runpy>:128: 
+RuntimeWarning: 
+'tf2onnx.convert' 
+found in sys.modules 
+after import of 
+package 'tf2onnx', 
+but prior to 
+execution of 
+'tf2onnx.convert'; 
+this may result in 
+unpredictable 
+behaviour
+2026-01-19 
+11:45:47.951436: I te
+nsorflow/core/platfor
+m/cpu_feature_guard.c
+c:210] This 
+TensorFlow binary is 
+optimized to use 
+available CPU 
+instructions in 
+performance-critical 
+operations.
+To enable the 
+following 
+instructions: SSE3 
+SSE4.1 SSE4.2 AVX 
+AVX2 FMA, in other 
+operations, rebuild 
+TensorFlow with the 
+appropriate compiler 
+flags.
+2026-01-19 
+11:45:47,953 - 
+WARNING - '--tag' 
+not specified for 
+saved_model. Using 
+--tag serve
+2026-01-19 
+11:45:48,537 - INFO 
+- Signatures found 
+in model: [serve,serv
+ing_default].
+2026-01-19 
+11:45:48,537 - 
+WARNING - 
+'--signature_def' 
+not specified, using 
+first signature: 
+serve
+Traceback (most 
+recent call last):
+  File "<frozen 
+runpy>", line 198, 
+in 
+_run_module_as_main
+  File "<frozen 
+runpy>", line 88, in 
+_run_code
+  File "C:\Users\dine
+t\AppData\Local\Progr
+ams\Python\Python313\
+Lib\site-packages\tf2
+onnx\convert.py", 
+line 710, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\dine
+t\AppData\Local\Progr
+ams\Python\Python313\
+Lib\site-packages\tf2
+onnx\convert.py", 
+line 242, in main
+    graph_def, 
+inputs, outputs, 
+initialized_tables, 
+tensors_to_rename = t
+f_loader.from_saved_m
+odel(
+                     
+                     
+                     
+         ~~~~~~~~~~~~
+~~~~~~~~~~~~~~^
+        
+args.saved_model, 
+args.inputs, 
+args.outputs, 
+args.tag, 
+args.signature_def, a
+rgs.concrete_function
+,
+        ^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^
+        
+args.large_model, ret
+urn_initialized_table
+s=True, return_tensor
+s_to_rename=True,
+        ^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^
+        use_graph_nam
+es=args.use_graph_nam
+es)
+        ^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^
+  File "C:\Users\dine
+t\AppData\Local\Progr
+ams\Python\Python313\
+Lib\site-packages\tf2
+onnx\tf_loader.py", 
+line 611, in 
+from_saved_model
+    _from_saved_model
+_v2(model_path, 
+input_names, 
+output_names,
+    ~~~~~~~~~~~~~~~~~
+~~~^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+                     
+    tag, signatures, 
+concrete_function, 
+large_model, 
+use_graph_names)
+                     
+    ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^
+  File "C:\Users\dine
+t\AppData\Local\Progr
+ams\Python\Python313\
+Lib\site-packages\tf2
+onnx\tf_loader.py", 
+line 573, in 
+_from_saved_model_v2
+    graph_captures = 
+concrete_func.graph._
+captures  # pylint: d
+isable=protected-acce
+ss
+                     
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^
+AttributeError: 
+'FuncGraph' object 
+has no attribute 
+'_captures'. Did you 
+mean: 'captures'?
