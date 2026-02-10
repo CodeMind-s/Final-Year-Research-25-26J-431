@@ -1,2 +1,0 @@
-IDX:0|NAME:log_input|SHAPE:(None, 30, 8)|DTYPE:float32
-IDX:1|NAME:weather_input|SHAPE:(None, 30, 7)|DTYPE:float32

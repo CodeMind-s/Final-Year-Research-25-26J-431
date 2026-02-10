@@ -29,9 +29,22 @@ import { CrystallizationModelPerformance, CrystallizationModelPerformanceSchema 
         options: {
           package: 'predictions',
           protoPath: join(__dirname, 'proto/crystallization-prediction.proto'),
-          url: process.env.ML_SERVICE_GRPC_URL || 'localhost:50055',
+          url: process.env.ONNX_SERVICE_GRPC_URL || 'localhost:50055',
           loader: {
             keepCase: true,
+          },
+        },
+      },
+      {
+        name: 'AUDIT_LOG_SERVICE',
+        transport: Transport.KAFKA,
+        options: {
+          client: {
+            clientId: 'crystallization-service',
+            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
+          },
+          consumer: {
+            groupId: 'crystallization-audit-consumer-group',
           },
         },
       },

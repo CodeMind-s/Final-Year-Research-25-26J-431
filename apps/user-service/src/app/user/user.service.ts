@@ -1,5 +1,5 @@
 // Updated user.service.ts (added methods for new features)
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
@@ -9,16 +9,45 @@ import * as bcrypt from 'bcrypt';
 import { CreateSubscriptionDto } from './dtos/subscription.dto';
 import Stripe from 'stripe';
 import { PersonalDetailsDto, AccountSettingsDto } from './dtos/auth.dto'; // Import new DTOs
+import { ClientKafka } from '@nestjs/microservices';
+
+interface AuditLogData {
+  serviceName: string;
+  action: string;
+  userId?: string;
+  resourceId?: string;
+  resourceType?: string;
+  details?: string;
+  status: 'success' | 'error' | 'warning';
+  method?: string;
+  path?: string;
+}
 
 @Injectable()
 export class UserService {
       private readonly logger = new Logger(UserService.name);
-    private stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-09-30.clover' });
+    private stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-10-29.clover' });
 
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<User>,
+    @Inject('AUDIT_LOG_SERVICE') private readonly auditLogClient: ClientKafka,
   ) {}
+
+  /**
+   * Emits an audit log event to the audit-log-service via Kafka
+   */
+  private async emitAuditLog(data: AuditLogData): Promise<void> {
+    try {
+      await this.auditLogClient.emit('create_audit_log', {
+        ...data,
+        serviceName: 'user-service',
+      }).toPromise();
+      this.logger.debug(`Audit log emitted: ${data.action}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to emit audit log: ${error.message}`);
+    }
+  }
 
   async createUser(createUserDto: CreateUserDto): Promise<any> {
     try {
@@ -34,9 +63,36 @@ export class UserService {
         plan: 'free', // Default to free plan
         isSubscribed: false,
       });
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for user creation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_CREATED',
+        userId: savedUser._id.toString(),
+        resourceId: savedUser._id.toString(),
+        resourceType: 'user',
+        details: JSON.stringify({ email: createUserDto.email, role: createUserDto.role || 'SELLER' }),
+        status: 'success',
+        method: 'POST',
+        path: '/users',
+      });
+      
+      return savedUser;
     } catch (error) {
       this.logger.error(`CreateUser error: ${error.message}`, error.stack);
+      
+      // Audit log for failed user creation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_CREATION_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ email: createUserDto.email, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/users',
+      });
+      
       throw error;
     }
   }
@@ -55,9 +111,36 @@ export class UserService {
         plan: 'free',
         isSubscribed: false,
       });
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for admin user creation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ADMIN_USER_CREATED',
+        userId: savedUser._id.toString(),
+        resourceId: savedUser._id.toString(),
+        resourceType: 'user',
+        details: JSON.stringify({ email: createUserDto.email, role: 'ADMIN' }),
+        status: 'success',
+        method: 'POST',
+        path: '/users/admin',
+      });
+      
+      return savedUser;
     } catch (error) {
       this.logger.error(`CreateAdminUser error: ${error.message}`, error.stack);
+      
+      // Audit log for failed admin user creation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ADMIN_USER_CREATION_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ email: createUserDto.email, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/users/admin',
+      });
+      
       throw error;
     }
   }
@@ -120,16 +203,54 @@ try {
         throw new NotFoundException('User not found');
       }
 
+      const updatedFields: string[] = [];
       if (updateUserDto.password) {
         user.password = await bcrypt.hash(updateUserDto.password, 10);
+        updatedFields.push('password');
       }
-      if (updateUserDto.name) user.name = updateUserDto.name;
-      if (updateUserDto.preferredLanguage) user.preferredLanguage = updateUserDto.preferredLanguage;
-      if (updateUserDto.preferredCurrency) user.preferredCurrency = updateUserDto.preferredCurrency;
+      if (updateUserDto.name) {
+        user.name = updateUserDto.name;
+        updatedFields.push('name');
+      }
+      if (updateUserDto.preferredLanguage) {
+        user.preferredLanguage = updateUserDto.preferredLanguage;
+        updatedFields.push('preferredLanguage');
+      }
+      if (updateUserDto.preferredCurrency) {
+        user.preferredCurrency = updateUserDto.preferredCurrency;
+        updatedFields.push('preferredCurrency');
+      }
 
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for user update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_UPDATED',
+        userId: user._id.toString(),
+        resourceId: user._id.toString(),
+        resourceType: 'user',
+        details: JSON.stringify({ email: updateUserDto.email, updatedFields }),
+        status: 'success',
+        method: 'PUT',
+        path: '/users',
+      });
+      
+      return savedUser;
     } catch (error) {
       this.logger.error(`UpdateUser error: ${error.message}`, error.stack);
+      
+      // Audit log for failed user update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_UPDATE_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ email: updateUserDto.email, error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/users',
+      });
+      
       throw error;
     }
   }
@@ -140,9 +261,35 @@ try {
       if (!user) {
         throw new NotFoundException('User not found');
       }
+      const userId = user._id.toString();
       await this.userModel.deleteOne({ email }).exec();
+      
+      // Audit log for user deletion
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_DELETED',
+        userId: userId,
+        resourceId: userId,
+        resourceType: 'user',
+        details: JSON.stringify({ email }),
+        status: 'success',
+        method: 'DELETE',
+        path: '/users',
+      });
     } catch (error) {
       this.logger.error(`DeleteUser error: ${error.message}`, error.stack);
+      
+      // Audit log for failed user deletion
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'USER_DELETION_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ email, error: error.message }),
+        status: 'error',
+        method: 'DELETE',
+        path: '/users',
+      });
+      
       throw error;
     }
   }
@@ -155,15 +302,59 @@ try {
         throw new NotFoundException('User not found');
       }
 
-      if (updateProfileDto.name) user.name = updateProfileDto.name;
-      if (updateProfileDto.bio) user.bio = updateProfileDto.bio;
-      if (updateProfileDto.profileImage) user.profileImage = updateProfileDto.profileImage;
-      if (updateProfileDto.preferredLanguage) user.preferredLanguage = updateProfileDto.preferredLanguage;
-      if (updateProfileDto.preferredCurrency) user.preferredCurrency = updateProfileDto.preferredCurrency;
+      const updatedFields: string[] = [];
+      if (updateProfileDto.name) {
+        user.name = updateProfileDto.name;
+        updatedFields.push('name');
+      }
+      if (updateProfileDto.bio) {
+        user.bio = updateProfileDto.bio;
+        updatedFields.push('bio');
+      }
+      if (updateProfileDto.profileImage) {
+        user.profileImage = updateProfileDto.profileImage;
+        updatedFields.push('profileImage');
+      }
+      if (updateProfileDto.preferredLanguage) {
+        user.preferredLanguage = updateProfileDto.preferredLanguage;
+        updatedFields.push('preferredLanguage');
+      }
+      if (updateProfileDto.preferredCurrency) {
+        user.preferredCurrency = updateProfileDto.preferredCurrency;
+        updatedFields.push('preferredCurrency');
+      }
 
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for profile update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'PROFILE_UPDATED',
+        userId: updateProfileDto.userId,
+        resourceId: updateProfileDto.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ updatedFields }),
+        status: 'success',
+        method: 'PUT',
+        path: '/users/profile',
+      });
+
+      return savedUser;
     } catch (error) {
       this.logger.error(`UpdateProfile error: ${error.message}`, error.stack);
+      
+      // Audit log for failed profile update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'PROFILE_UPDATE_FAILED',
+        userId: updateProfileDto.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/users/profile',
+      });
+      
       throw error;
     }
   }
@@ -177,18 +368,71 @@ try {
         throw new NotFoundException('User not found');
       }
 
-      if (data.name) user.name = data.name;
-      if (data.residentialAddress !== undefined) user.residentialAddress = data.residentialAddress;
-      if (data.gender !== undefined) user.gender = data.gender;
-      if (data.emergencyContactName !== undefined) user.emergencyContactName = data.emergencyContactName;
-      if (data.emergencyContactNumber !== undefined) user.emergencyContactNumber = data.emergencyContactNumber;
-      if (data.emergencyContactAddress !== undefined) user.emergencyContactAddress = data.emergencyContactAddress;
-      if (data.bloodType !== undefined) user.bloodType = data.bloodType;
-      if (data.allergies !== undefined) user.allergies = data.allergies;
+      const updatedFields: string[] = [];
+      if (data.name) {
+        user.name = data.name;
+        updatedFields.push('name');
+      }
+      if (data.residentialAddress !== undefined) {
+        user.residentialAddress = data.residentialAddress;
+        updatedFields.push('residentialAddress');
+      }
+      if (data.gender !== undefined) {
+        user.gender = data.gender;
+        updatedFields.push('gender');
+      }
+      if (data.emergencyContactName !== undefined) {
+        user.emergencyContactName = data.emergencyContactName;
+        updatedFields.push('emergencyContactName');
+      }
+      if (data.emergencyContactNumber !== undefined) {
+        user.emergencyContactNumber = data.emergencyContactNumber;
+        updatedFields.push('emergencyContactNumber');
+      }
+      if (data.emergencyContactAddress !== undefined) {
+        user.emergencyContactAddress = data.emergencyContactAddress;
+        updatedFields.push('emergencyContactAddress');
+      }
+      if (data.bloodType !== undefined) {
+        user.bloodType = data.bloodType;
+        updatedFields.push('bloodType');
+      }
+      if (data.allergies !== undefined) {
+        user.allergies = data.allergies;
+        updatedFields.push('allergies');
+      }
 
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for personal details update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'PERSONAL_DETAILS_UPDATED',
+        userId: data.userId,
+        resourceId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ updatedFields }),
+        status: 'success',
+        method: 'PUT',
+        path: '/users/personal-details',
+      });
+
+      return savedUser;
     } catch (error) {
       this.logger.error(`UpdatePersonalDetails error: ${error.message}`, error.stack);
+      
+      // Audit log for failed personal details update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'PERSONAL_DETAILS_UPDATE_FAILED',
+        userId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/users/personal-details',
+      });
+      
       throw error;
     }
   }
@@ -201,14 +445,55 @@ try {
         throw new NotFoundException('User not found');
       }
 
-      if (data.email) user.email = data.email;
-      if (data.twoFactorEnabled !== undefined) user.twoFactorEnabled = data.twoFactorEnabled;
-      if (data.linkedAccounts) user.linkedAccounts = { ...user.linkedAccounts, ...data.linkedAccounts };
-      if (data.profileVisibility !== undefined) user.profileVisibility = data.profileVisibility;
+      const updatedFields: string[] = [];
+      if (data.email) {
+        user.email = data.email;
+        updatedFields.push('email');
+      }
+      if (data.twoFactorEnabled !== undefined) {
+        user.twoFactorEnabled = data.twoFactorEnabled;
+        updatedFields.push('twoFactorEnabled');
+      }
+      if (data.linkedAccounts) {
+        user.linkedAccounts = { ...user.linkedAccounts, ...data.linkedAccounts };
+        updatedFields.push('linkedAccounts');
+      }
+      if (data.profileVisibility !== undefined) {
+        user.profileVisibility = data.profileVisibility;
+        updatedFields.push('profileVisibility');
+      }
 
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for account settings update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_SETTINGS_UPDATED',
+        userId: data.userId,
+        resourceId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ updatedFields }),
+        status: 'success',
+        method: 'PUT',
+        path: '/users/account-settings',
+      });
+
+      return savedUser;
     } catch (error) {
       this.logger.error(`UpdateAccountSettings error: ${error.message}`, error.stack);
+      
+      // Audit log for failed account settings update
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_SETTINGS_UPDATE_FAILED',
+        userId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/users/account-settings',
+      });
+      
       throw error;
     }
   }
@@ -221,9 +506,37 @@ try {
         throw new NotFoundException('User not found');
       }
       user.isDeactivated = true;
-      return await user.save();
+      const savedUser = await user.save();
+      
+      // Audit log for account deactivation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_DEACTIVATED',
+        userId: data.userId,
+        resourceId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ email: user.email }),
+        status: 'success',
+        method: 'POST',
+        path: '/users/deactivate',
+      });
+
+      return savedUser;
     } catch (error) {
       this.logger.error(`DeactivateAccount error: ${error.message}`, error.stack);
+      
+      // Audit log for failed account deactivation
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_DEACTIVATION_FAILED',
+        userId: data.userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/users/deactivate',
+      });
+      
       throw error;
     }
   }
@@ -231,9 +544,38 @@ try {
   // New: Delete Account (soft delete or hard)
   async deleteAccount(userId: string): Promise<void> {
     try {
+      const user = await this.userModel.findById(userId).exec();
+      const email = user?.email;
+      
       await this.userModel.findByIdAndDelete(userId).exec();
+      
+      // Audit log for account deletion
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_DELETED',
+        userId: userId,
+        resourceId: userId,
+        resourceType: 'user',
+        details: JSON.stringify({ email }),
+        status: 'success',
+        method: 'DELETE',
+        path: '/users/account',
+      });
     } catch (error) {
       this.logger.error(`DeleteAccount error: ${error.message}`, error.stack);
+      
+      // Audit log for failed account deletion
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'ACCOUNT_DELETION_FAILED',
+        userId: userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'DELETE',
+        path: '/users/account',
+      });
+      
       throw error;
     }
   }
@@ -279,9 +621,35 @@ try {
         metadata: { userId, plan },
       });
 
+      // Audit log for subscription checkout initiated
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'SUBSCRIPTION_CHECKOUT_INITIATED',
+        userId: userId,
+        resourceId: userId,
+        resourceType: 'subscription',
+        details: JSON.stringify({ plan, sessionId: session.id }),
+        status: 'success',
+        method: 'POST',
+        path: '/users/subscription',
+      });
+
       return { url: session.url };
     } catch (error) {
       this.logger.error(`CreateSubscription error: ${error.message}`, error.stack);
+      
+      // Audit log for failed subscription checkout
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'SUBSCRIPTION_CHECKOUT_FAILED',
+        userId: data.userId,
+        resourceType: 'subscription',
+        details: JSON.stringify({ plan: data.plan, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/users/subscription',
+      });
+      
       throw error;
     }
   }
@@ -327,22 +695,50 @@ try {
           user.subscriptionEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Example
           await user.save();
           this.logger.log(`Subscription activated for user: ${userId}, plan: ${plan}`);
+          
+          // Audit log for subscription activated
+          await this.emitAuditLog({
+            serviceName: 'user-service',
+            action: 'SUBSCRIPTION_ACTIVATED',
+            userId: userId,
+            resourceId: userId,
+            resourceType: 'subscription',
+            details: JSON.stringify({ plan, subscriptionId: session.subscription }),
+            status: 'success',
+            method: 'WEBHOOK',
+            path: '/webhook/stripe',
+          });
         }
       } else if (event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object;
         const user = await this.userModel.findOne({ subscriptionId: subscription.id }).exec();
         if (user) {
+          const previousPlan = user.plan;
           user.plan = 'free';
           user.isSubscribed = false;
           user.subscriptionId = null;
           user.subscriptionEndDate = null;
           await user.save();
           this.logger.log(`Subscription cancelled for user: ${user._id}`);
+          
+          // Audit log for subscription cancelled
+          await this.emitAuditLog({
+            serviceName: 'user-service',
+            action: 'SUBSCRIPTION_CANCELLED',
+            userId: user._id.toString(),
+            resourceId: user._id.toString(),
+            resourceType: 'subscription',
+            details: JSON.stringify({ previousPlan, subscriptionId: subscription.id }),
+            status: 'success',
+            method: 'WEBHOOK',
+            path: '/webhook/stripe',
+          });
         }
       } else if (event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
         const user = await this.userModel.findOne({ subscriptionId: subscription.id }).exec();
         if (user) {
+          const previousPlan = user.plan;
           user.plan = subscription.items.data[0].price.metadata.plan || user.plan;
           user.isSubscribed = subscription.status === 'active';
           if (subscription.current_period_end) {
@@ -350,10 +746,35 @@ try {
           }
           await user.save();
           this.logger.log(`Subscription updated for user: ${user._id}, status: ${subscription.status}`);
+          
+          // Audit log for subscription updated
+          await this.emitAuditLog({
+            serviceName: 'user-service',
+            action: 'SUBSCRIPTION_UPDATED',
+            userId: user._id.toString(),
+            resourceId: user._id.toString(),
+            resourceType: 'subscription',
+            details: JSON.stringify({ previousPlan, newPlan: user.plan, status: subscription.status }),
+            status: 'success',
+            method: 'WEBHOOK',
+            path: '/webhook/stripe',
+          });
         }
       }
     } catch (error: any) {
       this.logger.error(`Webhook error: ${error.message}`, error.stack);
+      
+      // Audit log for webhook error
+      await this.emitAuditLog({
+        serviceName: 'user-service',
+        action: 'WEBHOOK_PROCESSING_FAILED',
+        resourceType: 'subscription',
+        details: JSON.stringify({ eventType: event?.type, error: error.message }),
+        status: 'error',
+        method: 'WEBHOOK',
+        path: '/webhook/stripe',
+      });
+      
       throw new BadRequestException('Webhook handling failed');
     }
   }

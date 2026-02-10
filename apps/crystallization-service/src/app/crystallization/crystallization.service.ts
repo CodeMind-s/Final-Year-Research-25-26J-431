@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import type { ClientGrpc } from '@nestjs/microservices';
+import type { ClientGrpc, ClientKafka } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
@@ -34,25 +34,51 @@ interface PredictionRequest {
   current_values: CurrentValues;
 }
 
-interface PredictionsMLService {
+interface PredictionsONNXService {
   GetPredictions(data: PredictionRequest): Observable<any>;
 }
 
 @Injectable()
 export class CrystallizationService implements OnModuleInit {
-  private predictionsMLService: PredictionsMLService;
+  private predictionsONNXService: PredictionsONNXService;
 
   constructor(
     @InjectModel(DailyMeasurement.name) private dailyMeasurementModel: Model<DailyMeasurement>,
     @InjectModel(DailyParameterPrediction.name) private dailyParameterPredictionModel: Model<DailyParameterPrediction>,
     @InjectModel(MonthlyProductionPrediction.name) private monthlyProductionPredictionModel: Model<MonthlyProductionPrediction>,
     @InjectModel(CrystallizationModelPerformance.name) private crystallizationModelPerformanceModel: Model<CrystallizationModelPerformance>,
-    @Inject('PREDICTIONS_PACKAGE') private mlClient: ClientGrpc,
+    @Inject('PREDICTIONS_PACKAGE') private onnxClient: ClientGrpc,
+    @Inject('AUDIT_LOG_SERVICE') private auditLogClient: ClientKafka,
     private configService: ConfigService,
   ) { }
 
-  onModuleInit() {
-    this.predictionsMLService = this.mlClient.getService<PredictionsMLService>('PredictionsService');
+  async onModuleInit() {
+    this.predictionsONNXService = this.onnxClient.getService<PredictionsONNXService>('PredictionsService');
+    await this.auditLogClient.connect();
+  }
+
+  /**
+   * Helper method to emit audit logs via Kafka
+   */
+  private async emitAuditLog(data: {
+    serviceName: string;
+    action: string;
+    userId?: string;
+    resourceId?: string;
+    resourceType: string;
+    details?: string;
+    status: 'success' | 'error';
+    method?: string;
+    path?: string;
+  }): Promise<void> {
+    try {
+      this.auditLogClient.emit('create_audit_log', {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Failed to emit audit log:', error);
+    }
   }
 
   /**
@@ -121,11 +147,11 @@ export class CrystallizationService implements OnModuleInit {
         },
       };
 
-      console.log('Crystallization Service: Forwarding prediction request to ML service');
+      console.log('Crystallization Service: Forwarding prediction request to ONNX service');
       const result = await firstValueFrom(
-        this.predictionsMLService.GetPredictions(payload)
+        this.predictionsONNXService.GetPredictions(payload)
       );
-      console.log('Crystallization Service: Received predictions from ML service');
+      console.log('Crystallization Service: Received predictions from ONNX service');
       console.log('Response keys:', Object.keys(result));
 
       // Save model performance metrics to database
@@ -333,12 +359,36 @@ export class CrystallizationService implements OnModuleInit {
         },
       };
 
+      // Audit log for daily measurement creation
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_CREATED',
+        resourceId: result._id?.toString(),
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ date: data.date }),
+        status: 'success',
+        method: 'POST',
+        path: '/crystallization/daily-measurements',
+      });
+
       console.log('=== SERVICE RETURNING ===');
       console.log(JSON.stringify(response, null, 2));
 
       return response;
     } catch (error) {
       console.error('Error creating daily measurement:', error);
+      
+      // Audit log for failed daily measurement creation
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_CREATION_FAILED',
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ date: data?.date, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/crystallization/daily-measurements',
+      });
+
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -524,9 +574,34 @@ export class CrystallizationService implements OnModuleInit {
       console.log('=== SERVICE RETURNING ===');
       console.log(JSON.stringify(response, null, 2));
 
+      // Audit log for daily measurement update
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_UPDATED',
+        resourceId: id,
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ updatedFields: Object.keys(parametersUpdate) }),
+        status: 'success',
+        method: 'PUT',
+        path: '/crystallization/daily-measurements',
+      });
+
       return response;
     } catch (error) {
       console.error('Error updating daily measurement:', error);
+      
+      // Audit log for failed daily measurement update
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_UPDATE_FAILED',
+        resourceId: data.id,
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/crystallization/daily-measurements',
+      });
+
       throw new BadRequestException(`Failed to update daily measurement: ${error.message}`);
     }
   }
@@ -547,12 +622,37 @@ export class CrystallizationService implements OnModuleInit {
 
       console.log('Daily measurement deleted successfully');
 
+      // Audit log for daily measurement deletion
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_DELETED',
+        resourceId: data.id,
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ date: dailyMeasurement.date }),
+        status: 'success',
+        method: 'DELETE',
+        path: '/crystallization/daily-measurements',
+      });
+
       return {
         success: true,
         message: 'Daily Measurement deleted successfully',
       };
     } catch (error) {
       console.error('Error deleting daily measurement:', error);
+      
+      // Audit log for failed daily measurement deletion
+      await this.emitAuditLog({
+        serviceName: 'crystallization-service',
+        action: 'DAILY_MEASUREMENT_DELETION_FAILED',
+        resourceId: data.id,
+        resourceType: 'daily_measurement',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'DELETE',
+        path: '/crystallization/daily-measurements',
+      });
+
       throw new BadRequestException(`Failed to delete daily measurement: ${error.message}`);
     }
   }

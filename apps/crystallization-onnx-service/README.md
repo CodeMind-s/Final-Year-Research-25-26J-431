@@ -1,11 +1,11 @@
 # Crystallization ONNX Service
 
-This service provides ML predictions for salt crystallization using ONNX Runtime instead of TensorFlow/Python.
+This service provides ML predictions for salt crystallization using ONNX Runtime.
 
 ## Overview
 
 This is a Node.js/NestJS implementation of the crystallization ML service that uses ONNX Runtime for inference.
-It provides the exact same gRPC interface as the Python-based `crystallization-ml-service` but without requiring Python.
+It provides gRPC interface for crystallization predictions without requiring Python or TensorFlow.
 
 ## Benefits
 
@@ -19,80 +19,28 @@ It provides the exact same gRPC interface as the Python-based `crystallization-m
 
 ## Setup
 
-### Step 1: Convert the Keras Model to ONNX
-
-The conversion requires specific package versions due to NumPy 2.x compatibility issues.
-
-#### Option A: Using Docker (Recommended)
-
-```bash
-cd apps/crystallization-ml-service
-
-docker run -it --rm \
-  -v ${PWD}:/app \
-  -w /app \
-  tensorflow/tensorflow:2.15.0 \
-  bash -c "pip install tf2onnx onnx --quiet && python scripts/convert_to_onnx.py"
-```
-
-#### Option B: Using a Virtual Environment
-
-```bash
-cd apps/crystallization-ml-service
-
-# Create isolated environment
-python -m venv onnx_convert_env
-
-# Activate (Windows)
-onnx_convert_env\Scripts\activate
-
-# Activate (Linux/Mac)
-source onnx_convert_env/bin/activate
-
-# Install compatible versions
-pip install tensorflow==2.15.0 tf2onnx==1.15.1 onnx==1.14.1 numpy==1.24.3 protobuf==3.20.3
-
-# Run conversion
-python scripts/convert_to_onnx.py
-
-# Deactivate
-deactivate
-```
-
-### Step 2: Copy the ONNX Model
-
-```bash
-# Windows
-copy apps\crystallization-ml-service\models\crystallization_model.onnx apps\crystallization-onnx-service\models\
-
-# Linux/Mac
-cp apps/crystallization-ml-service/models/crystallization_model.onnx apps/crystallization-onnx-service/models/
-```
-
-### Step 3: Install Dependencies
+### Step 1: Install Dependencies
 
 ```bash
 npm install
 ```
 
-### Step 4: Run the Service
+### Step 2: Ensure ONNX Model is Present
+
+The ONNX model should be in the `models/` directory:
+- `models/crystallization_model.onnx`
+- `models/feature_scaler.json`
+- `models/target_scaler.json`
+
+### Step 3: Run the Service
 
 ```bash
 # Run just this service
-npx nx serve @brinex-server/crystallization-onnx-service
+npx nx serve crystallization-onnx-service
 
 # Or run with all services
 npx nx run-many -t serve --all
 ```
-
-## Switching from Python to ONNX Service
-
-To switch from the Python service to this ONNX service:
-
-1. Complete the model conversion above
-2. Stop the Python `crystallization-ml-service`
-3. Start the ONNX service (it uses the same port 50055)
-4. No changes needed in clients - the gRPC interface is identical
 
 ## gRPC Interface
 

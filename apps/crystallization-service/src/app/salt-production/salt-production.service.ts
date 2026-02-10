@@ -1,9 +1,12 @@
 import {
   Injectable,
   BadRequestException,
+  Inject,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import type { ClientKafka } from '@nestjs/microservices';
 import { ActualMonthlyProduction } from './schemas/actual-monthly-production.schema';
 import type {
   CreateActualMonthlyProductionDto,
@@ -21,11 +24,40 @@ import type {
 } from './dtos/salt-production.dto';
 
 @Injectable()
-export class SaltProductionService {
+export class SaltProductionService implements OnModuleInit {
   constructor(
     @InjectModel(ActualMonthlyProduction.name)
     private actualMonthlyProductionModel: Model<ActualMonthlyProduction>,
+    @Inject('AUDIT_LOG_SERVICE') private auditLogClient: ClientKafka,
   ) {}
+
+  async onModuleInit() {
+    await this.auditLogClient.connect();
+  }
+
+  /**
+   * Helper method to emit audit logs via Kafka
+   */
+  private async emitAuditLog(data: {
+    serviceName: string;
+    action: string;
+    userId?: string;
+    resourceId?: string;
+    resourceType: string;
+    details?: string;
+    status: 'success' | 'error';
+    method?: string;
+    path?: string;
+  }): Promise<void> {
+    try {
+      this.auditLogClient.emit('create_audit_log', {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Failed to emit audit log:', error);
+    }
+  }
 
   async CreateActualMonthlyProduction(
     data: CreateActualMonthlyProductionDto
@@ -46,6 +78,18 @@ export class SaltProductionService {
 
       const plainResult = result.toObject();
 
+      // Audit log for production creation
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_CREATED',
+        resourceId: plainResult._id?.toString(),
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ month: data.month, production_volume: data.production_volume }),
+        status: 'success',
+        method: 'POST',
+        path: '/salt-production/actual-monthly',
+      });
+
       return {
         success: true,
         message: 'Actual monthly production created/updated successfully',
@@ -60,6 +104,18 @@ export class SaltProductionService {
       };
     } catch (error) {
       console.error('Error creating actual monthly production:', error);
+      
+      // Audit log for failed production creation
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_CREATION_FAILED',
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ month: data?.month, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/salt-production/actual-monthly',
+      });
+
       throw new BadRequestException(
         `Failed to create actual monthly production: ${error.message}`
       );
@@ -211,11 +267,14 @@ export class SaltProductionService {
       console.log('Updating actual monthly production with ID:', data.id);
 
       const updateData: any = {};
+      const updatedFields: string[] = [];
       if (data.production_volume !== undefined) {
         updateData.production_volume = data.production_volume;
+        updatedFields.push('production_volume');
       }
       if (data.season !== undefined) {
         updateData.season = data.season;
+        updatedFields.push('season');
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -243,6 +302,18 @@ export class SaltProductionService {
 
       const plainProduction = production.toObject();
 
+      // Audit log for production update
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_UPDATED',
+        resourceId: data.id,
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ updatedFields }),
+        status: 'success',
+        method: 'PUT',
+        path: '/salt-production/actual-monthly',
+      });
+
       return {
         success: true,
         message: 'Actual monthly production updated successfully',
@@ -257,6 +328,19 @@ export class SaltProductionService {
       };
     } catch (error) {
       console.error('Error updating actual monthly production:', error);
+      
+      // Audit log for failed production update
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_UPDATE_FAILED',
+        resourceId: data.id,
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/salt-production/actual-monthly',
+      });
+
       throw new BadRequestException(
         `Failed to update actual monthly production: ${error.message}`
       );
@@ -281,12 +365,37 @@ export class SaltProductionService {
 
       console.log('Actual monthly production deleted successfully');
 
+      // Audit log for production deletion
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_DELETED',
+        resourceId: data.id,
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ month: production.month }),
+        status: 'success',
+        method: 'DELETE',
+        path: '/salt-production/actual-monthly',
+      });
+
       return {
         success: true,
         message: 'Actual monthly production deleted successfully',
       };
     } catch (error) {
       console.error('Error deleting actual monthly production:', error);
+      
+      // Audit log for failed production deletion
+      await this.emitAuditLog({
+        serviceName: 'salt-production-service',
+        action: 'MONTHLY_PRODUCTION_DELETION_FAILED',
+        resourceId: data.id,
+        resourceType: 'monthly_production',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'DELETE',
+        path: '/salt-production/actual-monthly',
+      });
+
       throw new BadRequestException(
         `Failed to delete actual monthly production: ${error.message}`
       );

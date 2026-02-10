@@ -22,7 +22,7 @@ import { SubscriptionGuard } from '../auth/guards/subscription.guard';
           options: {
             package: 'user',
             protoPath: join(__dirname, 'proto/user.proto'),
-            url: 'localhost:50053', // Matches recommendation service port
+            url: process.env.USER_SERVICE_URL || 'localhost:50053',
           },
         },
         {
@@ -30,8 +30,8 @@ import { SubscriptionGuard } from '../auth/guards/subscription.guard';
         transport: Transport.GRPC,
         options: {
           package: 'auth',
-          protoPath: join(__dirname, 'proto/auth.proto'), // Adjust if auth is in sibling dir (e.g., ../../ for Nx)
-          url: 'localhost:50000', // Auth service port
+          protoPath: join(__dirname, 'proto/auth.proto'),
+          url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
         },
       },
       ]),
