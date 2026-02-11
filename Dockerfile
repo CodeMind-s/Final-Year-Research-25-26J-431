@@ -1,26 +1,48 @@
 # Multi-stage Dockerfile for NestJS microservices
 # Usage: docker build --build-arg SERVICE_NAME=api-gateway -t api-gateway .
 
-FROM node:20-alpine AS builder
+# ============================================================
+# Stage 1: Install dependencies (CACHED unless package.json changes)
+# ============================================================
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install build dependencies
+# Install native build dependencies
 RUN apk add --no-cache python3 make g++
 
-# Copy package files
+# Copy ONLY package files first — this layer is cached until dependencies change
 COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig*.json ./
 
-# Copy workspace package files
+# Copy workspace-level package.json files (for Nx workspace resolution)
+# Using a find-and-copy approach to only grab package.json files, not source
+COPY apps/api-gateway/package.json ./apps/api-gateway/
+COPY apps/auth-service/package.json ./apps/auth-service/
+COPY apps/audit-log-service/package.json ./apps/audit-log-service/
+COPY apps/crystallization-service/package.json ./apps/crystallization-service/
+COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-service/
+COPY apps/email-service/package.json ./apps/email-service/
+COPY apps/user-service/package.json ./apps/user-service/
+
+# Install all dependencies — this layer is CACHED when only source.json files change
+# --mount=type=cache persists npm download cache across Docker builds for faster installs
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --legacy-peer-deps
+
+# ============================================================
+# Stage 2: Build the specific service
+# ============================================================
+FROM deps AS builder
+
+WORKDIR /app
+
+# NOW copy source code (this layer changes often, but npm install above is cached)
 COPY apps/ ./apps/
 COPY packages/ ./packages/
 COPY proto/ ./proto/
 COPY types/ ./types/
-
-# Install all dependencies
-RUN npm install --legacy-peer-deps
 
 # Build argument for service name
 ARG SERVICE_NAME
@@ -29,25 +51,26 @@ ENV SERVICE_NAME=${SERVICE_NAME}
 # Build the specific service
 RUN npx nx build ${SERVICE_NAME} --configuration=production
 
-# Production stage
+# ============================================================
+# Stage 3: Production image (minimal — only prod dependencies)
+# ============================================================
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install production dependencies only
 RUN apk add --no-cache dumb-init
 
-# Build argument for service name
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 ENV NODE_ENV=production
 
-# Copy built application (includes proto files copied by webpack)
+# Copy built application (Nx generates a package.json with only needed deps)
 COPY --from=builder /app/dist/apps/${SERVICE_NAME} ./dist/
-COPY --from=builder /app/node_modules ./node_modules/
 
-# Use dumb-init to handle signals properly
+# Install ONLY production dependencies from the Nx-generated package.json
+# This is much smaller than copying the full monorepo node_modules (~500MB)
+RUN --mount=type=cache,target=/root/.npm \
+    cd dist && npm install --omit=dev --legacy-peer-deps && cd ..
+
 ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
 CMD ["node", "dist/main.js"]

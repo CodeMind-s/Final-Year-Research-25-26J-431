@@ -3,7 +3,10 @@
 # NOTE: Using node:20-slim (Debian-based) instead of Alpine because ONNX Runtime
 # requires glibc which is not available in Alpine (uses musl libc)
 
-FROM node:20-slim AS builder
+# ============================================================
+# Stage 1: Install dependencies (CACHED unless package.json changes)
+# ============================================================
+FROM node:20-slim AS deps
 
 WORKDIR /app
 
@@ -14,24 +17,44 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files from root
+# Copy ONLY package files first — this layer is cached until dependencies change
 COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig*.json ./
 
-# Copy workspace files
+# Copy workspace-level package.json files
+COPY apps/api-gateway/package.json ./apps/api-gateway/
+COPY apps/auth-service/package.json ./apps/auth-service/
+COPY apps/audit-log-service/package.json ./apps/audit-log-service/
+COPY apps/crystallization-service/package.json ./apps/crystallization-service/
+COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-service/
+COPY apps/email-service/package.json ./apps/email-service/
+COPY apps/user-service/package.json ./apps/user-service/
+
+# Install all dependencies — CACHED when only source code changes
+# --mount=type=cache persists npm download cache across Docker builds
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --legacy-peer-deps
+
+# ============================================================
+# Stage 2: Build the service
+# ============================================================
+FROM deps AS builder
+
+WORKDIR /app
+
+# NOW copy source code
 COPY apps/ ./apps/
 COPY packages/ ./packages/
 COPY proto/ ./proto/
 COPY types/ ./types/
 
-# Install all dependencies
-RUN npm install --legacy-peer-deps
-
 # Build the crystallization-onnx-service
 RUN npx nx build crystallization-onnx-service --configuration=production
 
-# Production stage - using slim (Debian-based) for glibc compatibility
+# ============================================================
+# Stage 3: Production image (minimal — only prod dependencies)
+# ============================================================
 FROM node:20-slim AS production
 
 WORKDIR /app
@@ -43,15 +66,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV NODE_ENV=production
 
-# Copy built application (includes proto files copied by webpack)
+# Copy built application (Nx generates package.json with only needed deps)
 COPY --from=builder /app/dist/apps/crystallization-onnx-service ./dist/
-COPY --from=builder /app/node_modules ./node_modules/
+
+# Install ONLY production dependencies from the Nx-generated package.json
+RUN --mount=type=cache,target=/root/.npm \
+    cd dist && npm install --omit=dev --legacy-peer-deps && cd ..
 
 # Create models directory (will be mounted as volume)
 RUN mkdir -p /app/models
 
-# Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
 CMD ["node", "dist/main.js"]

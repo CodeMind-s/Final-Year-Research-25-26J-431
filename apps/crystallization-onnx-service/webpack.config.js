@@ -41,6 +41,7 @@ module.exports = {
         {
           from: join(__dirname, 'models'),
           to: join(__dirname, '../../dist/apps/crystallization-onnx-service/models'),
+          noErrorOnMissing: true,
         },
       ],
     }),

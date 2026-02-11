@@ -22,7 +22,7 @@ out-tsc/
 *.log
 logs/
 
-# Python (not needed anymore)
+# Python virtual environments & artifacts (large, not needed for Node builds)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -31,12 +31,29 @@ __pycache__/
 *.egg
 venv/
 env/
+**/convert_env/
+**/final_env/
+**/*.whl
+
+# ML models & heavy binary files (not needed for most services)
+apps/crystallization-onnx-service/models/
+**/*.keras
+**/*.onnx
+**/*.h5
+**/*.pb
+**/*.pt
+**/*.pth
+**/*.bin
+
+# Environment files
 .env*
 !.env.example
 
 # Test
 coverage/
 .nyc_output/
+**/*.spec.ts
+**/*.test.ts
 
 # OS
 .DS_Store
@@ -50,3 +67,10 @@ temp/
 docs/
 *.md
 !README.md
+
+# Compass service (not in docker-compose)
+apps/compass-service/
+
+# Nx cache
+.nx/
+nx-cloud.env
