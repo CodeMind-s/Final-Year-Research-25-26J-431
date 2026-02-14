@@ -50,3 +50,6 @@ test-output
 
 package-lock.json
 yarn.lock
+
+.claude
+CLAUDE.md
