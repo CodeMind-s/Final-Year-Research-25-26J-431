@@ -1,9 +1,9 @@
 # docker-compose.yml
-version: '3.8'
 
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -19,6 +19,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -41,24 +42,154 @@ services:
       retries: 5
       start_period: 40s
 
-#   crystallization-ml-service:
-#     build:
-#       context: ./apps/crystallization-ml-service
-#       dockerfile: Dockerfile
-#     container_name: crystallization-ml-service
-#     ports:
-#       - "50055:50055"
-#     networks:
-#       - app-network
-#     environment:
-#       - PYTHONUNBUFFERED=1
-#     volumes:
-#       - ./apps/crystallization-ml-service/models:/app/models
-#     healthcheck:
-#       test: [ "CMD", "python", "-c", "import grpc; channel = grpc.insecure_channel('localhost:50055'); channel.close()" ]
-#       interval: 30s
-#       timeout: 10s
-#       retries: 3
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+    container_name: auth-service
+    ports:
+      - "50000:50000"
+    environment:
+      - GRPC_URL=0.0.0.0:50000
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+      - NOTIFY_LK_USER_ID=${NOTIFY_LK_USER_ID}
+      - NOTIFY_LK_API_KEY=${NOTIFY_LK_API_KEY}
+      - NOTIFY_LK_SENDER_ID=${NOTIFY_LK_SENDER_ID}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: user-service
+    container_name: user-service
+    ports:
+      - "50053:50053"
+    environment:
+      - GRPC_URL=0.0.0.0:50053
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  crystallization-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: crystallization-service
+    container_name: crystallization-service
+    ports:
+      - "50054:50054"
+    environment:
+      - GRPC_URL=0.0.0.0:50054
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - ONNX_SERVICE_GRPC_URL=crystallization-onnx-service:50055
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      crystallization-onnx-service:
+        condition: service_started
+    restart: unless-stopped
+
+  crystallization-onnx-service:
+    build:
+      context: .
+      dockerfile: apps/crystallization-onnx-service/Dockerfile
+    container_name: crystallization-onnx-service
+    ports:
+      - "50055:50055"
+    environment:
+      - GRPC_URL=0.0.0.0:50055
+    networks:
+      - app-network
+    volumes:
+      - ./apps/crystallization-onnx-service/models:/app/models
+    restart: unless-stopped
+
+  audit-log-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: audit-log-service
+    container_name: audit-log-service
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  email-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: email-service
+    container_name: email-service
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api-gateway
+    container_name: api-gateway
+    ports:
+      - "3400:3400"
+    environment:
+      - PORT=3400
+      - JWT_SECRET=${JWT_SECRET}
+      - KAFKA_BROKER=kafka:9092
+      - AUTH_SERVICE_URL=auth-service:50000
+      - USER_SERVICE_URL=user-service:50053
+      - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
+    networks:
+      - app-network
+    depends_on:
+      - auth-service
+      - user-service
+      - crystallization-service
+      - audit-log-service
+      - email-service
+    restart: unless-stopped
 
 networks:
   app-network:

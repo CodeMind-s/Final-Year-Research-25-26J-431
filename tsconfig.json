@@ -13,7 +13,7 @@
       "path": "./apps/user-service"
     },
     {
-      "path": "./apps/logs-service"
+      "path": "./apps/audit-log-service"
     },
     {
       "path": "./apps/crystallization-service"

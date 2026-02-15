@@ -1,5 +1,5 @@
 import { Body, Controller, Post, UseGuards, Inject, Get, Param, Req, Put, Delete, Query } from '@nestjs/common';
-import {  ClientGrpcProxy } from '@nestjs/microservices';
+import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiNotFoundResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -17,7 +17,7 @@ export class UserController {
   private userService: any;
   private readonly logger = new Logger(UserController.name);
 
-  
+
   constructor(@Inject('USER_PACKAGE') private client: ClientGrpcProxy) {
     this.userService = this.client.getService('UserService');
   }
@@ -123,7 +123,7 @@ export class UserController {
       };
 
       const result: any = await firstValueFrom(
-        this.userService.GetAllUsers( request ).pipe(
+        this.userService.GetAllUsers(request).pipe(
           catchError((error) => {
             this.logger.error(`GetAllUsers error: ${error.message}`, error.stack);
             if (error.code === 2 || error.code === 'INTERNAL') {

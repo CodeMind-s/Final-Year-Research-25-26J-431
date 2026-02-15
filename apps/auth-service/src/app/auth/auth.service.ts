@@ -4,43 +4,98 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
 import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto, CreateSubscriptionDto, PlanDto } from './dtos/auth.dto';
-import twilio from 'twilio';
+import axios from 'axios';
 import { ClientKafka } from '@nestjs/microservices';
-// import sgMail from '@twilio/email';
 import Stripe from 'stripe';
 import * as bcrypt from 'bcrypt';
 const otpStore = new Map<string, string>(); // In-memory OTP store (use Redis in production)
 
+interface AuditLogData {
+  serviceName: string;
+  action: string;
+  userId?: string;
+  resourceId?: string;
+  resourceType?: string;
+  details?: string;
+  status: 'success' | 'error' | 'warning';
+  method?: string;
+  path?: string;
+}
+
 @Injectable()
 export class AuthService {
-  private twilioClient: twilio.Twilio;
-  // private sgMailClient: sgMail.MailService;
   private readonly logger = new Logger(AuthService.name);
   private stripe: Stripe;
+  private readonly notifyLkConfig: {
+    userId: string;
+    apiKey: string;
+    senderId: string;
+    baseUrl: string;
+  };
 
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @Inject('EMAIL_SERVICE') private readonly emailClient: ClientKafka,
-
+    @Inject('AUDIT_LOG_SERVICE') private readonly auditLogClient: ClientKafka,
     private jwtService: JwtService,
   ) {
+    this.notifyLkConfig = {
+      userId: process.env.NOTIFY_LK_USER_ID || '',
+      apiKey: process.env.NOTIFY_LK_API_KEY || '',
+      senderId: process.env.NOTIFY_LK_SENDER_ID || 'NotifyDEMO',
+      baseUrl: 'https://app.notify.lk/api/v1',
+    };
+    if (!this.notifyLkConfig.userId || !this.notifyLkConfig.apiKey) {
+      this.logger.warn('Notify.lk credentials not configured. SMS sending will fail.');
+    }
+
+    if (process.env.STRIPE_SECRET_KEY) {
+      this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-10-29.clover' });
+    } else {
+      this.logger.warn('STRIPE_SECRET_KEY not configured. Subscription features will be unavailable.');
+    }
+  }
+
+  /**
+   * Sends an SMS via Notify.lk API
+   */
+  private async sendSmsViaNofityLk(to: string, message: string): Promise<any> {
+    // Notify.lk expects phone numbers in format 94XXXXXXXXX (no + prefix)
+    const formattedPhone = to.replace(/^\+/, '');
+    const response = await axios.post(`${this.notifyLkConfig.baseUrl}/send`, null, {
+      params: {
+        user_id: this.notifyLkConfig.userId,
+        api_key: this.notifyLkConfig.apiKey,
+        sender_id: this.notifyLkConfig.senderId,
+        to: formattedPhone,
+        message,
+      },
+    });
+    if (response.data?.status !== 'success') {
+      throw new Error(`Notify.lk SMS failed: ${JSON.stringify(response.data)}`);
+    }
+    return response.data;
+  }
+
+  /**
+   * Emits an audit log event to the audit-log-service via Kafka
+   */
+  private async emitAuditLog(data: AuditLogData): Promise<void> {
     try {
-      this.twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
-      this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-09-30.clover' });
-      //this.sgMailClient = sgMail(process.env.TWILIO_SENDGRID_API_KEY);
-    } catch (error:any) {
-      this.logger.error(`Failed to initialize Twilio clients: ${error.message}`);
-      throw new InternalServerErrorException('Service initialization failed');
+      await this.auditLogClient.emit('create_audit_log', {
+        ...data,
+        serviceName: 'auth-service',
+      }).toPromise();
+      this.logger.debug(`Audit log emitted: ${data.action}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to emit audit log: ${error.message}`);
     }
   }
 
   async signIn(dto: SignInDto): Promise<any> {
+    const identifier = dto.email || dto.phone;
     try {
       const { email, phone } = dto;
-      const identifier = email || phone;
       if (!identifier) throw new BadRequestException('Email or phone required');
 
       // Check if user exists (for logging, not blocking)
@@ -57,37 +112,63 @@ export class AuthService {
           code,
         }).toPromise();
         this.logger.log(`Email OTP request sent to email-service for ${emailRes}`);
-        // Send OTP via email using Twilio SendGrid
-        // await this.sgMailClient.send({
-        //   to: email,
-        //   from: 'no-reply@yourdomain.com', // Replace with verified SendGrid sender
-        //   subject: 'Your OTP Code',
-        //   text: `Your OTP code is ${code}. It is valid for 10 minutes.`,
-        // });
         this.logger.log(`Email OTP sent to ${email}`);
+        
+        // Audit log for successful OTP send
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'SIGN_IN_OTP_SENT',
+          userId: existingUser?._id?.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ email, method: 'email', isExistingUser: !!existingUser }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/sign-in',
+        });
+        
         return { success: emailRes ? true : false , user: email};
       } else if (phone) {
-        // Send OTP via SMS using Twilio
-        const message = await this.twilioClient.messages.create({
-          body: `Your OTP code is ${code}. It is valid for 10 minutes.`,
-          from: process.env.TWILIO_PHONE_NUMBER, // Verified Twilio number
-          to: phone,
+        // Send OTP via SMS using Notify.lk
+        const smsResult = await this.sendSmsViaNofityLk(
+          phone,
+          `Your Brinex verification code is ${code}. It is valid for 10 minutes.`,
+        );
+        this.logger.log(`SMS OTP sent to ${phone} via Notify.lk: ${JSON.stringify(smsResult)}`);
+        
+        // Audit log for successful OTP send via SMS
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'SIGN_IN_OTP_SENT',
+          userId: existingUser?._id?.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ phone, method: 'sms', isExistingUser: !!existingUser }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/sign-in',
         });
-        this.logger.log(`SMS OTP sent to ${phone}, SID: ${message.sid}`);
-        return { success: message ? true : false , user: phone};
+        
+        return { success: smsResult ? true : false , user: phone};
       } else {
         throw new BadRequestException('Must provide email or phone');
       }
-
-      // return { success: true , user: email? email : phone};
     } catch (error : any) {
       this.logger.error(`SignIn failed for ${dto.email || dto.phone}: ${error.message}`, error.stack);
-      if (error.code === 21608) { // Twilio invalid phone number
+      
+      // Audit log for failed sign-in
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'SIGN_IN_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ identifier, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/auth/sign-in',
+      });
+      
+      if (error.message?.includes('Invalid phone') || error.message?.includes('invalid number')) {
         throw new BadRequestException('Invalid phone number');
-      } else if (error.code === 30007) { // SendGrid invalid email
+      } else if (error.message?.includes('Invalid email')) {
         throw new BadRequestException('Invalid email address');
-      } else if (error.code >= 50000) { // Twilio/SendGrid server error
-        throw new InternalServerErrorException('Failed to send OTP due to service error');
       } else {
         throw new InternalServerErrorException('Failed to send OTP');
       }
@@ -95,9 +176,9 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<AuthResponseDto> {
+    const identifier = dto.email || dto.phone;
     try {
       const { email, phone, code } = dto;
-      const identifier = email || phone;
       if (!identifier) throw new BadRequestException('Email or phone required');
 
       const storedCode = otpStore.get(identifier);
@@ -106,15 +187,7 @@ export class AuthService {
       console.log("OTP verified for identifier: ", dto);
       const query = email ? { email } : { phone };
       let user = await this.userModel.findOne(query) as any | null;
-      //let user : any;
-      // if(email) {
-      //   user = await this.userModel.findOne({ email }).exec() ;
-      // }else{
-      //   user = await this.userModel.findOne({ phone }).exec() ;
-      // }
-      //let user = await this.userModel.findOne({ email }).exec() as any;
 
-      //let user = await this.userModel.findOne({ $or: [{ email: email }, { phone:phone }] }).exec() as any | null;
       console.log("User after OTP verification: ", user);
       const isNewUser = !user;
       if (isNewUser) {
@@ -123,11 +196,24 @@ export class AuthService {
           phone, 
           role: 'SELLER', 
           isOnboarded: false ,
-          plan: 'free', // New: Assign free plan
+          plan: 'free',
           isSubscribed: false,
         }); 
         await user.save();
         this.logger.log(`New user created: ${user._id}`);
+        
+        // Audit log for new user signup
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'USER_SIGNUP',
+          userId: user._id.toString(),
+          resourceId: user._id.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ email, phone, role: 'SELLER' }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/verify-otp',
+        });
       }
 
       const payload = { sub: user._id.toString(), email: user.email, role: user.role };
@@ -135,9 +221,33 @@ export class AuthService {
 
       otpStore.delete(identifier); // Clear OTP
       this.logger.log(`OTP verified for ${identifier}, user: ${user._id}`);
+      
+      // Audit log for successful OTP verification (login)
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: isNewUser ? 'USER_SIGNUP_VERIFIED' : 'USER_LOGIN',
+        userId: user._id.toString(),
+        resourceId: user._id.toString(),
+        resourceType: 'user',
+        details: JSON.stringify({ email, phone, isNewUser }),
+        status: 'success',
+        method: 'POST',
+        path: '/auth/verify-otp',
+      });
+      
       return { accessToken, isNewUser, isOnboarded: user.isOnboarded };
     } catch (error : any) {
-      //this.logger.error(`VerifyOtp failed for ${dto.email || dto.phone}: ${error.message}`, error.stack);
+      // Audit log for failed OTP verification
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'OTP_VERIFICATION_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ identifier, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/auth/verify-otp',
+      });
+      
       if (error instanceof UnauthorizedException || error.message.includes('Invalid OTP')) {
         throw new UnauthorizedException('Invalid OTP');
       } else if (error instanceof BadRequestException) {
@@ -157,10 +267,36 @@ export class AuthService {
       );
       if (!user) throw new BadRequestException('User not found');
       this.logger.log(`Onboarding completed for user: ${userId}`);
-      // const result = { success: user ? true : false , ...user};
+      
+      // Audit log for successful onboarding (DB update)
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'USER_ONBOARDING_COMPLETED',
+        userId: userId,
+        resourceId: userId,
+        resourceType: 'user',
+        details: JSON.stringify({ updatedFields: Object.keys(dto) }),
+        status: 'success',
+        method: 'PUT',
+        path: '/auth/onboarding',
+      });
+      
       return user;
     } catch (error:any) {
       this.logger.error(`CompleteOnboarding failed for ${userId}: ${error.message}`, error.stack);
+      
+      // Audit log for failed onboarding
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'USER_ONBOARDING_FAILED',
+        userId: userId,
+        resourceType: 'user',
+        details: JSON.stringify({ error: error.message }),
+        status: 'error',
+        method: 'PUT',
+        path: '/auth/onboarding',
+      });
+      
       if (error instanceof BadRequestException) {
         throw error;
       } else {
@@ -204,12 +340,14 @@ export class AuthService {
     try {
       const { email, name, providerId, provider } = data;
       let user = await this.userModel.findOne({ [provider === 'google' ? 'googleId' : 'facebookId']: providerId }) as any | null;
+      let isNewUser = false;
       
       if (!user) {
         user = await this.userModel.findOne({ email });
       }
 
       if (!user) {
+        isNewUser = true;
         user = new this.userModel({
           email,
           name,
@@ -220,11 +358,37 @@ export class AuthService {
           linkedAccounts: { [provider]: true },
         });
         await user.save();
+        
+        // Audit log for new OAuth user signup
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'OAUTH_USER_SIGNUP',
+          userId: user._id.toString(),
+          resourceId: user._id.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ email, provider, isNewUser: true }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/oauth',
+        });
       } else {
         // Update linked account
         user.linkedAccounts = { ...user.linkedAccounts, [provider]: true };
         if (!user.name) user.name = name;
         await user.save();
+        
+        // Audit log for OAuth login with linked account update
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'OAUTH_USER_LOGIN',
+          userId: user._id.toString(),
+          resourceId: user._id.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ email, provider, linkedAccountUpdated: true }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/oauth',
+        });
       }
 
       const payload = { sub: user._id.toString(), email: user.email, role: user.role };
@@ -232,11 +396,22 @@ export class AuthService {
 
       return {
         accessToken,
-        isNewUser: false, // Or check if newly created
+        isNewUser,
         isOnboarded: user.isOnboarded,
       };
     } catch (error: any) {
       this.logger.error(`OAuthSignIn error: ${error.message}`, error.stack);
+      
+      // Audit log for failed OAuth sign-in
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'OAUTH_LOGIN_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ email: data.email, provider: data.provider, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/auth/oauth',
+      });
       throw new InternalServerErrorException('OAuth sign-in failed');
     }
   }
@@ -248,6 +423,16 @@ export class AuthService {
       const user = await this.userModel.findOne({ email });
       console.log('User found:', user);
       if (!user || !await bcrypt.compare(password, user.password || '')) {
+        // Audit log for failed login
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'ADMIN_LOGIN_FAILED',
+          resourceType: 'user',
+          details: JSON.stringify({ email, reason: 'Invalid credentials' }),
+          status: 'error',
+          method: 'POST',
+          path: '/auth/login',
+        });
         throw new UnauthorizedException('Invalid credentials');
       }
 
@@ -267,6 +452,20 @@ export class AuthService {
       };
 
       this.logger.log(`Login successful for ${email} with role: ${user.role}`);
+      
+      // Audit log for successful login
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'ADMIN_LOGIN_SUCCESS',
+        userId: user._id.toString(),
+        resourceId: user._id.toString(),
+        resourceType: 'user',
+        details: JSON.stringify({ email, role: user.role }),
+        status: 'success',
+        method: 'POST',
+        path: '/auth/login',
+      });
+      
       return { token, user: userResponse };
     } catch (error) {
       this.logger.error(`Login failed for ${email}: ${error.message}`, error.stack);
@@ -277,6 +476,9 @@ export class AuthService {
   // New: Create subscription with Stripe
   async createSubscription(data: CreateSubscriptionDto): Promise<any> {
     try {
+      if (!this.stripe) {
+        throw new InternalServerErrorException('Stripe is not configured. Set STRIPE_SECRET_KEY.');
+      }
       const { userId, plan } = data;
       const user = await this.userModel.findById(userId);
       if (!user) {
@@ -313,9 +515,35 @@ export class AuthService {
         metadata: { userId, plan },
       });
 
+      // Audit log for subscription creation
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'SUBSCRIPTION_CHECKOUT_INITIATED',
+        userId: userId,
+        resourceId: session.id,
+        resourceType: 'subscription',
+        details: JSON.stringify({ plan, stripeSessionId: session.id }),
+        status: 'success',
+        method: 'POST',
+        path: '/auth/subscription',
+      });
+
       return { success: true, message: 'Checkout initiated', checkoutUrl: session.url };
     } catch (error: any) {
       this.logger.error(`CreateSubscription error: ${error.message}`, error.stack);
+      
+      // Audit log for failed subscription creation
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'SUBSCRIPTION_CHECKOUT_FAILED',
+        userId: data.userId,
+        resourceType: 'subscription',
+        details: JSON.stringify({ plan: data.plan, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/auth/subscription',
+      });
+      
       throw error;
     }
   }

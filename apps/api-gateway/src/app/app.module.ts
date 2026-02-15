@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
-import { LogsModule } from './logs/logs.module';
+import { AuditLogModule } from './audit-logs/audit-log.module';
+import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
 
@@ -19,7 +21,7 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
         options: {
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
-          url: 'localhost:50000',
+          url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
         },
       },
       {
@@ -28,17 +30,23 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
         options: {
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
-          url: 'localhost:50053',
+          url: process.env.USER_SERVICE_URL || 'localhost:50053',
         },
       },
     ]),
     UserModule,
-    LogsModule,
+    AuditLogModule,
     CrystallizationModule,
     SaltProductionModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
+    },
+  ],
 })
 export class AppModule {}
 

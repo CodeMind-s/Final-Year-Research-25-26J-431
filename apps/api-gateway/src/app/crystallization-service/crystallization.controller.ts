@@ -15,6 +15,7 @@ import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyM
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
 import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
+import { GetModelPerformanceResponseDto } from './dtos/model-performance.dto';
 
 @ApiTags('Crystallization Predictions')
 @Controller('crystallization')
@@ -279,7 +280,7 @@ export class CrystallizationController {
           West_channel: predictionRequest.current_values.westChannel,
         },
       };
-      
+
       const result = await firstValueFrom(
         this.crystallizationService.GetPredictions(payload)
       );
@@ -371,6 +372,46 @@ export class CrystallizationController {
           catchError((error) => {
             this.logger.error(`Get Predicted Monthly Production error: ${error.message}`);
             throw new HttpException('Failed to fetch predicted monthly productions', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(JSON.stringify(result, null, 2));
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get("/model-performance")
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiTags('Crystallization Model Performance')
+  @ApiOperation({ summary: 'Get model performance records' })
+  @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
+  @ApiResponse({ status: 404, description: 'No model performance records found' })
+  async getModelPerformance(
+    @Query('limit') limit?: number
+  ): Promise<GetModelPerformanceResponseDto> {
+    try {
+      const requestData = {
+        limit: limit ? parseInt(limit.toString(), 10) : 10,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetModelPerformance(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Model Performance error: ${error.message}`);
+            throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
           })
         )
       ) as { success: boolean; message: string; data?: any[] };

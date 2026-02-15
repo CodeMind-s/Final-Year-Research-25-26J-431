@@ -10,10 +10,10 @@ async function bootstrap() {
     options: {
       package: ['crystallization', 'saltproduction'],
       protoPath: [
-        join(__dirname, '../../../proto/dailyMeasurements.proto'),
-        join(__dirname, '../../../proto/saltProduction.proto'),
+        join(__dirname, 'proto/dailyMeasurements.proto'),
+        join(__dirname, 'proto/saltProduction.proto'),
       ],
-      url: process.env.GRPC_URL || 'localhost:50054',
+      url: process.env.GRPC_URL || '0.0.0.0:50054',
       loader: {
         keepCase: true,
         longs: String,

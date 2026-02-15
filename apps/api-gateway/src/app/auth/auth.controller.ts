@@ -5,7 +5,7 @@ import { catchError, firstValueFrom, of } from 'rxjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, OnboardingDto, LoginDto } from './dtos/auth.dto';
-import { JwtService } from '@nestjs/jwt'; 
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +16,7 @@ export class AuthController {
     @Inject('AUTH_PACKAGE') private authClient: ClientGrpcProxy,
     private jwtService: JwtService,
   ) {
-        this.authService = this.authClient.getService('AuthService');
+    this.authService = this.authClient.getService('AuthService');
 
   }
 
@@ -43,13 +43,13 @@ export class AuthController {
         )
       );
       return result;
-    } catch (error : any) {
+    } catch (error: any) {
       this.logger.error(`SignIn failed: ${error.message}`, error.stack);
       throw error;
     }
   }
 
-@Public()
+  @Public()
   @Post('verify-otp')
   @ApiOperation({ summary: 'Verify OTP and get JWT' })
   @ApiResponse({ status: 200, description: 'Authentication successful', type: AuthResponseDto })
@@ -91,7 +91,7 @@ export class AuthController {
       }
 
       return result;
-    } catch (error:any) {
+    } catch (error: any) {
       //this.logger.error(`VerifyOtp failed: ${error.message}`, error.stack);
       throw error;
     }
@@ -160,7 +160,7 @@ export class AuthController {
         )
       );
       return result;
-    } catch (error:any) {
+    } catch (error: any) {
       this.logger.error(`CompleteOnboarding failed: ${error.message}`, error.stack);
       throw error;
     }
@@ -191,7 +191,7 @@ export class AuthController {
         )
       );
       return result;
-    } catch (error:any) {
+    } catch (error: any) {
       this.logger.error(`GoogleSignIn failed: ${error.message}`, error.stack);
       throw error;
     }
@@ -221,7 +221,7 @@ export class AuthController {
         )
       );
       return result;
-    } catch (error:any) {
+    } catch (error: any) {
       this.logger.error(`FacebookSignIn failed: ${error.message}`, error.stack);
       throw error;
     }
@@ -246,7 +246,7 @@ export class AuthController {
       if (!userId) return { success: false, message: 'User not authenticated' };
 
       const result = await firstValueFrom(
-        this.authService.CompleteOnboarding({ userId}).pipe(
+        this.authService.CompleteOnboarding({ userId }).pipe(
           catchError((error) => {
             this.logger.error(`CompleteOnboarding error: ${error.message}`, error.stack);
             if (error.code === 2 || error.code === 'INTERNAL') {
@@ -262,7 +262,7 @@ export class AuthController {
         )
       );
       return result;
-    } catch (error:any) {
+    } catch (error: any) {
       this.logger.error(`CompleteOnboarding failed: ${error.message}`, error.stack);
       throw error;
     }

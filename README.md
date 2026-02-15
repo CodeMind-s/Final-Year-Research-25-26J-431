@@ -3,7 +3,7 @@
 # Brinex Server - Crystallization Prediction System
 
 
-A microservices-based salt crystallization management and prediction system built with NestJS, Python ML services, and gRPC.
+A microservices-based salt crystallization management and prediction system built with NestJS, ONNX Runtime, and gRPC.
 
 ## 📋 Table of Contents
 
@@ -88,7 +88,6 @@ The system follows a three-tier microservices architecture deployed in Docker co
 ### Required Software
 
 - **Node.js**: v18+ and npm
-- **Python**: v3.12+
 - **Docker**: Latest version
 - **Docker Compose**: Latest version
 
@@ -97,7 +96,6 @@ The system follows a three-tier microservices architecture deployed in Docker co
 ```bash
 node --version    # Should be v18+
 npm --version
-python --version  # Should be 3.12+
 docker --version
 docker-compose --version
 ```
@@ -117,39 +115,7 @@ cd Final-Year-Research-25-26J-431
 npm install
 ```
 
-### 3. Set Up Python Virtual Environment
-
-```bash
-# Create virtual environment
-python -m venv .venv
-
-# Activate virtual environment
-# On Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-
-# On Windows (CMD):
-.venv\Scripts\activate.bat
-
-# On macOS/Linux:
-source .venv/bin/activate
-```
-
-### 4. Install Python Dependencies
-
-```bash
-pip install -r apps/crystallization-ml-service/requirements.txt
-```
-
-Required packages:
-- `grpcio>=1.62.0`
-- `grpcio-tools>=1.62.0`
-- `protobuf>=4.25.0`
-- `numpy>=1.26.0`
-- `tensorflow>=2.16.1`
-- `keras>=3.0.0`
-- `python-dateutil>=2.8.2`
-
-### 5. Environment Variables
+### 3. Environment Variables
 
 Create `.env` files for each service or set environment variables:
 
@@ -160,13 +126,12 @@ MONGODB_URI=mongodb://localhost:27017/brinex
 JWT_SECRET=your-secret-key
 ```
 
-#### Crystallization ML Service
+#### Crystallization ONNX Service
 ```env
-GRPC_PORT=50055
-MODEL_PATH=models/best_hybrid_model.keras
+GRPC_URL=0.0.0.0:50055
 ```
 
-### 6. Start Docker Services
+### 4. Start Docker Services
 
 Start MongoDB, Kafka, and Zookeeper:
 
@@ -181,11 +146,50 @@ docker-compose ps
 
 ## 🚀 Running the Project
 
-### Quick Start
+### Option 1: Docker Compose (Recommended)
 
-**1. Start Docker services:**
+Run all services in Docker containers with a single command:
+
+**1. Copy environment variables:**
 ```bash
-docker-compose up -d
+cp .env.example .env
+# Edit .env and fill in your values (MongoDB URI, API keys, etc.)
+```
+
+**2. Start all services:**
+```bash
+docker compose up --build
+```
+
+This will start:
+- ✅ Zookeeper (port 22181)
+- ✅ Kafka (port 29092)
+- ✅ Auth Service (gRPC port 50000)
+- ✅ User Service (gRPC port 50053)
+- ✅ Crystallization Service (gRPC port 50054)
+- ✅ Crystallization ONNX Service (gRPC port 50055)
+- ✅ Audit Log Service (Kafka consumer)
+- ✅ Email Service (Kafka consumer)
+- ✅ API Gateway (HTTP port 3400)
+
+**3. Stop services:**
+```bash
+docker compose down
+```
+
+**4. View logs:**
+```bash
+docker compose logs -f api-gateway
+docker compose logs -f crystallization-service
+```
+
+---
+
+### Option 2: Local Development
+
+**1. Start infrastructure services:**
+```bash
+docker compose up zookeeper kafka -d
 ```
 
 **2. Start all NestJS services:**
@@ -193,37 +197,9 @@ docker-compose up -d
 nx run-many -t serve --all
 ```
 
-**3. Start ML service (in a separate terminal):**
-```bash
-.venv\Scripts\Activate.ps1  # Activate virtual environment
-cd apps/crystallization-ml-service
-python src/main.py
-```
-
-> **Note:** The ML service runs separately from the NestJS services.
-
 ---
 
-### Option 1: Run All Services Together
-
-Start all NestJS microservices:
-```bash
-nx run-many -t serve --all
-```
-
-In a **separate terminal**, start the ML service:
-```bash
-# Make sure virtual environment is activated
-.venv\Scripts\Activate.ps1
-
-# Navigate to ML service directory
-cd apps/crystallization-ml-service
-
-# Run the service
-python src/main.py
-```
-
-### Option 2: Run Services Individually
+### Option 3: Run Services Individually
 
 **Terminal 1 - API Gateway:**
 ```bash
@@ -235,26 +211,24 @@ nx serve api-gateway
 nx serve crystallization-service
 ```
 
-**Terminal 3 - Auth Service:**
+**Terminal 3 - Crystallization ONNX Service:**
+```bash
+nx serve crystallization-onnx-service
+```
+
+**Terminal 4 - Auth Service:**
 ```bash
 nx serve auth-service
 ```
 
-**Terminal 4 - User Service:**
+**Terminal 5 - User Service:**
 ```bash
 nx serve user-service
 ```
 
-**Terminal 5 - Logs Service:**
+**Terminal 6 - Audit Log Service:**
 ```bash
-nx serve logs-service
-```
-
-**Terminal 6 - ML Service:**
-```bash
-.venv\Scripts\Activate.ps1
-cd apps/crystallization-ml-service
-python src/main.py
+nx serve audit-log-service
 ```
 
 ### Verify Services are Running
@@ -262,10 +236,10 @@ python src/main.py
 You should see:
 - ✅ `API Gateway running on: http://localhost:3400/api/v1`
 - ✅ `Crystallization Service running on gRPC port 50054`
-- ✅ `Crystallization ML Service running on gRPC port 50055`
+- ✅ `Crystallization ONNX Service running on gRPC port 50055`
 - ✅ `Auth microservice listening on gRPC channel`
 - ✅ `User microservice listening on gRPC channel`
-- ✅ `Logs Service running on gRPC port 50056`
+- ✅ `Audit Log Service running on Kafka`
 
 ## 📡 API Endpoints
 
@@ -365,26 +339,16 @@ lsof -ti:3400 | xargs kill -9
 
 ### ML Service Port Conflict
 
-If the ML service fails with "Failed to bind to address [::]:50055":
-- Check if the service is already running: `Get-Process python`
-- Kill existing Python processes or use a different terminal
-
-### Python Module Not Found
-
-```bash
-# Ensure virtual environment is activated
-.venv\Scripts\Activate.ps1
-
-# Reinstall dependencies
-pip install -r apps/crystallization-ml-service/requirements.txt
-```
+If the ONNX service fails with "Failed to bind to address [::]:50055":
+- Check if the service is already running: `Get-Process node`
+- Kill existing processes or use a different terminal
 
 ### gRPC Connection Refused
 
 Ensure all services are running in the correct order:
 1. Docker services (MongoDB, Kafka, Zookeeper)
-2. ML Service (port 50055)
-3. Microservices (Crystallization, Auth, User, Logs)
+2. ONNX Service (port 50055)
+3. Microservices (Crystallization, Auth, User, Audit Log)
 4. API Gateway (port 3400)
 
 ### Database Connection Issues
@@ -405,11 +369,11 @@ Final-Year-Research-25-26J-431/
 │   ├── api-gateway/               # API Gateway (Port 3400)
 │   ├── auth-service/              # Authentication Service
 │   ├── user-service/              # User Management Service
-│   ├── logs-service/              # Logging Service
-│   ├── crystallization-service/  # Crystallization Business Logic
-│   └── crystallization-ml-service/ # ML Prediction Service (Python)
+│   ├── audit-log-service/         # Audit Logging Service (Kafka)
+│   ├── email-service/             # Email Service
+│   ├── crystallization-service/   # Crystallization Business Logic
+│   └── crystallization-onnx-service/ # ML Prediction Service (ONNX Runtime)
 ├── proto/                         # gRPC Proto Definitions
-├── .venv/                         # Python Virtual Environment
 ├── docker-compose.yml             # Docker Services Configuration
 └── package.json                   # Node.js Dependencies
 ```
@@ -417,11 +381,11 @@ Final-Year-Research-25-26J-431/
 ## 🛠️ Tech Stack
 
 - **Framework**: NestJS
-- **Language**: TypeScript, Python
-- **Communication**: gRPC
+- **Language**: TypeScript
+- **Communication**: gRPC, Kafka
 - **Database**: MongoDB
 - **Message Queue**: Kafka
-- **ML Framework**: TensorFlow/Keras
+- **ML Runtime**: ONNX Runtime
 - **Build Tool**: Nx
 
 ## 📝 License
