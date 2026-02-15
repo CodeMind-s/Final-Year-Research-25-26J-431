@@ -17,6 +17,12 @@
     },
     {
       "path": "./apps/crystallization-service"
+    },
+    {
+      "path": "./apps/vision-service"
+    },
+    {
+      "path": "./apps/email-service"
     }
   ]
 }
