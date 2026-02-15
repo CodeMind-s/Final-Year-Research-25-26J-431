@@ -57,7 +57,7 @@
         "apps/api-gateway-e2e/**/*",
         "apps/auth-service-e2e/**/*",
         "apps/user-service-e2e/**/*",
-        "apps/logs-service-e2e/**/*"
+        "apps/audit-log-service-e2e/**/*"
       ]
     }
   ],

@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+out-tsc/
+**/out-tsc/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Python virtual environments & artifacts (large, not needed for Node builds)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+venv/
+env/
+**/convert_env/
+**/final_env/
+**/*.whl
+
+# ML models & heavy binary files (not needed for most services)
+apps/crystallization-onnx-service/models/
+**/*.keras
+**/*.onnx
+**/*.h5
+**/*.pb
+**/*.pt
+**/*.pth
+**/*.bin
+
+# Environment files
+.env*
+!.env.example
+
+# Test
+coverage/
+.nyc_output/
+**/*.spec.ts
+**/*.test.ts
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+tmp/
+temp/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Compass service (not in docker-compose)
+apps/compass-service/
+
+# Nx cache
+.nx/
+nx-cloud.env

@@ -26,11 +26,24 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         transport: Transport.KAFKA,
         options: {
           client: {
-            clientId: 'auth-service',
+            clientId: 'auth-service-email',
             brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
           },
           consumer: {
-            groupId: 'auth-consumer-group',
+            groupId: 'auth-email-consumer-group',
+          },
+        },
+      },
+      {
+        name: 'AUDIT_LOG_SERVICE',
+        transport: Transport.KAFKA,
+        options: {
+          client: {
+            clientId: 'auth-service-audit',
+            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
+          },
+          consumer: {
+            groupId: 'auth-audit-consumer-group',
           },
         },
       },

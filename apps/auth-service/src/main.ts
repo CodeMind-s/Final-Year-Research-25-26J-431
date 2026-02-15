@@ -17,7 +17,7 @@ async function bootstrap() {
       options: {
         package: 'auth',
         protoPath: join(__dirname, 'proto/auth.proto'),
-        url: 'localhost:50000',
+        url: process.env.GRPC_URL || '0.0.0.0:50000',
       },
     },
   );

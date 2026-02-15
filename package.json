@@ -27,6 +27,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/pug": "^2.0.10",
     "@types/uuid": "^10.0.0",
+    "copy-webpack-plugin": "^13.0.1",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "jest": "^30.0.2",
