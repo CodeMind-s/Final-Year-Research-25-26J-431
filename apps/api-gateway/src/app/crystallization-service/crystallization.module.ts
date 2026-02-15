@@ -24,7 +24,7 @@ import { CrystallizationController } from './crystallization.controller';
         options: {
           package: 'crystallization',
           protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
-          url: 'localhost:50054', // Assume port for itineraries service
+          url: process.env.CRYSTALLIZATION_SERVICE_URL || 'localhost:50054',
           loader: {
             keepCase: true,
             longs: String,
@@ -40,7 +40,7 @@ import { CrystallizationController } from './crystallization.controller';
         options: {
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
-          url: 'localhost:50000', // Auth service port
+          url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
         },
       },
     ]),

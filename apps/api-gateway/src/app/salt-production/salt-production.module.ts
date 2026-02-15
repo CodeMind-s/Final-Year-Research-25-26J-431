@@ -21,7 +21,7 @@ import { SaltProductionController } from './salt-production.controller';
         options: {
           package: 'saltproduction',
           protoPath: join(__dirname, 'proto/saltProduction.proto'),
-          url: 'localhost:50054', // Same as crystallization service
+          url: process.env.CRYSTALLIZATION_SERVICE_URL || 'localhost:50054',
           loader: {
             keepCase: true,
             longs: String,
@@ -37,7 +37,7 @@ import { SaltProductionController } from './salt-production.controller';
         options: {
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
-          url: 'localhost:50000', // Auth service port
+          url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
         },
       },
     ]),

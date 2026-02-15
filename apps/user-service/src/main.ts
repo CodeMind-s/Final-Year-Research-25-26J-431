@@ -15,7 +15,7 @@ async function bootstrap() {
     options: {
       package: 'user',
       protoPath: join(__dirname, 'proto/user.proto'),
-      url: 'localhost:50053', // Different port for user service
+      url: process.env.GRPC_URL || '0.0.0.0:50053',
     },
   });
   await app.listen();

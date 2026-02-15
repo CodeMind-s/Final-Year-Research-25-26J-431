@@ -58,9 +58,9 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug @brinex-server/logs-service with Nx",
+      "name": "Debug @brinex-server/audit-log-service with Nx",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["nx", "serve", "@brinex-server/logs-service"],
+      "runtimeArgs": ["nx", "serve", "@brinex-server/audit-log-service"],
       "env": {
         "NODE_OPTIONS": "--inspect=9239"
       },
@@ -69,7 +69,7 @@
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
       "outFiles": [
-        "${workspaceFolder}/apps/logs-service/dist/**/*.(m|c|)js",
+        "${workspaceFolder}/apps/audit-log-service/dist/**/*.(m|c|)js",
         "!**/node_modules/**"
       ]
     },
@@ -88,6 +88,24 @@
       "sourceMaps": true,
       "outFiles": [
         "${workspaceFolder}/crystallization-service/dist/**/*.(m|c|)js",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug crystallization-onnx-service with Nx",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nx", "serve", "crystallization-onnx-service"],
+      "env": {
+        "NODE_OPTIONS": "--inspect=9241"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/apps/crystallization-onnx-service/dist/**/*.(m|c|)js",
         "!**/node_modules/**"
       ]
     }

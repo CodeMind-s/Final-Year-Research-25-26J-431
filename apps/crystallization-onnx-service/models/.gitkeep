@@ -1,0 +1,3 @@
+# Placeholder file to ensure models directory exists
+# Copy your ONNX model here after conversion:
+#   crystallization_model.onnx
