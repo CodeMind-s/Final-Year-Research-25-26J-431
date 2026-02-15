@@ -53,3 +53,7 @@ yarn.lock
 
 .claude
 CLAUDE.md
+
+# ONNX model files
+**/models/*.onnx
+/docs/
