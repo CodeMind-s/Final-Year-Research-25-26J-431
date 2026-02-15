@@ -22,10 +22,11 @@
     "@swc/jest": "~0.2.38",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
-    "@types/nodemailer": "^6.4.14",
     "@types/node": "20.19.9",
+    "@types/nodemailer": "^6.4.14",
     "@types/passport-jwt": "^4.0.1",
     "@types/pug": "^2.0.10",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "jest": "^30.0.2",
@@ -68,6 +69,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
+    "@nestjs/websockets": "^11.1.13",
     "@types/stripe": "^8.0.416",
     "axios": "^1.6.0",
     "bcrypt": "^6.0.0",
@@ -78,12 +80,15 @@
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
     "nodemailer": "^6.9.8",
+    "onnxruntime-node": "^1.24.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pug": "^3.0.2",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.2",
+    "sharp": "^0.34.5",
     "stripe": "^19.1.0",
-    "twilio": "^5.9.0"
+    "twilio": "^5.9.0",
+    "uuid": "^13.0.0"
   }
 }
