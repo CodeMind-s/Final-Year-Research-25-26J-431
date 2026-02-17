@@ -10,6 +10,7 @@ import { AuditLogModule } from './audit-logs/audit-log.module';
 import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
+import { VisionModule } from './vision-service/vision.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
     AuditLogModule,
     CrystallizationModule,
     SaltProductionModule,
+    VisionModule,
   ],
   controllers: [AppController],
   providers: [

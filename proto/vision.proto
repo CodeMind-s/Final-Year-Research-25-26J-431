@@ -1,0 +1,359 @@
+syntax = "proto3";
+package vision;
+
+service VisionService {
+  // Frame processing
+  rpc ProcessFrame(ProcessFrameRequest) returns (ProcessFrameResponse);
+
+  // Session lifecycle
+  rpc CreateSession(CreateSessionRequest) returns (SessionResponse);
+  rpc EndSession(EndSessionRequest) returns (SessionResponse);
+  rpc GetSession(GetSessionRequest) returns (SessionResponse);
+
+  // Batch management
+  rpc CreateBatch(CreateBatchRequest) returns (BatchResponse);
+  rpc EndBatch(EndBatchRequest) returns (BatchResponse);
+  rpc GetBatch(GetBatchRequest) returns (BatchResponse);
+  rpc GetAllBatches(GetAllBatchesRequest) returns (BatchListResponse);
+  rpc GetSessionBatches(GetSessionBatchesRequest) returns (BatchListResponse);
+  rpc GetBatchTrends(GetBatchTrendsRequest) returns (BatchTrendsResponse);
+
+  // Detection CRUD
+  rpc GetDetections(GetDetectionsRequest) returns (DetectionListResponse);
+  rpc GetDetection(GetDetectionRequest) returns (DetectionResponse);
+  rpc DeleteDetection(DeleteDetectionRequest) returns (DeleteResponse);
+
+  // Statistics
+  rpc GetStatsSummary(GetStatsSummaryRequest) returns (StatsSummaryResponse);
+  rpc GetStatsHourly(GetStatsHourlyRequest) returns (StatsHourlyResponse);
+  rpc GetStatsDaily(GetStatsDailyRequest) returns (StatsDailyResponse);
+  rpc GetStatsTrends(GetStatsTrendsRequest) returns (StatsTrendsResponse);
+
+  // Health
+  rpc GetHealth(GetHealthRequest) returns (HealthResponse);
+}
+
+// ─── Common Messages ───────────────────────────────────────
+
+message ROI {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+}
+
+message BoundingBox {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+  int32 classId = 5;
+  string className = 6;
+  double confidence = 7;
+  string color = 8;
+  bool insideROI = 9;
+  double whitenessPercentage = 10;
+  double qualityScore = 11;
+}
+
+message PaginationMeta {
+  int32 total = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  int32 totalPages = 4;
+  bool hasNext = 5;
+  bool hasPrev = 6;
+}
+
+// ─── ProcessFrame ──────────────────────────────────────────
+
+message ProcessFrameRequest {
+  bytes imageData = 1;
+  string sessionId = 2;
+  string batchId = 3;
+  ROI roi = 4;
+  bool saveDetection = 5;
+}
+
+message ProcessFrameResponse {
+  string frameId = 1;
+  int64 timestamp = 2;
+  double processingTimeMs = 3;
+
+  // All-detection counts
+  int32 pureCount = 4;
+  int32 impureCount = 5;
+  int32 unwantedCount = 6;
+  int32 totalCount = 7;
+  double purityPercentage = 8;
+
+  // ROI-filtered counts
+  int32 roiPureCount = 9;
+  int32 roiImpureCount = 10;
+  int32 roiUnwantedCount = 11;
+  int32 roiTotalCount = 12;
+  double roiPurityPercentage = 13;
+
+  // Whiteness aggregates
+  double avgWhiteness = 14;
+  double avgQualityScore = 15;
+  double roiAvgWhiteness = 16;
+  double roiAvgQualityScore = 17;
+
+  // Bounding boxes
+  repeated BoundingBox boundingBoxes = 18;
+
+  // Frame dimensions
+  int32 frameWidth = 19;
+  int32 frameHeight = 20;
+
+  // ROI used
+  ROI roi = 21;
+
+  // Batch info
+  string currentBatchId = 22;
+  int32 currentBatchNumber = 23;
+
+  // Batch stats snapshot
+  BatchStats batchStats = 24;
+}
+
+message BatchStats {
+  int32 pureCount = 1;
+  int32 impureCount = 2;
+  int32 unwantedCount = 3;
+  int32 totalCount = 4;
+  double purityPercentage = 5;
+  int32 frameCount = 6;
+  double avgWhiteness = 7;
+  double avgQualityScore = 8;
+}
+
+// ─── Session ───────────────────────────────────────────────
+
+message CreateSessionRequest {
+  string cameraSource = 1;
+  ROI roi = 2;
+}
+
+message EndSessionRequest {
+  string sessionId = 1;
+}
+
+message GetSessionRequest {
+  string sessionId = 1;
+}
+
+message SessionResponse {
+  string id = 1;
+  string startTime = 2;
+  string endTime = 3;
+  int32 totalFrames = 4;
+  int32 totalPureCount = 5;
+  int32 totalImpureCount = 6;
+  int32 totalUnwantedCount = 7;
+  double avgPurityPercent = 8;
+  int32 totalBatches = 9;
+  double avgWhiteness = 10;
+  double avgQualityScore = 11;
+  ROI roi = 12;
+  string cameraSource = 13;
+  string notes = 14;
+}
+
+// ─── Batch ─────────────────────────────────────────────────
+
+message CreateBatchRequest {
+  string sessionId = 1;
+  ROI roi = 2;
+}
+
+message EndBatchRequest {
+  string batchId = 1;
+}
+
+message GetBatchRequest {
+  string batchId = 1;
+}
+
+message GetAllBatchesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string sessionId = 3;
+}
+
+message GetSessionBatchesRequest {
+  string sessionId = 1;
+}
+
+message GetBatchTrendsRequest {
+  string sessionId = 1;
+}
+
+message BatchResponse {
+  string id = 1;
+  int32 batchNumber = 2;
+  string startTime = 3;
+  string endTime = 4;
+  int32 pureCount = 5;
+  int32 impureCount = 6;
+  int32 unwantedCount = 7;
+  int32 totalCount = 8;
+  double purityPercentage = 9;
+  int32 frameCount = 10;
+  ROI roi = 11;
+  double avgWhiteness = 12;
+  double avgQualityScore = 13;
+  string sessionId = 14;
+}
+
+message BatchListResponse {
+  repeated BatchResponse batches = 1;
+}
+
+message BatchTrendPoint {
+  int32 batchNumber = 1;
+  double purityPercentage = 2;
+}
+
+message BatchTrendsResponse {
+  repeated BatchTrendPoint trends = 1;
+}
+
+// ─── Detection ─────────────────────────────────────────────
+
+message GetDetectionsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string startDate = 3;
+  string endDate = 4;
+  double minPurity = 5;
+  double maxPurity = 6;
+  string sessionId = 7;
+}
+
+message GetDetectionRequest {
+  string id = 1;
+}
+
+message DeleteDetectionRequest {
+  string id = 1;
+}
+
+message DetectionMessage {
+  string id = 1;
+  string timestamp = 2;
+  int32 frameWidth = 3;
+  int32 frameHeight = 4;
+  double processingTimeMs = 5;
+  int32 pureCount = 6;
+  int32 impureCount = 7;
+  int32 unwantedCount = 8;
+  int32 totalCount = 9;
+  double purityPercentage = 10;
+  int32 roiPureCount = 11;
+  int32 roiImpureCount = 12;
+  int32 roiUnwantedCount = 13;
+  int32 roiTotalCount = 14;
+  double roiPurityPercentage = 15;
+  double avgWhiteness = 16;
+  double avgQualityScore = 17;
+  double roiAvgWhiteness = 18;
+  double roiAvgQualityScore = 19;
+  string sessionId = 20;
+  string batchId = 21;
+  repeated BoundingBox boundingBoxes = 22;
+}
+
+message DetectionResponse {
+  DetectionMessage detection = 1;
+}
+
+message DetectionListResponse {
+  repeated DetectionMessage detections = 1;
+  PaginationMeta meta = 2;
+}
+
+message DeleteResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ─── Statistics ────────────────────────────────────────────
+
+message GetStatsSummaryRequest {
+  string startDate = 1;
+  string endDate = 2;
+}
+
+message StatsSummaryResponse {
+  int32 totalDetections = 1;
+  int32 totalPure = 2;
+  int32 totalImpure = 3;
+  int32 totalUnwanted = 4;
+  double averagePurity = 5;
+  double averageProcessingTime = 6;
+  double detectionsPerHour = 7;
+  string periodStart = 8;
+  string periodEnd = 9;
+}
+
+message GetStatsHourlyRequest {
+  string date = 1;
+}
+
+message HourlyStatPoint {
+  int32 hour = 1;
+  int32 detections = 2;
+  int32 pureCount = 3;
+  int32 impureCount = 4;
+  int32 unwantedCount = 5;
+  double avgPurity = 6;
+}
+
+message StatsHourlyResponse {
+  repeated HourlyStatPoint stats = 1;
+}
+
+message GetStatsDailyRequest {
+  string startDate = 1;
+  string endDate = 2;
+  int32 limit = 3;
+}
+
+message DailyStatPoint {
+  string date = 1;
+  int32 detections = 2;
+  int32 pureCount = 3;
+  int32 impureCount = 4;
+  int32 unwantedCount = 5;
+  double avgPurity = 6;
+}
+
+message StatsDailyResponse {
+  repeated DailyStatPoint stats = 1;
+}
+
+message GetStatsTrendsRequest {
+  string period = 1;
+  int32 limit = 2;
+}
+
+message TrendPoint {
+  string timestamp = 1;
+  double purity = 2;
+}
+
+message StatsTrendsResponse {
+  repeated TrendPoint trends = 1;
+}
+
+// ─── Health ────────────────────────────────────────────────
+
+message GetHealthRequest {}
+
+message HealthResponse {
+  bool modelLoaded = 1;
+  string modelPath = 2;
+  string status = 3;
+}
