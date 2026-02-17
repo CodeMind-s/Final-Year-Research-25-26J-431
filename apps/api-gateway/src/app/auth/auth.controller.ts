@@ -137,7 +137,7 @@ export class AuthController {
   @Post('onboarding/landowner')
   @ApiBearerAuth()
   @Roles(Role.LANDOWNER)
-  @ApiOperation({ summary: 'Onboard Landowner' })
+  @ApiOperation({ summary: 'Onboard Landowner (landowner)' })
   @ApiResponse({ status: 200, description: 'Landowner onboarding successful' })
   async onboardLandOwner(@Body() dto: LandOwnerOnboardingDto, @Req() req: any) {
     try {
@@ -152,7 +152,7 @@ export class AuthController {
   @Post('onboarding/laboratory')
   @ApiBearerAuth()
   @Roles(Role.LABORATORY)
-  @ApiOperation({ summary: 'Onboard Laboratory' })
+  @ApiOperation({ summary: 'Onboard Laboratory (laboratory)' })
   @ApiResponse({ status: 200, description: 'Laboratory onboarding successful' })
   async onboardLaboratory(@Body() dto: LaboratoryOnboardingDto, @Req() req: any) {
     try {
@@ -245,7 +245,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Get('personal-details')
-  @ApiOperation({ summary: 'Get combined user and role-specific details' })
+  @ApiOperation({ summary: 'Get combined user and role-specific details (own details)' })
   @ApiResponse({ status: 200, description: 'Details fetched successfully' })
   async getPersonalDetails(@Req() req: any) {
     try {
