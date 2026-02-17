@@ -7,12 +7,12 @@ import { AuditLogService } from './audit-log.service';
 @ApiTags('Audit Logs')
 @Controller('audit-logs')
 @ApiBearerAuth()
-@Roles(Role.SUPERADMIN, Role.ADMIN)
+@Roles(Role.SUPERADMIN)
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all audit logs with optional filters' })
+  @ApiOperation({ summary: 'Get all audit logs with optional filters (super admin)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of logs to return (default: 50)' })
   @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Number of logs to skip (default: 0)' })
   @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
@@ -36,7 +36,7 @@ export class AuditLogController {
   }
 
   @Get('user/:userId')
-  @ApiOperation({ summary: 'Get audit logs by user ID' })
+  @ApiOperation({ summary: 'Get audit logs by user ID (super admin)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of logs to return (default: 50)' })
   @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Number of logs to skip (default: 0)' })
   @ApiResponse({ status: 200, description: 'User audit logs retrieved successfully' })
@@ -53,7 +53,7 @@ export class AuditLogController {
   }
 
   @Get('service/:serviceName')
-  @ApiOperation({ summary: 'Get audit logs by service name' })
+  @ApiOperation({ summary: 'Get audit logs by service name (super admin)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of logs to return (default: 50)' })
   @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Number of logs to skip (default: 0)' })
   @ApiResponse({ status: 200, description: 'Service audit logs retrieved successfully' })
@@ -70,7 +70,7 @@ export class AuditLogController {
   }
 
   @Get(':logId')
-  @ApiOperation({ summary: 'Get audit log by ID' })
+  @ApiOperation({ summary: 'Get audit log by ID (super admin)' })
   @ApiResponse({ status: 200, description: 'Audit log retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Audit log not found' })
   async getAuditLogById(@Param('logId') logId: string) {

@@ -12,6 +12,9 @@ export class User extends Document {
   @Prop()
   password?: string;
 
+  @Prop()
+  name?: string;
+
   @Prop({ required: true })
   role!: string;
 

@@ -10,6 +10,9 @@ service UserService {
   rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
   rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  rpc UpdatePersonalDetails(UpdatePersonalDetailsRequest) returns (UpdateProfileResponse);
+  rpc VerifyUser(VerifyUserRequest) returns (VerifyUserResponse);
   
   // Onboarding RPCs
   rpc OnboardLandOwner(OnboardLandOwnerRequest) returns (OnboardResponse);
@@ -24,8 +27,6 @@ message CreateUserRequest {
   string password = 2;
   string name = 3;
   string role = 4;
-  string preferredLanguage = 5;
-  string preferredCurrency = 6;
 }
 
 
@@ -36,9 +37,16 @@ message ListUsersRequest {
 
 // Response message for listing users
 message ListUsersResponse {
-  repeated User users = 1;         // List of users
-  int64 total = 2;                // Total number of users (for pagination metadata)
-  // If using cursor-based: string next_page_token = 3;
+  repeated UserWithDetails users = 1;  // List of users with role details
+  int32 total = 2;                     // Total number of users (for pagination metadata)
+}
+
+message UserWithDetails {
+  User user = 1;
+  LandOwnerDetails landOwnerDetails = 2;
+  ServiceProviderDetails serviceProviderDetails = 3;
+  LaboratoryDetails laboratoryDetails = 4;
+  DistributorDetails distributorDetails = 5;
 }
 
 
@@ -60,20 +68,29 @@ message GetUserResponse {
   int32 status = 1;
   string message = 2;
   User data = 3;
+  LandOwnerDetails landOwnerDetails = 4;
+  ServiceProviderDetails serviceProviderDetails = 5;
+  LaboratoryDetails laboratoryDetails = 6;
+  DistributorDetails distributorDetails = 7;
 }
 
 message UpdateUserRequest {
-  string email = 1;
-  string password = 2;
-  string name = 3;
-  string preferredLanguage = 4;
-  string preferredCurrency = 5;
+  string userId = 1;
+  string name = 2;
+  bool isOnboard = 3;
+  string plan = 4;
+  bool isSubscribe = 5;
+  bool isVerified = 6;
 }
 
 message UpdateUserResponse {
   int32 status = 1;
   string message = 2;
-  string id = 3;
+  string name = 3;
+  bool isOnboarded = 4;
+  string plan = 5;
+  bool isSubscribed = 6;
+  bool isVerified = 7;
 }
 
 message DeleteUserRequest {
@@ -86,31 +103,46 @@ message DeleteUserResponse {
 }
 
 message UpdateProfileRequest {
-  string user_id = 1;
-  string name = 2;
-  string email = 3;
-  string preferredLanguage = 4;
-  string preferredCurrency = 5;
-  string bio = 6;
-  string profileImage = 7;
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string laboratoryName = 5;
+  string registrationNumber = 6;
+  string address = 7;
+  string companyName = 8;
 }
 
 message UpdateProfileResponse {
   int32 status = 1;
   string message = 2;
-  string id = 3;
+  User data = 3;
+  LandOwnerDetails landOwnerDetails = 4;
+  ServiceProviderDetails serviceProviderDetails = 5;
+  LaboratoryDetails laboratoryDetails = 6;
+  DistributorDetails distributorDetails = 7;
 }
 
 // New messages for personal details and account settings
 message UpdatePersonalDetailsRequest {
-  string user_id = 1;
-  string name = 2;
-  string residential_address = 3;
-  string gender = 4;
-  string emergency_contact_name = 5;
-  string emergency_contact_number = 6;
-  string blood_type = 7;
-  string allergies = 8;
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string laboratoryName = 5;
+  string registrationNumber = 6;
+  string address = 7;
+  string companyName = 8;
+}
+
+message VerifyUserRequest {
+  string userId = 1;
+}
+
+message VerifyUserResponse {
+  int32 status = 1;
+  string message = 2;
+  User data = 3;
 }
 
 message UpdateAccountSettingsRequest {
@@ -175,6 +207,16 @@ message PersonalDetailsResponse {
   LandOwnerDetails landOwnerDetails = 2;
   ServiceProviderDetails serviceProviderDetails = 3;
   LaboratoryDetails laboratoryDetails = 4;
+  DistributorDetails distributorDetails = 5;
+}
+
+message DistributorDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string companyName = 4;
+  string registrationNumber = 5;
+  string address = 6;
 }
 
 message LandOwnerDetails {

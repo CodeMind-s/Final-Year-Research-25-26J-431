@@ -3,6 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
+import { LandOwnerDetails } from './schemas/land-owner-details.schema';
+import { ServiceProviderDetails } from './schemas/service-provider-details.schema';
+import { LaboratoryDetails } from './schemas/laboratory-details.schema';
 import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto, CreateSubscriptionDto, PlanDto } from './dtos/auth.dto';
 import axios from 'axios';
 import { ClientKafka } from '@nestjs/microservices';
@@ -35,6 +38,9 @@ export class AuthService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(LandOwnerDetails.name) private landOwnerModel: Model<LandOwnerDetails>,
+    @InjectModel(ServiceProviderDetails.name) private serviceProviderModel: Model<ServiceProviderDetails>,
+    @InjectModel(LaboratoryDetails.name) private laboratoryModel: Model<LaboratoryDetails>,
     @Inject('EMAIL_SERVICE') private readonly emailClient: ClientKafka,
     @Inject('AUDIT_LOG_SERVICE') private readonly auditLogClient: ClientKafka,
     private jwtService: JwtService,
@@ -635,7 +641,24 @@ export class AuthService {
       if (!user) {
         throw new BadRequestException('User not found');
       }
-      return { success: true, user };
+
+      let roleDetails = null;
+      if (user.role === 'LANDOWNER') {
+        roleDetails = await this.landOwnerModel.findOne({ userId }).exec();
+      } else if (user.role === 'SERVICE_PROVIDER' || user.role === 'DISTRIBUTOR') {
+        roleDetails = await this.serviceProviderModel.findOne({ userId }).exec();
+      } else if (user.role === 'LABORATORY') {
+        roleDetails = await this.laboratoryModel.findOne({ userId }).exec();
+      }
+
+      return {
+        success: true,
+        user,
+        landOwnerDetails: user.role === 'LANDOWNER' ? roleDetails : null,
+        distributorDetails: user.role === 'DISTRIBUTOR' ? roleDetails : null,
+        serviceProviderDetails: user.role === 'SERVICE_PROVIDER' ? roleDetails : null,
+        laboratoryDetails: user.role === 'LABORATORY' ? roleDetails : null,
+      };
     } catch (error: any) {
       this.logger.error(`GetPersonalDetails error for ${userId}: ${error.message}`, error.stack);
       throw error;
