@@ -10,20 +10,13 @@ service UserService {
   rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
   rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
-  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  
+  // Onboarding RPCs
+  rpc OnboardLandOwner(OnboardLandOwnerRequest) returns (OnboardResponse);
+  rpc OnboardServiceProvider(OnboardServiceProviderRequest) returns (OnboardResponse);
+  rpc OnboardLaboratory(OnboardLaboratoryRequest) returns (OnboardResponse);
 
-  // New RPCs for personal details and account settings
-  rpc UpdatePersonalDetails(UpdatePersonalDetailsRequest) returns (UpdateProfileResponse);
-  rpc UpdateAccountSettings(UpdateAccountSettingsRequest) returns (UpdateProfileResponse);
-  rpc DeactivateAccount(DeactivateAccountRequest) returns (UpdateProfileResponse);
-  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteUserResponse);
-
-  // New RPCs for subscriptions
-  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
-  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
-  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
-  rpc HandleStripeWebhook(HandleStripeWebhookRequest) returns (GetUserResponse); // For webhook events
-  rpc CheckSubscriptionAccess(CheckSubscriptionAccessRequest) returns (CheckSubscriptionAccessResponse);
+  rpc GetPersonalDetails(GetUserByIdRequest) returns (PersonalDetailsResponse);
 }
 
 message CreateUserRequest {
@@ -141,37 +134,74 @@ message User {
   string id = 1;
   string email = 2;
   string phone = 3;
-  string name = 4;
-  string gender = 5;
-  string preferredLanguage = 6;
-  string preferredCurrency = 7;
-  string role = 8;
-  bool isOnboarded = 9;
-  string travelerTypes = 10;
-  repeated string transportationPreferences = 11;
-  repeated string activityPreferences = 12;
-  repeated string foodDrinkPreferences = 13;
-  repeated string sriLankaVibes = 14;
-  google.protobuf.Timestamp createdAt = 15;
-  google.protobuf.Timestamp updatedAt = 16;
-  string plan = 17; // 'free', 'basic', 'premium'
-  bool is_subscribed = 18;
-  google.protobuf.Timestamp subscription_end_date = 19;
-  // New Personal Details fields
-  string residential_address = 20;
-  string emergency_contact_name = 21;
-  string emergency_contact_number = 22;
-  string blood_type = 23;
-  string allergies = 24;
+  string role = 4;
+  bool isOnboarded = 5;
+  string plan = 6;
+  bool isSubscribed = 7;
+  bool isVerified = 8;
+}
 
-  // New Account Settings fields
-  bool two_factor_enabled = 25;
-  map<string, bool> linked_accounts = 26; // e.g., { "google": true, "facebook": false }
-  bool profile_visibility = 27;
-  bool is_deactivated = 28;
-  string profile_picture_url = 29;
-  string bio = 30;
-  string profileImage = 31;
+message OnboardLandOwnerRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string address = 5;
+}
+
+message OnboardServiceProviderRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  string companyName = 3;
+  string registrationNumber = 4;
+  string address = 5;
+}
+
+message OnboardLaboratoryRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  string laboratoryName = 3;
+  string registrationNumber = 4;
+  string address = 5;
+}
+
+message OnboardResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PersonalDetailsResponse {
+  User user = 1;
+  LandOwnerDetails landOwnerDetails = 2;
+  ServiceProviderDetails serviceProviderDetails = 3;
+  LaboratoryDetails laboratoryDetails = 4;
+}
+
+message LandOwnerDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  int32 totalBeds = 4;
+  string nic = 5;
+  string address = 6;
+}
+
+message ServiceProviderDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string companyName = 4;
+  string registrationNumber = 5;
+  string address = 6;
+}
+
+message LaboratoryDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string laboratoryName = 4;
+  string registrationNumber = 5;
+  string address = 6;
 }
 
 // New messages for subscriptions

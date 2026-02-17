@@ -9,9 +9,9 @@ import { CreateSubscriptionDto } from './dtos/subscription.dto';
 
 @Controller('user')
 export class UserController {
-   private readonly logger = new Logger(UserController.name);
+  private readonly logger = new Logger(UserController.name);
 
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @GrpcMethod('UserService', 'CreateUser')
   async createUser(@Payload() data: CreateUserDto) {
@@ -31,7 +31,7 @@ export class UserController {
   async getAllUsers(@Payload() data: { page: number; limit: number }) {
     try {
       this.logger.log(`Fetching users - Page: ${data.page}, Limit: ${data.limit}`);
-      const result = await this.userService.getAllUsers(data.page , data.limit);
+      const result = await this.userService.getAllUsers(data.page, data.limit);
       return { users: result.users, total: result.total };
     } catch (error: any) {
       this.logger.error(`gRPC GetUser error: ${error.message}`, error.stack);
@@ -88,7 +88,7 @@ export class UserController {
   async deleteUser(@Payload() data: { email: string }) {
     try {
       const result = await this.userService.deleteUser(data.email);
-      return { status: 200, message: 'User deleted successfully' , result: result};
+      return { status: 200, message: 'User deleted successfully', result: result };
     } catch (error: any) {
       this.logger.error(`gRPC DeleteUser error: ${error.message}`, error.stack);
       throw new RpcException({
@@ -113,11 +113,47 @@ export class UserController {
     }
   }
 
+  @GrpcMethod('UserService', 'OnboardLandOwner')
+  async onboardLandOwner(@Payload() data: any) {
+    try {
+      return await this.userService.onboardLandOwner(data);
+    } catch (error: any) {
+      throw new RpcException({ code: 3, message: error.message });
+    }
+  }
+
+  @GrpcMethod('UserService', 'OnboardServiceProvider')
+  async onboardServiceProvider(@Payload() data: any) {
+    try {
+      return await this.userService.onboardServiceProvider(data);
+    } catch (error: any) {
+      throw new RpcException({ code: 3, message: error.message });
+    }
+  }
+
+  @GrpcMethod('UserService', 'OnboardLaboratory')
+  async onboardLaboratory(@Payload() data: any) {
+    try {
+      return await this.userService.onboardLaboratory(data);
+    } catch (error: any) {
+      throw new RpcException({ code: 3, message: error.message });
+    }
+  }
+
+  @GrpcMethod('UserService', 'GetPersonalDetails')
+  async getPersonalDetails(@Payload() data: { id: string }) {
+    try {
+      return await this.userService.getPersonalDetails(data.id);
+    } catch (error: any) {
+      throw new RpcException({ code: 3, message: error.message });
+    }
+  }
+
   @GrpcMethod('UserService', 'UpdatePersonalDetails')
   async UpdatePersonalDetails(@Payload() data: any) {
     try {
       const result = await this.userService.updatePersonalDetails(data);
-      return { status: 200, message: 'Profile updated successfully', id: result._id };
+      return { status: 200, message: 'Profile updated successfully', id: result?._id || data.userId };
     } catch (error: any) {
       this.logger.error(`gRPC UpdateProfile error: ${error.message}`, error.stack);
       throw new RpcException({
@@ -127,7 +163,7 @@ export class UserController {
     }
   }
 
-// New: Create subscription (integrate Stripe checkout)
+  // New: Create subscription (integrate Stripe checkout)
   @GrpcMethod('UserService', 'CreateSubscription')
   async createSubscription(@Payload() data: CreateSubscriptionDto & { userId: string }) {
     try {

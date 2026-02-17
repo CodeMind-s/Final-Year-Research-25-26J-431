@@ -8,6 +8,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { SubscriptionGuard } from './guards/subscription.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -20,10 +21,19 @@ import { SubscriptionGuard } from './guards/subscription.guard';
         name: 'AUTH_PACKAGE',
         transport: Transport.GRPC,
         options: {
-           package: 'auth',
-           protoPath: join(__dirname, 'proto/auth.proto'),
-           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
-         },
+          package: 'auth',
+          protoPath: join(__dirname, 'proto/auth.proto'),
+          url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+        },
+      },
+      {
+        name: 'USER_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'user',
+          protoPath: join(__dirname, 'proto/user.proto'),
+          url: process.env.USER_SERVICE_URL || 'localhost:50001',
+        },
       },
     ]),
   ],
@@ -34,10 +44,14 @@ import { SubscriptionGuard } from './guards/subscription.guard';
       useClass: JwtAuthGuard,
     },
     {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
       provide: APP_FILTER,
       useClass: GrpcExceptionFilter,
     },
     SubscriptionGuard
   ],
 })
-export class AuthModule {}
+export class AuthModule { }

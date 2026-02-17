@@ -1,11 +1,13 @@
 import { Controller, Get, Query, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../auth/decorators/role.enum';
 import { AuditLogService } from './audit-log.service';
 
 @ApiTags('Audit Logs')
 @Controller('audit-logs')
-@Public()
+@ApiBearerAuth()
+@Roles(Role.SUPERADMIN, Role.ADMIN)
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
