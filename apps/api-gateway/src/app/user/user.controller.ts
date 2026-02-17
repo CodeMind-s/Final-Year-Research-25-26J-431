@@ -8,8 +8,8 @@ import { Role } from '../auth/decorators/role.enum';
 import { Logger } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { HttpException } from '@nestjs/common';
-import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './dtos/user.dto';
-import { AccountSettingsDto, PersonalDetailsDto } from '../auth/dtos/auth.dto';
+import { CreateUserDto, UpdatePersonalDetailsDto, UpdateUserRequestDto, UpdateProfileRequestDto } from './dtos/user.dto';
+import { AccountSettingsDto } from '../auth/dtos/auth.dto';
 
 @ApiTags('User')
 @Controller('user')
@@ -26,7 +26,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Roles(Role.SUPERADMIN)
-  @ApiOperation({ summary: 'Create a new user' })
+  @ApiOperation({ summary: 'Create a new user (admin)' })
   @ApiResponse({ status: 200, description: 'User created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid user data' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error during user creation' })
@@ -58,7 +58,8 @@ export class UserController {
   @Get(':email')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get user by email' })
+  @Roles(Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Get user by email (admin)' })
   @ApiResponse({ status: 200, description: 'User fetched successfully' })
   @ApiBadRequestResponse({ description: 'Invalid email' })
   @ApiNotFoundResponse({ description: 'User not found' })
@@ -95,7 +96,8 @@ export class UserController {
   @Get('all/users')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all users with pagination' })
+  @Roles(Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Get all users with pagination (admin)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)', example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of users per page (default: 10, max: 100)', example: 10 })
   @ApiResponse({ status: 200, description: 'Users fetched successfully' })
@@ -142,7 +144,7 @@ export class UserController {
         pagination: {
           page,
           limit,
-          total: result.total || 0, // Assuming the response includes total count; adjust based on proto
+          total: result.total || 0,
           totalPages: Math.ceil((result.total || 0) / limit),
         },
       };
@@ -152,10 +154,11 @@ export class UserController {
     }
   }
 
-  @Get('id/:id')
+  @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get user by ID' })
+  @Roles(Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Get user by ID (admin) ' })
   @ApiResponse({ status: 200, description: 'User fetched successfully' })
   @ApiBadRequestResponse({ description: 'Invalid user ID' })
   @ApiNotFoundResponse({ description: 'User not found' })
@@ -188,21 +191,25 @@ export class UserController {
     }
   }
 
-  @Put()
+  @Put(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update user data' })
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @ApiOperation({ summary: 'Update user by ID (admin)' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   @ApiBadRequestResponse({ description: 'Invalid user data' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error during user update' })
-  async updateUser(@Body() dto: UpdateUserDto, @Req() req: any) {
+  async updateUser(@Param('id') id: string, @Body() dto: UpdateUserRequestDto, @Req() req: any) {
     try {
       const userId = req?.user?.userId;
       if (!userId) return { success: false, message: 'User not authenticated' };
 
+      const updateData = { ...dto, userId: id };
+      this.logger.log(`Sending to UpdateUser: ${JSON.stringify(updateData)}`);
+
       const result = await firstValueFrom(
-        this.userService.UpdateUser(dto).pipe(
+        this.userService.UpdateUser(updateData).pipe(
           catchError((error) => {
             this.logger.error(`UpdateUser error: ${error.message}`, error.stack);
             if (error.code === 2 || error.code === 'INTERNAL') {
@@ -227,7 +234,8 @@ export class UserController {
   @Delete(':email')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete user by email' })
+  @Roles(Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Delete user by email (admin)' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid email' })
   @ApiNotFoundResponse({ description: 'User not found' })
@@ -260,21 +268,22 @@ export class UserController {
     }
   }
 
-  @Put('profile')
+  @Put(':id/profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update user profile' })
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @ApiOperation({ summary: 'Update user profile by ID (admin)' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiBadRequestResponse({ description: 'Invalid profile data' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error during profile update' })
-  async updateProfile(@Body() dto: UpdateProfileDto, @Req() req: any) {
+  async updateProfile(@Param('id') id: string, @Body() dto: UpdateProfileRequestDto, @Req() req: any) {
     try {
       const userId = req?.user?.userId;
       if (!userId) return { success: false, message: 'User not authenticated' };
 
       const result = await firstValueFrom(
-        this.userService.UpdateProfile(dto).pipe(
+        this.userService.UpdateProfile({ ...dto, userId: id }).pipe(
           catchError((error) => {
             this.logger.error(`UpdateProfile error: ${error.message}`, error.stack);
             if (error.code === 2 || error.code === 'INTERNAL') {
@@ -300,12 +309,12 @@ export class UserController {
   @Put('personal-details')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update personal details' })
+  @ApiOperation({ summary: 'Update personal details (own profile)' })
   @ApiResponse({ status: 200, description: 'Personal details updated successfully' })
   @ApiBadRequestResponse({ description: 'Invalid personal details data' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error during personal details update' })
-  async updatePersonalDetails(@Body() dto: PersonalDetailsDto, @Req() req: any) {
+  async updatePersonalDetails(@Body() dto: UpdatePersonalDetailsDto, @Req() req: any) {
     try {
       const userId = req?.user?.userId;
       if (!userId) return { success: false, message: 'User not authenticated' };
@@ -334,71 +343,72 @@ export class UserController {
   }
 
   // New: Update Account Settings
-  @Put('account-settings')
+  // @Put('account-settings')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth()
+  // @ApiOperation({ summary: 'Update account settings' })
+  // @ApiResponse({ status: 200, description: 'Account settings updated successfully' })
+  // @ApiBadRequestResponse({ description: 'Invalid account settings data' })
+  // @ApiNotFoundResponse({ description: 'User not found' })
+  // @ApiInternalServerErrorResponse({ description: 'Internal server error during account settings update' })
+  // async updateAccountSettings(@Body() dto: AccountSettingsDto, @Req() req: any) {
+  //   try {
+  //     const userId = req?.user?.userId;
+  //     if (!userId) return { success: false, message: 'User not authenticated' };
+
+  //     const result = await firstValueFrom(
+  //       this.userService.UpdateAccountSettings({ userId, ...dto }).pipe(
+  //         catchError((error) => {
+  //           this.logger.error(`UpdateAccountSettings error: ${error.message}`, error.stack);
+  //           if (error.code === 2 || error.code === 'INTERNAL') {
+  //             throw new HttpException('Internal server error during account settings update', HttpStatus.INTERNAL_SERVER_ERROR);
+  //           } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+  //             throw new HttpException('Invalid account settings data', HttpStatus.BAD_REQUEST);
+  //           } else if (error.details && error.details.includes('User not found')) {
+  //             throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+  //           } else {
+  //             throw new HttpException('Account settings update failed', HttpStatus.BAD_REQUEST);
+  //           }
+  //         })
+  //       )
+  //     );
+  //     return result;
+  //   } catch (error: any) {
+  //     this.logger.error(`UpdateAccountSettings failed: ${error.message}`, error.stack);
+  //     throw error;
+  //   }
+  // }
+
+  // New: Verify User
+  @Put(':id/verify')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update account settings' })
-  @ApiResponse({ status: 200, description: 'Account settings updated successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid account settings data' })
+  @ApiBearerAuth() 
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @ApiOperation({ summary: 'Verify user account (admin)' })
+  @ApiResponse({ status: 200, description: 'Account verified successfully' })
   @ApiNotFoundResponse({ description: 'User not found' })
-  @ApiInternalServerErrorResponse({ description: 'Internal server error during account settings update' })
-  async updateAccountSettings(@Body() dto: AccountSettingsDto, @Req() req: any) {
+  async verifyUser(@Param('id') id: string, @Req() req: any) {
     try {
-      const userId = req?.user?.userId;
-      if (!userId) return { success: false, message: 'User not authenticated' };
+      const adminId = req?.user?.userId;
+      if (!adminId) return { success: false, message: 'User not authenticated' };
 
       const result = await firstValueFrom(
-        this.userService.UpdateAccountSettings({ userId, ...dto }).pipe(
+        this.userService.VerifyUser({ userId: id }).pipe(
           catchError((error) => {
-            this.logger.error(`UpdateAccountSettings error: ${error.message}`, error.stack);
+            this.logger.error(`VerifyUser error: ${error.message}`, error.stack);
             if (error.code === 2 || error.code === 'INTERNAL') {
-              throw new HttpException('Internal server error during account settings update', HttpStatus.INTERNAL_SERVER_ERROR);
-            } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
-              throw new HttpException('Invalid account settings data', HttpStatus.BAD_REQUEST);
+              throw new HttpException('Internal server error during verification', HttpStatus.INTERNAL_SERVER_ERROR);
             } else if (error.details && error.details.includes('User not found')) {
               throw new HttpException('User not found', HttpStatus.NOT_FOUND);
             } else {
-              throw new HttpException('Account settings update failed', HttpStatus.BAD_REQUEST);
+              throw new HttpException('User verification failed', HttpStatus.BAD_REQUEST);
             }
           })
         )
       );
       return result;
     } catch (error: any) {
-      this.logger.error(`UpdateAccountSettings failed: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // New: Deactivate Account
-  @Put('deactivate')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Deactivate user account' })
-  @ApiResponse({ status: 200, description: 'Account deactivated successfully' })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  async deactivateAccount(@Req() req: any) {
-    try {
-      const userId = req?.user?.userId;
-      if (!userId) return { success: false, message: 'User not authenticated' };
-
-      const result = await firstValueFrom(
-        this.userService.DeactivateAccount({ userId }).pipe(
-          catchError((error) => {
-            this.logger.error(`DeactivateAccount error: ${error.message}`, error.stack);
-            if (error.code === 2 || error.code === 'INTERNAL') {
-              throw new HttpException('Internal server error during deactivation', HttpStatus.INTERNAL_SERVER_ERROR);
-            } else if (error.details && error.details.includes('User not found')) {
-              throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-            } else {
-              throw new HttpException('Account deactivation failed', HttpStatus.BAD_REQUEST);
-            }
-          })
-        )
-      );
-      return result;
-    } catch (error: any) {
-      this.logger.error(`DeactivateAccount failed: ${error.message}`, error.stack);
+      this.logger.error(`VerifyUser failed: ${error.message}`, error.stack);
       throw error;
     }
   }

@@ -3,12 +3,15 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
+import { LandOwnerDetails } from './schemas/land-owner-details.schema';
+import { ServiceProviderDetails } from './schemas/service-provider-details.schema';
+import { LaboratoryDetails } from './schemas/laboratory-details.schema';
 import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto, CreateSubscriptionDto, PlanDto } from './dtos/auth.dto';
 import axios from 'axios';
 import { ClientKafka } from '@nestjs/microservices';
 import Stripe from 'stripe';
 import * as bcrypt from 'bcrypt';
-const otpStore = new Map<string, string>(); // In-memory OTP store (use Redis in production)
+const otpStore = new Map<string, { code: string; role: string }>(); // In-memory OTP store
 
 interface AuditLogData {
   serviceName: string;
@@ -35,6 +38,9 @@ export class AuthService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(LandOwnerDetails.name) private landOwnerModel: Model<LandOwnerDetails>,
+    @InjectModel(ServiceProviderDetails.name) private serviceProviderModel: Model<ServiceProviderDetails>,
+    @InjectModel(LaboratoryDetails.name) private laboratoryModel: Model<LaboratoryDetails>,
     @Inject('EMAIL_SERVICE') private readonly emailClient: ClientKafka,
     @Inject('AUDIT_LOG_SERVICE') private readonly auditLogClient: ClientKafka,
     private jwtService: JwtService,
@@ -103,8 +109,8 @@ export class AuthService {
       this.logger.log(`SignIn attempt for ${identifier}, existing user: ${!!existingUser}`);
 
       const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
-      otpStore.set(identifier, code);
-      this.logger.debug(`Generated OTP ${code} for ${identifier}`);
+      otpStore.set(identifier, { code, role: dto.role });
+      this.logger.debug(`Generated OTP ${code} for ${identifier} with role ${dto.role}`);
 
       if (email) {
         const emailRes = await this.emailClient.emit('send_verification_code_email', {
@@ -113,7 +119,7 @@ export class AuthService {
         }).toPromise();
         this.logger.log(`Email OTP request sent to email-service for ${emailRes}`);
         this.logger.log(`Email OTP sent to ${email}`);
-        
+
         // Audit log for successful OTP send
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -125,8 +131,8 @@ export class AuthService {
           method: 'POST',
           path: '/auth/sign-in',
         });
-        
-        return { success: emailRes ? true : false , user: email};
+
+        return { success: emailRes ? true : false, user: email };
       } else if (phone) {
         // Send OTP via SMS using Notify.lk
         const smsResult = await this.sendSmsViaNofityLk(
@@ -134,7 +140,7 @@ export class AuthService {
           `Your Brinex verification code is ${code}. It is valid for 10 minutes.`,
         );
         this.logger.log(`SMS OTP sent to ${phone} via Notify.lk: ${JSON.stringify(smsResult)}`);
-        
+
         // Audit log for successful OTP send via SMS
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -146,14 +152,14 @@ export class AuthService {
           method: 'POST',
           path: '/auth/sign-in',
         });
-        
-        return { success: smsResult ? true : false , user: phone};
+
+        return { success: smsResult ? true : false, user: phone };
       } else {
         throw new BadRequestException('Must provide email or phone');
       }
-    } catch (error : any) {
+    } catch (error: any) {
       this.logger.error(`SignIn failed for ${dto.email || dto.phone}: ${error.message}`, error.stack);
-      
+
       // Audit log for failed sign-in
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -164,7 +170,7 @@ export class AuthService {
         method: 'POST',
         path: '/auth/sign-in',
       });
-      
+
       if (error.message?.includes('Invalid phone') || error.message?.includes('invalid number')) {
         throw new BadRequestException('Invalid phone number');
       } else if (error.message?.includes('Invalid email')) {
@@ -181,9 +187,9 @@ export class AuthService {
       const { email, phone, code } = dto;
       if (!identifier) throw new BadRequestException('Email or phone required');
 
-      const storedCode = otpStore.get(identifier);
-      if (!storedCode) throw new UnauthorizedException('OTP expired or not found');
-      if (code !== storedCode) throw new UnauthorizedException('Invalid OTP');
+      const storedData = otpStore.get(identifier);
+      if (!storedData) throw new UnauthorizedException('OTP expired or not found');
+      if (code !== storedData.code) throw new UnauthorizedException('Invalid OTP');
       console.log("OTP verified for identifier: ", dto);
       const query = email ? { email } : { phone };
       let user = await this.userModel.findOne(query) as any | null;
@@ -191,17 +197,18 @@ export class AuthService {
       console.log("User after OTP verification: ", user);
       const isNewUser = !user;
       if (isNewUser) {
-        user = new this.userModel({ 
-          email, 
-          phone, 
-          role: 'SELLER', 
-          isOnboarded: false ,
+        user = new this.userModel({
+          email,
+          phone,
+          role: storedData.role,
+          isOnboarded: false,
           plan: 'free',
           isSubscribed: false,
-        }); 
+          isVerified: false,
+        });
         await user.save();
         this.logger.log(`New user created: ${user._id}`);
-        
+
         // Audit log for new user signup
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -221,7 +228,7 @@ export class AuthService {
 
       otpStore.delete(identifier); // Clear OTP
       this.logger.log(`OTP verified for ${identifier}, user: ${user._id}`);
-      
+
       // Audit log for successful OTP verification (login)
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -234,9 +241,9 @@ export class AuthService {
         method: 'POST',
         path: '/auth/verify-otp',
       });
-      
+
       return { accessToken, isNewUser, isOnboarded: user.isOnboarded };
-    } catch (error : any) {
+    } catch (error: any) {
       // Audit log for failed OTP verification
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -247,7 +254,7 @@ export class AuthService {
         method: 'POST',
         path: '/auth/verify-otp',
       });
-      
+
       if (error instanceof UnauthorizedException || error.message.includes('Invalid OTP')) {
         throw new UnauthorizedException('Invalid OTP');
       } else if (error instanceof BadRequestException) {
@@ -267,7 +274,7 @@ export class AuthService {
       );
       if (!user) throw new BadRequestException('User not found');
       this.logger.log(`Onboarding completed for user: ${userId}`);
-      
+
       // Audit log for successful onboarding (DB update)
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -280,11 +287,11 @@ export class AuthService {
         method: 'PUT',
         path: '/auth/onboarding',
       });
-      
+
       return user;
-    } catch (error:any) {
+    } catch (error: any) {
       this.logger.error(`CompleteOnboarding failed for ${userId}: ${error.message}`, error.stack);
-      
+
       // Audit log for failed onboarding
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -296,7 +303,7 @@ export class AuthService {
         method: 'PUT',
         path: '/auth/onboarding',
       });
-      
+
       if (error instanceof BadRequestException) {
         throw error;
       } else {
@@ -341,7 +348,7 @@ export class AuthService {
       const { email, name, providerId, provider } = data;
       let user = await this.userModel.findOne({ [provider === 'google' ? 'googleId' : 'facebookId']: providerId }) as any | null;
       let isNewUser = false;
-      
+
       if (!user) {
         user = await this.userModel.findOne({ email });
       }
@@ -358,7 +365,7 @@ export class AuthService {
           linkedAccounts: { [provider]: true },
         });
         await user.save();
-        
+
         // Audit log for new OAuth user signup
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -376,7 +383,7 @@ export class AuthService {
         user.linkedAccounts = { ...user.linkedAccounts, [provider]: true };
         if (!user.name) user.name = name;
         await user.save();
-        
+
         // Audit log for OAuth login with linked account update
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -401,7 +408,7 @@ export class AuthService {
       };
     } catch (error: any) {
       this.logger.error(`OAuthSignIn error: ${error.message}`, error.stack);
-      
+
       // Audit log for failed OAuth sign-in
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -419,7 +426,7 @@ export class AuthService {
   async login(email: string, password: string): Promise<{ token: string; user: any }> {
     try {
       console.log('Login attempt for:', email);
-      console.log('Password provided:', password );
+      console.log('Password provided:', password);
       const user = await this.userModel.findOne({ email });
       console.log('User found:', user);
       if (!user || !await bcrypt.compare(password, user.password || '')) {
@@ -444,7 +451,6 @@ export class AuthService {
       const userResponse = {
         id: user._id.toString(),
         email: user.email,
-        name: user.name,
         role: user.role, // 'admin' or 'superadmin'
         isOnboarded: user.isOnboarded,
         plan: user.plan,
@@ -452,7 +458,7 @@ export class AuthService {
       };
 
       this.logger.log(`Login successful for ${email} with role: ${user.role}`);
-      
+
       // Audit log for successful login
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -465,7 +471,7 @@ export class AuthService {
         method: 'POST',
         path: '/auth/login',
       });
-      
+
       return { token, user: userResponse };
     } catch (error) {
       this.logger.error(`Login failed for ${email}: ${error.message}`, error.stack);
@@ -485,16 +491,18 @@ export class AuthService {
         throw new BadRequestException('User not found');
       }
 
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await this.stripe.customers.create({
-          email: user.email,
-          metadata: { userId },
-        });
-        customerId = customer.id;
-        user.stripeCustomerId = customerId;
-        await user.save();
-      }
+      // Stripe customer creation removed due to schema change
+      // let customerId = user.stripeCustomerId;
+      // if (!customerId) {
+      //   const customer = await this.stripe.customers.create({
+      //     email: user.email,
+      //     metadata: { userId },
+      //   });
+      //   customerId = customer.id;
+      //   user.stripeCustomerId = customerId;
+      //   await user.save();
+      // }
+      throw new InternalServerErrorException('Subscription creation currently disabled due to schema update');
 
       const prices = {
         basic: process.env.STRIPE_BASIC_PRICE_ID,
@@ -506,7 +514,7 @@ export class AuthService {
       }
 
       const session = await this.stripe.checkout.sessions.create({
-        customer: customerId,
+        customer: 'dummy_customer_id', // Placeholder due to schema change
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
@@ -531,7 +539,7 @@ export class AuthService {
       return { success: true, message: 'Checkout initiated', checkoutUrl: session.url };
     } catch (error: any) {
       this.logger.error(`CreateSubscription error: ${error.message}`, error.stack);
-      
+
       // Audit log for failed subscription creation
       await this.emitAuditLog({
         serviceName: 'auth-service',
@@ -543,7 +551,7 @@ export class AuthService {
         method: 'POST',
         path: '/auth/subscription',
       });
-      
+
       throw error;
     }
   }
@@ -566,15 +574,13 @@ export class AuthService {
         success: true,
         message: 'Subscription fetched',
         subscription: {
-          id: user.subscriptionId,
+          id: (user as any).subscriptionId || 'no-id',
           userId,
           planId: user.plan,
           plan: { name: user.plan.charAt(0).toUpperCase() + user.plan.slice(1), level: { free: 0, basic: 1, premium: 2 }[user.plan] },
           status: user.isSubscribed ? 'active' : 'inactive',
-          // startDate: (user as any).createdAt?.toISOString?.() || null,
-          // endDate: user.subscriptionEndDate?.toISOString() || null,
-          start_date: timestamp((user as any).createdAt), // Use createdAt as start; adjust if separate field
-          end_date: timestamp(user.subscriptionEndDate),
+          start_date: timestamp((user as any).createdAt),
+          end_date: timestamp((user as any).subscriptionEndDate),
         },
       };
     } catch (error: any) {
@@ -594,23 +600,23 @@ export class AuthService {
   }
 
   // New: Get plan
-async getPlan(planId: string): Promise<any> {
-  try {
-    console.log('Fetching plan for ID:', planId); // Temp debug log
+  async getPlan(planId: string): Promise<any> {
+    try {
+      console.log('Fetching plan for ID:', planId); // Temp debug log
 
-    const plans = await this.getPlans();
-    let plan = plans.plans.find(p => p.id.toLowerCase() === planId.toLowerCase()); // Case-insensitive match
-    if (!plan) {
-      console.warn(`Plan not found for ID: ${planId}. Falling back to free plan.`); // Temp log
-      plan = plans.plans.find(p => p.id === 'free') || { id: 'free', name: 'Free', level: 0, price: 0, features: ['Basic access'], duration: 'lifetime' }; // Fallback
+      const plans = await this.getPlans();
+      let plan = plans.plans.find(p => p.id.toLowerCase() === planId.toLowerCase()); // Case-insensitive match
+      if (!plan) {
+        console.warn(`Plan not found for ID: ${planId}. Falling back to free plan.`); // Temp log
+        plan = plans.plans.find(p => p.id === 'free') || { id: 'free', name: 'Free', level: 0, price: 0, features: ['Basic access'], duration: 'lifetime' }; // Fallback
+      }
+
+      return { success: true, plan };
+    } catch (error: any) {
+      this.logger.error(`GetPlan error for ${planId}: ${error.message}`, error.stack);
+      throw new BadRequestException('Plan not found');
     }
-
-    return { success: true, plan };
-  } catch (error: any) {
-    this.logger.error(`GetPlan error for ${planId}: ${error.message}`, error.stack);
-    throw new BadRequestException('Plan not found');
   }
-}
 
   // New: Update subscription
   async updateSubscription(subscriptionId: string, planId: string): Promise<any> {
@@ -635,7 +641,24 @@ async getPlan(planId: string): Promise<any> {
       if (!user) {
         throw new BadRequestException('User not found');
       }
-      return { success: true, user };
+
+      let roleDetails = null;
+      if (user.role === 'LANDOWNER') {
+        roleDetails = await this.landOwnerModel.findOne({ userId }).exec();
+      } else if (user.role === 'SERVICE_PROVIDER' || user.role === 'DISTRIBUTOR') {
+        roleDetails = await this.serviceProviderModel.findOne({ userId }).exec();
+      } else if (user.role === 'LABORATORY') {
+        roleDetails = await this.laboratoryModel.findOne({ userId }).exec();
+      }
+
+      return {
+        success: true,
+        user,
+        landOwnerDetails: user.role === 'LANDOWNER' ? roleDetails : null,
+        distributorDetails: user.role === 'DISTRIBUTOR' ? roleDetails : null,
+        serviceProviderDetails: user.role === 'SERVICE_PROVIDER' ? roleDetails : null,
+        laboratoryDetails: user.role === 'LABORATORY' ? roleDetails : null,
+      };
     } catch (error: any) {
       this.logger.error(`GetPersonalDetails error for ${userId}: ${error.message}`, error.stack);
       throw error;

@@ -1,17 +1,24 @@
-import { IsEmail, IsString, IsOptional, Length, IsIn, ValidateIf,  IsEnum, IsArray, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsOptional, Length, IsIn, ValidateIf, IsEnum, IsArray, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SignInDto {
-  @ApiProperty({ example: 'john@example.com', description: 'User email or phone number' })
+  @ApiProperty({ example: 'john@example.com', description: 'User email' })
   @IsString()
+  @IsOptional()
   @ValidateIf(o => o.email)
   @IsEmail({}, { message: 'Invalid email' })
   email?: string;
 
   @ApiProperty({ example: '+1234567890', description: 'User phone number' })
   @IsString()
+  @IsOptional()
   @ValidateIf(o => o.phone)
   phone?: string;
+
+  @ApiProperty({ example: 'LANDOWNER', enum: ['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR'] })
+  @IsString()
+  @IsEnum(['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR'])
+  role!: string;
 }
 
 export class VerifyOtpDto {
@@ -51,7 +58,7 @@ export class OnboardingDto {
   @IsOptional()
   preferredCurrency!: string;
 
-  @ApiProperty({ example: 'solo', description: 'Traveler types' })
+  @ApiProperty({ example: 'solo', description: 'Traveler types', enum: ['solo', 'couples', 'friends', 'family', 'business'] })
   @IsString()
   @IsOptional()
   travelerTypes!: string;
@@ -60,6 +67,11 @@ export class OnboardingDto {
   @IsArray({ message: 'Transportation preferences must be an array' })
   @IsOptional()
   transportationPreferences!: string[];
+
+  @ApiProperty({ example: ['surfing', 'wildlife-safari'], description: 'Activity preferences' })
+  @IsArray({ message: 'Activity preferences must be an array' })
+  @IsOptional()
+  activityPreferences!: string[];
 
   @ApiProperty({ example: ['lankan-cuisines', 'western-cuisines'], description: 'Food/drink preferences' })
   @IsArray({ message: 'Food/drink preferences must be an array' })
@@ -92,7 +104,7 @@ export class OnboardingBasicDto {
 
 
 export class OnboardingSurveyDto {
-  @ApiProperty({ example: 'solo', description: 'Traveler types', enum:['solo', 'couples', 'friends', 'family', 'business'] })
+  @ApiProperty({ example: 'solo', description: 'Traveler types', enum: ['solo', 'couples', 'friends', 'family', 'business'] })
   @IsString()
   @IsOptional()
   travelerTypes!: string;
@@ -100,7 +112,6 @@ export class OnboardingSurveyDto {
   @ApiProperty({ example: ['tuk-tuk', 'car-van-rental'], description: 'Transportation preferences' })
   @IsArray()
   transportationPreferences!: string[];
-
 
   @ApiProperty({ example: ['surfing', 'wildlife-safari'], description: 'Activity preferences' })
   @IsArray({ message: 'Activity preferences must be an array' })
@@ -282,4 +293,59 @@ export class AccountSettingsDto {
   @ApiProperty({ example: true, description: 'Profile visibility' })
   @IsOptional()
   profileVisibility?: boolean;
+}
+
+// New Onboarding DTOs
+export class LandOwnerOnboardingDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  docUrls!: string[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  totalBeds!: number;
+
+  @ApiProperty()
+  @IsString()
+  nic!: string;
+
+  @ApiProperty()
+  @IsString()
+  address!: string;
+}
+
+export class LaboratoryOnboardingDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  docUrls!: string[];
+
+  @ApiProperty()
+  @IsString()
+  laboratoryName!: string;
+
+  @ApiProperty()
+  @IsString()
+  registrationNumber!: string;
+
+  @ApiProperty()
+  @IsString()
+  address!: string;
+}
+
+export class ServiceProviderOnboardingDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  docUrls!: string[];
+
+  @ApiProperty()
+  @IsString()
+  companyName!: string;
+
+  @ApiProperty()
+  @IsString()
+  registrationNumber!: string;
+
+  @ApiProperty()
+  @IsString()
+  address!: string;
 }

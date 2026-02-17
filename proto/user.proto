@@ -11,19 +11,15 @@ service UserService {
   rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
-
-  // New RPCs for personal details and account settings
   rpc UpdatePersonalDetails(UpdatePersonalDetailsRequest) returns (UpdateProfileResponse);
-  rpc UpdateAccountSettings(UpdateAccountSettingsRequest) returns (UpdateProfileResponse);
-  rpc DeactivateAccount(DeactivateAccountRequest) returns (UpdateProfileResponse);
-  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteUserResponse);
+  rpc VerifyUser(VerifyUserRequest) returns (VerifyUserResponse);
+  
+  // Onboarding RPCs
+  rpc OnboardLandOwner(OnboardLandOwnerRequest) returns (OnboardResponse);
+  rpc OnboardServiceProvider(OnboardServiceProviderRequest) returns (OnboardResponse);
+  rpc OnboardLaboratory(OnboardLaboratoryRequest) returns (OnboardResponse);
 
-  // New RPCs for subscriptions
-  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
-  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
-  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
-  rpc HandleStripeWebhook(HandleStripeWebhookRequest) returns (GetUserResponse); // For webhook events
-  rpc CheckSubscriptionAccess(CheckSubscriptionAccessRequest) returns (CheckSubscriptionAccessResponse);
+  rpc GetPersonalDetails(GetUserByIdRequest) returns (PersonalDetailsResponse);
 }
 
 message CreateUserRequest {
@@ -31,8 +27,6 @@ message CreateUserRequest {
   string password = 2;
   string name = 3;
   string role = 4;
-  string preferredLanguage = 5;
-  string preferredCurrency = 6;
 }
 
 
@@ -43,9 +37,16 @@ message ListUsersRequest {
 
 // Response message for listing users
 message ListUsersResponse {
-  repeated User users = 1;         // List of users
-  int64 total = 2;                // Total number of users (for pagination metadata)
-  // If using cursor-based: string next_page_token = 3;
+  repeated UserWithDetails users = 1;  // List of users with role details
+  int32 total = 2;                     // Total number of users (for pagination metadata)
+}
+
+message UserWithDetails {
+  User user = 1;
+  LandOwnerDetails landOwnerDetails = 2;
+  ServiceProviderDetails serviceProviderDetails = 3;
+  LaboratoryDetails laboratoryDetails = 4;
+  DistributorDetails distributorDetails = 5;
 }
 
 
@@ -67,20 +68,29 @@ message GetUserResponse {
   int32 status = 1;
   string message = 2;
   User data = 3;
+  LandOwnerDetails landOwnerDetails = 4;
+  ServiceProviderDetails serviceProviderDetails = 5;
+  LaboratoryDetails laboratoryDetails = 6;
+  DistributorDetails distributorDetails = 7;
 }
 
 message UpdateUserRequest {
-  string email = 1;
-  string password = 2;
-  string name = 3;
-  string preferredLanguage = 4;
-  string preferredCurrency = 5;
+  string userId = 1;
+  string name = 2;
+  bool isOnboard = 3;
+  string plan = 4;
+  bool isSubscribe = 5;
+  bool isVerified = 6;
 }
 
 message UpdateUserResponse {
   int32 status = 1;
   string message = 2;
-  string id = 3;
+  string name = 3;
+  bool isOnboarded = 4;
+  string plan = 5;
+  bool isSubscribed = 6;
+  bool isVerified = 7;
 }
 
 message DeleteUserRequest {
@@ -93,31 +103,46 @@ message DeleteUserResponse {
 }
 
 message UpdateProfileRequest {
-  string user_id = 1;
-  string name = 2;
-  string email = 3;
-  string preferredLanguage = 4;
-  string preferredCurrency = 5;
-  string bio = 6;
-  string profileImage = 7;
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string laboratoryName = 5;
+  string registrationNumber = 6;
+  string address = 7;
+  string companyName = 8;
 }
 
 message UpdateProfileResponse {
   int32 status = 1;
   string message = 2;
-  string id = 3;
+  User data = 3;
+  LandOwnerDetails landOwnerDetails = 4;
+  ServiceProviderDetails serviceProviderDetails = 5;
+  LaboratoryDetails laboratoryDetails = 6;
+  DistributorDetails distributorDetails = 7;
 }
 
 // New messages for personal details and account settings
 message UpdatePersonalDetailsRequest {
-  string user_id = 1;
-  string name = 2;
-  string residential_address = 3;
-  string gender = 4;
-  string emergency_contact_name = 5;
-  string emergency_contact_number = 6;
-  string blood_type = 7;
-  string allergies = 8;
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string laboratoryName = 5;
+  string registrationNumber = 6;
+  string address = 7;
+  string companyName = 8;
+}
+
+message VerifyUserRequest {
+  string userId = 1;
+}
+
+message VerifyUserResponse {
+  int32 status = 1;
+  string message = 2;
+  User data = 3;
 }
 
 message UpdateAccountSettingsRequest {
@@ -141,37 +166,84 @@ message User {
   string id = 1;
   string email = 2;
   string phone = 3;
-  string name = 4;
-  string gender = 5;
-  string preferredLanguage = 6;
-  string preferredCurrency = 7;
-  string role = 8;
-  bool isOnboarded = 9;
-  string travelerTypes = 10;
-  repeated string transportationPreferences = 11;
-  repeated string activityPreferences = 12;
-  repeated string foodDrinkPreferences = 13;
-  repeated string sriLankaVibes = 14;
-  google.protobuf.Timestamp createdAt = 15;
-  google.protobuf.Timestamp updatedAt = 16;
-  string plan = 17; // 'free', 'basic', 'premium'
-  bool is_subscribed = 18;
-  google.protobuf.Timestamp subscription_end_date = 19;
-  // New Personal Details fields
-  string residential_address = 20;
-  string emergency_contact_name = 21;
-  string emergency_contact_number = 22;
-  string blood_type = 23;
-  string allergies = 24;
+  string role = 4;
+  bool isOnboarded = 5;
+  string plan = 6;
+  bool isSubscribed = 7;
+  bool isVerified = 8;
+}
 
-  // New Account Settings fields
-  bool two_factor_enabled = 25;
-  map<string, bool> linked_accounts = 26; // e.g., { "google": true, "facebook": false }
-  bool profile_visibility = 27;
-  bool is_deactivated = 28;
-  string profile_picture_url = 29;
-  string bio = 30;
-  string profileImage = 31;
+message OnboardLandOwnerRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  int32 totalBeds = 3;
+  string nic = 4;
+  string address = 5;
+}
+
+message OnboardServiceProviderRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  string companyName = 3;
+  string registrationNumber = 4;
+  string address = 5;
+}
+
+message OnboardLaboratoryRequest {
+  string userId = 1;
+  repeated string docUrls = 2;
+  string laboratoryName = 3;
+  string registrationNumber = 4;
+  string address = 5;
+}
+
+message OnboardResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PersonalDetailsResponse {
+  User user = 1;
+  LandOwnerDetails landOwnerDetails = 2;
+  ServiceProviderDetails serviceProviderDetails = 3;
+  LaboratoryDetails laboratoryDetails = 4;
+  DistributorDetails distributorDetails = 5;
+}
+
+message DistributorDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string companyName = 4;
+  string registrationNumber = 5;
+  string address = 6;
+}
+
+message LandOwnerDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  int32 totalBeds = 4;
+  string nic = 5;
+  string address = 6;
+}
+
+message ServiceProviderDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string companyName = 4;
+  string registrationNumber = 5;
+  string address = 6;
+}
+
+message LaboratoryDetails {
+  string id = 1;
+  string userId = 2;
+  repeated string docUrls = 3;
+  string laboratoryName = 4;
+  string registrationNumber = 5;
+  string address = 6;
 }
 
 // New messages for subscriptions
