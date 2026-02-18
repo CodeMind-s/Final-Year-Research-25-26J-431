@@ -6,11 +6,12 @@ import { User } from './schemas/user.schema';
 import { LandOwnerDetails } from './schemas/land-owner-details.schema';
 import { ServiceProviderDetails } from './schemas/service-provider-details.schema';
 import { LaboratoryDetails } from './schemas/laboratory-details.schema';
-import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto, CreateSubscriptionDto, PlanDto } from './dtos/auth.dto';
+import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto } from './dtos/auth.dto';
 import axios from 'axios';
 import { ClientKafka } from '@nestjs/microservices';
-import Stripe from 'stripe';
 import * as bcrypt from 'bcrypt';
+import { SubscriptionService } from './subscription/subscription.service';
+
 const otpStore = new Map<string, { code: string; role: string }>(); // In-memory OTP store
 
 interface AuditLogData {
@@ -28,7 +29,6 @@ interface AuditLogData {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private stripe: Stripe;
   private readonly notifyLkConfig: {
     userId: string;
     apiKey: string;
@@ -44,6 +44,7 @@ export class AuthService {
     @Inject('EMAIL_SERVICE') private readonly emailClient: ClientKafka,
     @Inject('AUDIT_LOG_SERVICE') private readonly auditLogClient: ClientKafka,
     private jwtService: JwtService,
+    private subscriptionService: SubscriptionService,
   ) {
     this.notifyLkConfig = {
       userId: process.env.NOTIFY_LK_USER_ID || '',
@@ -53,12 +54,6 @@ export class AuthService {
     };
     if (!this.notifyLkConfig.userId || !this.notifyLkConfig.apiKey) {
       this.logger.warn('Notify.lk credentials not configured. SMS sending will fail.');
-    }
-
-    if (process.env.STRIPE_SECRET_KEY) {
-      this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-10-29.clover' });
-    } else {
-      this.logger.warn('STRIPE_SECRET_KEY not configured. Subscription features will be unavailable.');
     }
   }
 
@@ -190,11 +185,10 @@ export class AuthService {
       const storedData = otpStore.get(identifier);
       if (!storedData) throw new UnauthorizedException('OTP expired or not found');
       if (code !== storedData.code) throw new UnauthorizedException('Invalid OTP');
-      console.log("OTP verified for identifier: ", dto);
+
       const query = email ? { email } : { phone };
       let user = await this.userModel.findOne(query) as any | null;
 
-      console.log("User after OTP verification: ", user);
       const isNewUser = !user;
       if (isNewUser) {
         user = new this.userModel({
@@ -209,6 +203,18 @@ export class AuthService {
         await user.save();
         this.logger.log(`New user created: ${user._id}`);
 
+        // Start trial or assign lab plan based on role
+        if (storedData.role === 'LABORATORY') {
+          await this.subscriptionService.createSubscription(user._id.toString(), 'lab', 'free');
+          this.logger.log(`Lab plan assigned to LABORATORY user ${user._id}`);
+        } else {
+          await this.subscriptionService.startProTrial(user._id.toString());
+          this.logger.log(`Pro trial started for user ${user._id}`);
+        }
+
+        // Re-fetch user to get updated plan fields
+        user = await this.userModel.findById(user._id);
+
         // Audit log for new user signup
         await this.emitAuditLog({
           serviceName: 'auth-service',
@@ -216,14 +222,20 @@ export class AuthService {
           userId: user._id.toString(),
           resourceId: user._id.toString(),
           resourceType: 'user',
-          details: JSON.stringify({ email, phone, role: 'SELLER' }),
+          details: JSON.stringify({ email, phone, role: storedData.role }),
           status: 'success',
           method: 'POST',
           path: '/auth/verify-otp',
         });
       }
 
-      const payload = { sub: user._id.toString(), email: user.email, role: user.role };
+      const payload = {
+        sub: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        plan: user.plan,
+        isTrialActive: user.isTrialActive,
+      };
       const accessToken = this.jwtService.sign(payload);
 
       otpStore.delete(identifier); // Clear OTP
@@ -312,37 +324,6 @@ export class AuthService {
     }
   }
 
-
-  // async oAuthSignIn(profile: OAuthProfileDto): Promise<AuthResponseDto> {
-  //   try {
-  //     let user = await this.userModel.findOne({ [profile.provider === 'google' ? 'googleId' : 'facebookId']: profile.providerId }) as any;
-  //     const isNewUser = !user;
-  //     if (isNewUser) {
-  //       user = new this.userModel({ 
-  //         email: profile.email, 
-  //         name: profile.name,
-  //         [profile.provider === 'google' ? 'googleId' : 'facebookId']: profile.providerId,
-  //         role: 'user', 
-  //         isOnboarded: false 
-  //       });
-  //       await user.save();
-  //       this.logger.log(`New OAuth user created: ${user._id} via ${profile.provider}`);
-  //     }else {
-  //       // Update linked account
-  //       user.linkedAccounts = { ...user.linkedAccounts, [provider]: true };
-  //       if (!user.name) user.name = name;
-  //       await user.save();
-  //     }
-
-  //     const payload = { sub: user._id.toString(), email: user.email, role: user.role };
-  //     const accessToken = this.jwtService.sign(payload);
-  //     return { accessToken, isNewUser, isOnboarded: user.isOnboarded };
-  //   } catch (error:any) {
-  //     this.logger.error(`OAuthSignIn failed for ${profile.provider}: ${error.message}`, error.stack);
-  //     throw new InternalServerErrorException('OAuth sign-in failed');
-  //   }
-  // }
-
   async oAuthSignIn(data: OAuthProfileDto): Promise<AuthResponseDto> {
     try {
       const { email, name, providerId, provider } = data;
@@ -359,12 +340,19 @@ export class AuthService {
           email,
           name,
           [provider === 'google' ? 'googleId' : 'facebookId']: providerId,
-          role: 'SELLER',
+          role: 'LANDOWNER',
           isOnboarded: false,
           plan: 'free',
           linkedAccounts: { [provider]: true },
         });
         await user.save();
+
+        // Start Pro trial for new OAuth users (non-LABORATORY default)
+        await this.subscriptionService.startProTrial(user._id.toString());
+        this.logger.log(`Pro trial started for new OAuth user ${user._id}`);
+
+        // Re-fetch user to get updated plan fields
+        user = await this.userModel.findById(user._id);
 
         // Audit log for new OAuth user signup
         await this.emitAuditLog({
@@ -398,7 +386,13 @@ export class AuthService {
         });
       }
 
-      const payload = { sub: user._id.toString(), email: user.email, role: user.role };
+      const payload = {
+        sub: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        plan: user.plan,
+        isTrialActive: user.isTrialActive,
+      };
       const accessToken = this.jwtService.sign(payload);
 
       return {
@@ -425,10 +419,7 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<{ token: string; user: any }> {
     try {
-      console.log('Login attempt for:', email);
-      console.log('Password provided:', password);
       const user = await this.userModel.findOne({ email });
-      console.log('User found:', user);
       if (!user || !await bcrypt.compare(password, user.password || '')) {
         // Audit log for failed login
         await this.emitAuditLog({
@@ -443,15 +434,19 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      // Role-based: admin/superadmin get full access; no extra gating here (handled in guards)
-      const payload = { sub: user._id.toString(), email: user.email, role: user.role };
+      const payload = {
+        sub: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        plan: user.plan,
+        isTrialActive: user.isTrialActive,
+      };
       const token = this.jwtService.sign(payload);
 
-      // Return user with role for frontend (e.g., show admin dashboard)
       const userResponse = {
         id: user._id.toString(),
         email: user.email,
-        role: user.role, // 'admin' or 'superadmin'
+        role: user.role,
         isOnboarded: user.isOnboarded,
         plan: user.plan,
         isSubscribed: user.isSubscribed,
@@ -479,160 +474,45 @@ export class AuthService {
     }
   }
 
-  // New: Create subscription with Stripe
-  async createSubscription(data: CreateSubscriptionDto): Promise<any> {
-    try {
-      if (!this.stripe) {
-        throw new InternalServerErrorException('Stripe is not configured. Set STRIPE_SECRET_KEY.');
-      }
-      const { userId, plan } = data;
-      const user = await this.userModel.findById(userId);
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
-
-      // Stripe customer creation removed due to schema change
-      // let customerId = user.stripeCustomerId;
-      // if (!customerId) {
-      //   const customer = await this.stripe.customers.create({
-      //     email: user.email,
-      //     metadata: { userId },
-      //   });
-      //   customerId = customer.id;
-      //   user.stripeCustomerId = customerId;
-      //   await user.save();
-      // }
-      throw new InternalServerErrorException('Subscription creation currently disabled due to schema update');
-
-      const prices = {
-        basic: process.env.STRIPE_BASIC_PRICE_ID,
-        premium: process.env.STRIPE_PREMIUM_PRICE_ID,
-      };
-      const priceId = prices[plan];
-      if (!priceId) {
-        throw new BadRequestException('Invalid plan');
-      }
-
-      const session = await this.stripe.checkout.sessions.create({
-        customer: 'dummy_customer_id', // Placeholder due to schema change
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-        metadata: { userId, plan },
-      });
-
-      // Audit log for subscription creation
-      await this.emitAuditLog({
-        serviceName: 'auth-service',
-        action: 'SUBSCRIPTION_CHECKOUT_INITIATED',
-        userId: userId,
-        resourceId: session.id,
-        resourceType: 'subscription',
-        details: JSON.stringify({ plan, stripeSessionId: session.id }),
-        status: 'success',
-        method: 'POST',
-        path: '/auth/subscription',
-      });
-
-      return { success: true, message: 'Checkout initiated', checkoutUrl: session.url };
-    } catch (error: any) {
-      this.logger.error(`CreateSubscription error: ${error.message}`, error.stack);
-
-      // Audit log for failed subscription creation
-      await this.emitAuditLog({
-        serviceName: 'auth-service',
-        action: 'SUBSCRIPTION_CHECKOUT_FAILED',
-        userId: data.userId,
-        resourceType: 'subscription',
-        details: JSON.stringify({ plan: data.plan, error: error.message }),
-        status: 'error',
-        method: 'POST',
-        path: '/auth/subscription',
-      });
-
-      throw error;
-    }
+  // Delegated to SubscriptionService
+  async createSubscription(data: { userId: string; planKey: string; paymentMethod?: string }): Promise<any> {
+    const subscription = await this.subscriptionService.createSubscription(
+      data.userId,
+      data.planKey,
+      data.paymentMethod || 'free',
+    );
+    return { success: true, message: 'Subscription created', subscription };
   }
 
-  // New: Get subscription
   async getSubscription(userId: string): Promise<any> {
-    try {
-      const user = await this.userModel.findById(userId).select('plan isSubscribed subscriptionId subscriptionEndDate createdAt');
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
-      console.log('User subscription details:', user);
-      const timestamp = (date: Date | null): any => {
-        if (!date) return null;
-        const seconds = Math.floor(date.getTime() / 1000);
-        const nanos = Math.floor((date.getTime() % 1000) * 1e6);
-        return { seconds, nanos };
-      };
-      return {
-        success: true,
-        message: 'Subscription fetched',
-        subscription: {
-          id: (user as any).subscriptionId || 'no-id',
-          userId,
-          planId: user.plan,
-          plan: { name: user.plan.charAt(0).toUpperCase() + user.plan.slice(1), level: { free: 0, basic: 1, premium: 2 }[user.plan] },
-          status: user.isSubscribed ? 'active' : 'inactive',
-          start_date: timestamp((user as any).createdAt),
-          end_date: timestamp((user as any).subscriptionEndDate),
-        },
-      };
-    } catch (error: any) {
-      this.logger.error(`GetSubscription error: ${error.message}`, error.stack);
-      throw error;
-    }
+    const subscription = await this.subscriptionService.getActiveSubscription(userId);
+    return {
+      success: true,
+      message: subscription ? 'Subscription fetched' : 'No active subscription',
+      subscription: subscription || null,
+    };
   }
 
-  // New: Get plans (hardcoded for simplicity; use DB in production)
   async getPlans(): Promise<any> {
-    const plans: PlanDto[] = [
-      { id: 'free', name: 'Free', level: 0, price: 0, features: ['Basic trip viewing'], duration: 'lifetime' },
-      { id: 'basic', name: 'Basic', level: 1, price: 9.99, features: ['Create trips', 'Personalized recs'], duration: 'monthly' },
-      { id: 'premium', name: 'Premium', level: 2, price: 19.99, features: ['Advanced planning', 'Priority support'], duration: 'monthly' },
-    ];
+    const plans = await this.subscriptionService.getPlans();
     return { success: true, plans };
   }
 
-  // New: Get plan
-  async getPlan(planId: string): Promise<any> {
-    try {
-      console.log('Fetching plan for ID:', planId); // Temp debug log
-
-      const plans = await this.getPlans();
-      let plan = plans.plans.find(p => p.id.toLowerCase() === planId.toLowerCase()); // Case-insensitive match
-      if (!plan) {
-        console.warn(`Plan not found for ID: ${planId}. Falling back to free plan.`); // Temp log
-        plan = plans.plans.find(p => p.id === 'free') || { id: 'free', name: 'Free', level: 0, price: 0, features: ['Basic access'], duration: 'lifetime' }; // Fallback
-      }
-
-      return { success: true, plan };
-    } catch (error: any) {
-      this.logger.error(`GetPlan error for ${planId}: ${error.message}`, error.stack);
-      throw new BadRequestException('Plan not found');
+  async getPlan(planKey: string): Promise<any> {
+    const plan = await this.subscriptionService.getPlan(planKey);
+    if (!plan) {
+      throw new BadRequestException(`Plan not found: ${planKey}`);
     }
+    return { success: true, plan };
   }
 
-  // New: Update subscription
-  async updateSubscription(subscriptionId: string, planId: string): Promise<any> {
-    try {
-      const user = await this.userModel.findOne({ subscriptionId });
-      if (!user) {
-        throw new BadRequestException('Subscription not found');
-      }
-      // For upgrade, create new checkout session similar to create
-      const createData = { userId: user._id.toString(), plan: planId === 'basic' ? 'basic' : 'premium' };
-      const result = await this.createSubscription(createData as CreateSubscriptionDto);
-      return result;
-    } catch (error: any) {
-      this.logger.error(`UpdateSubscription error: ${error.message}`, error.stack);
-      throw error;
-    }
+  async updateSubscription(userId: string, planKey: string): Promise<any> {
+    const subscription = await this.subscriptionService.createSubscription(userId, planKey, 'manual');
+    return { success: true, message: 'Subscription updated', subscription };
+  }
+
+  async checkFeatureAccess(userId: string, featureKey: string, userRole: string): Promise<any> {
+    return this.subscriptionService.checkFeatureAccess(userId, featureKey, userRole);
   }
 
   async getPersonalDetail(userId: string): Promise<any> {

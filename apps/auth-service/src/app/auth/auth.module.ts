@@ -9,10 +9,9 @@ import { LaboratoryDetails, LaboratoryDetailsSchema } from './schemas/laboratory
 
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-// import { GoogleStrategy } from './strategies/google.strategy';
-// import { FacebookStrategy } from './strategies/facebook.strategy';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -56,6 +55,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         },
       },
     ]),
+    SubscriptionModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],
