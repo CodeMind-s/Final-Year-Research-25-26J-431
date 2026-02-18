@@ -14,6 +14,7 @@ module.exports = {
   displayName: '@brinex-server/user-service',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
+  rootDir: __dirname,
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
@@ -25,4 +26,5 @@ module.exports = {
     '<rootDir>/test/**/*.spec.ts',
     '<rootDir>/test/**/*.test.ts',
   ],
+  verbose: true,
 };
