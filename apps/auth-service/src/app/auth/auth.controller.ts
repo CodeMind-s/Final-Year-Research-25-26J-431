@@ -152,6 +152,45 @@ export class AuthController {
     }
   }
 
+  @GrpcMethod('AuthService', 'CreatePlan')
+  async createPlan(@Payload() data: any) {
+    try {
+      return await this.authService.createPlan(data);
+    } catch (error: any) {
+      this.logger.error(`gRPC CreatePlan error: ${error.message}`, error.stack);
+      throw new RpcException({
+        code: error instanceof BadRequestException ? 3 : 2,
+        message: error.message,
+      });
+    }
+  }
+
+  @GrpcMethod('AuthService', 'UpdatePlan')
+  async updatePlan(@Payload() data: any) {
+    try {
+      return await this.authService.updatePlan(data.key, data);
+    } catch (error: any) {
+      this.logger.error(`gRPC UpdatePlan error: ${error.message}`, error.stack);
+      throw new RpcException({
+        code: error instanceof BadRequestException ? 3 : 2,
+        message: error.message,
+      });
+    }
+  }
+
+  @GrpcMethod('AuthService', 'DeletePlan')
+  async deletePlan(@Payload() data: { key: string }) {
+    try {
+      return await this.authService.deletePlan(data.key);
+    } catch (error: any) {
+      this.logger.error(`gRPC DeletePlan error: ${error.message}`, error.stack);
+      throw new RpcException({
+        code: error instanceof BadRequestException ? 3 : 2,
+        message: error.message,
+      });
+    }
+  }
+
   @GrpcMethod('AuthService', 'GetPersonalDetails')
   async getPersonalDetail(@Payload() data: { userId: string }) {
     try {

@@ -515,6 +515,56 @@ export class AuthService {
     return this.subscriptionService.checkFeatureAccess(userId, featureKey, userRole);
   }
 
+  // Admin Plan CRUD — delegated to SubscriptionService
+  async createPlan(data: any): Promise<any> {
+    const planData = {
+      key: data.key,
+      name: data.name,
+      level: data.level,
+      priceMonthlyLKR: data.price_monthly_lkr ?? data.priceMonthlyLKR ?? 0,
+      priceAnnualLKR: data.price_annual_lkr ?? data.priceAnnualLKR ?? 0,
+      featureKeys: data.feature_keys ?? data.featureKeys ?? [],
+      duration: data.duration,
+    };
+    const plan = await this.subscriptionService.createPlan(planData);
+    return { success: true, message: 'Plan created', plan };
+  }
+
+  async updatePlan(key: string, data: any): Promise<any> {
+    const updates: any = {};
+    if (data.name) updates.name = data.name;
+    if (data.level) updates.level = data.level;
+    if (data.price_monthly_lkr !== undefined && data.price_monthly_lkr !== 0) {
+      updates.priceMonthlyLKR = data.price_monthly_lkr;
+    } else if (data.priceMonthlyLKR !== undefined) {
+      updates.priceMonthlyLKR = data.priceMonthlyLKR;
+    }
+    if (data.price_annual_lkr !== undefined && data.price_annual_lkr !== 0) {
+      updates.priceAnnualLKR = data.price_annual_lkr;
+    } else if (data.priceAnnualLKR !== undefined) {
+      updates.priceAnnualLKR = data.priceAnnualLKR;
+    }
+    if (data.feature_keys?.length) {
+      updates.featureKeys = data.feature_keys;
+    } else if (data.featureKeys?.length) {
+      updates.featureKeys = data.featureKeys;
+    }
+    if (data.duration) updates.duration = data.duration;
+    if (data.is_active !== undefined) {
+      updates.isActive = data.is_active;
+    } else if (data.isActive !== undefined) {
+      updates.isActive = data.isActive;
+    }
+
+    const plan = await this.subscriptionService.updatePlan(key, updates);
+    return { success: true, message: 'Plan updated', plan };
+  }
+
+  async deletePlan(key: string): Promise<any> {
+    await this.subscriptionService.deletePlan(key);
+    return { success: true, message: `Plan '${key}' deactivated` };
+  }
+
   async getPersonalDetail(userId: string): Promise<any> {
     try {
       const user = await this.userModel.findById(userId).select('-password -__v -googleId -facebookId -linkedAccounts');
