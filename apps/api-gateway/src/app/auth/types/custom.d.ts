@@ -6,6 +6,8 @@ declare module 'express' {
       userId: string;
       email?: string;
       role?: string;
+      plan?: string;
+      isTrialActive?: boolean;
     };
   }
 }
