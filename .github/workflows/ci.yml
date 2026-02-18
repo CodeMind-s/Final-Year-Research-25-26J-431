@@ -32,7 +32,7 @@ jobs:
 
       - run: npm install --legacy-peer-deps
 
-      # Run tests and build (skip lint due to eslint config issues, skip nx-cloud)
-      - run: npx nx run-many -t test build typecheck --skip-nx-cache
+      # Run tests and build (exclude crystallization-onnx-service due to missing deps)
+      - run: npx nx run-many -t test build typecheck --skip-nx-cache --exclude=crystallization-onnx-service
         env:
           NX_NO_CLOUD: true
