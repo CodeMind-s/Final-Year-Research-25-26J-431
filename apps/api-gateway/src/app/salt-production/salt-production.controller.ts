@@ -1,6 +1,5 @@
 import {
   Controller,
-  UseGuards,
   Inject,
   Post,
   Body,
@@ -24,12 +23,9 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { SubscriptionGuard } from '../auth/guards/subscription.guard';
-import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
+import { RequireFeature } from '../auth/decorators/feature.decorator';
 import {
   CreateActualMonthlyProductionDto,
   CreateActualMonthlyProductionResponseDto,
@@ -55,9 +51,8 @@ export class SaltProductionController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create or update actual monthly production' })
   @ApiBody({ type: CreateActualMonthlyProductionDto })
@@ -97,9 +92,8 @@ export class SaltProductionController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly productions by month range' })
   @ApiQuery({
@@ -163,9 +157,8 @@ export class SaltProductionController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly production by ID' })
   @ApiParam({
@@ -212,9 +205,8 @@ export class SaltProductionController {
   }
 
   @Get('month/:month')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly production by month' })
   @ApiParam({
@@ -261,9 +253,8 @@ export class SaltProductionController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update actual monthly production by ID' })
   @ApiParam({
@@ -315,9 +306,8 @@ export class SaltProductionController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete actual monthly production by ID' })
   @ApiParam({
