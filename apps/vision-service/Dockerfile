@@ -1,7 +1,7 @@
-# Dockerfile for crystallization-onnx-service
-# This service uses ONNX Runtime for ML inference
-# NOTE: Using node:20-slim (Debian-based) instead of Alpine because ONNX Runtime
-# requires glibc which is not available in Alpine (uses musl libc)
+# Dockerfile for vision-service
+# This service uses ONNX Runtime and Sharp for YOLOv8 inference
+# NOTE: Using node:20-slim (Debian-based) instead of Alpine because
+# onnxruntime-node and sharp require glibc which is not available in Alpine
 
 # ============================================================
 # Stage 1: Install dependencies (CACHED unless package.json changes)
@@ -33,7 +33,6 @@ COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
 
 # Install all dependencies — CACHED when only source code changes
-# --mount=type=cache persists npm download cache across Docker builds
 RUN --mount=type=cache,target=/root/.npm \
     npm install --legacy-peer-deps
 
@@ -50,8 +49,8 @@ COPY packages/ ./packages/
 COPY proto/ ./proto/
 COPY types/ ./types/
 
-# Build the crystallization-onnx-service
-RUN npx nx build crystallization-onnx-service --configuration=production
+# Build the vision-service
+RUN npx nx build vision-service --configuration=production
 
 # ============================================================
 # Stage 3: Production image (minimal — only prod dependencies)
@@ -68,7 +67,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NODE_ENV=production
 
 # Copy built application (Nx generates package.json with only needed deps)
-COPY --from=builder /app/dist/apps/crystallization-onnx-service ./dist/
+COPY --from=builder /app/dist/apps/vision-service ./dist/
 
 # Install ONLY production dependencies from the Nx-generated package.json
 RUN --mount=type=cache,target=/root/.npm \

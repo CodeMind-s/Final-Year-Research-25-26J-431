@@ -165,6 +165,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  vision-service:
+    build:
+      context: .
+      dockerfile: apps/vision-service/Dockerfile
+    container_name: vision-service
+    ports:
+      - "50057:50057"
+    environment:
+      - GRPC_URL=0.0.0.0:50057
+      - MONGO_URI=${MONGO_URI}
+    networks:
+      - app-network
+    volumes:
+      - ./apps/vision-service/models:/app/models
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -181,12 +197,14 @@ services:
       - AUTH_SERVICE_URL=auth-service:50000
       - USER_SERVICE_URL=user-service:50053
       - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
+      - VISION_SERVICE_URL=vision-service:50057
     networks:
       - app-network
     depends_on:
       - auth-service
       - user-service
       - crystallization-service
+      - vision-service
       - audit-log-service
       - email-service
     restart: unless-stopped
