@@ -87,6 +87,24 @@
           "jestConfig": "apps/compass-service/jest.config.ts",
           "passWithNoTests": true
         }
+      },
+      "lint": {
+        "executor": "@nx/eslint:lint",
+        "outputs": [
+          "{options.outputFile}"
+        ],
+        "options": {
+          "lintFilePatterns": [
+            "apps/compass-service/**/*.ts"
+          ],
+          "eslintConfig": "apps/compass-service/eslint.config.mjs"
+        }
+      },
+      "typecheck": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "tsc --noEmit -p apps/compass-service/tsconfig.app.json"
+        }
       }
     }
   },
