@@ -90,7 +90,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run unit tests
-        run: npx nx test user-service --coverage --coverageReporters=text --coverageReporters=lcov
+        run: npx jest --config apps/user-service/jest.config.js --coverage --coverageReporters=text --coverageReporters=lcov
 
       - name: Upload coverage reports
         if: always()
@@ -138,7 +138,7 @@ jobs:
           echo "MongoDB is ready!"
 
       - name: Run integration tests
-        run: npx nx test user-service --testPathPattern="integration" --passWithNoTests
+        run: npx jest --config apps/user-service/jest.config.js --testPathPattern="integration" --passWithNoTests
         env:
           MONGO_URI: ${{ env.MONGO_URI }}
           KAFKA_BROKER: ${{ env.KAFKA_BROKER }}
