@@ -21,6 +21,11 @@ export interface GetPlanDto {
 
 export interface GetPlansDto {
   userId?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface UpdatePlanDto {

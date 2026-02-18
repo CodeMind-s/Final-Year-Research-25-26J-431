@@ -5,6 +5,7 @@ export enum HarvestStatus {
   FRESHER = 'FRESHER',
   MIDLEVEL = 'MIDLEVEL',
   HARVESTED = 'HARVESTED',
+  DISPOSED = 'DISPOSED',
 }
 
 @Schema({ timestamps: true })

@@ -79,7 +79,12 @@
         }
       },
       "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/apps/compass-service/test-output/jest/coverage"
+        ],
         "options": {
+          "jestConfig": "apps/compass-service/jest.config.ts",
           "passWithNoTests": true
         }
       }

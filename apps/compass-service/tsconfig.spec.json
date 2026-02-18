@@ -11,8 +11,9 @@
     },
     "include": [
         "jest.config.ts",
-        "src/**/*.test.ts",
-        "src/**/*.spec.ts",
+        "tests/**/*.test.ts",
+        "tests/**/*.spec.ts",
+        "tests/**/*.d.ts",
         "src/**/*.d.ts"
     ],
     "references": [

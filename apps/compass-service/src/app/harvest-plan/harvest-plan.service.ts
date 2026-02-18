@@ -34,6 +34,7 @@ export class HarvestPlanService {
         0: HarvestStatus.FRESHER,
         1: HarvestStatus.MIDLEVEL,
         2: HarvestStatus.HARVESTED,
+        3: HarvestStatus.DISPOSED,
       };
 
       const plan = new this.harvestPlanModel({
@@ -94,8 +95,37 @@ export class HarvestPlanService {
 
   async GetPlans(data: GetPlansDto): Promise<GetPlansResponseDto> {
     try {
-      const filter = data.userId ? { userId: data.userId } : {};
-      const plans = await this.harvestPlanModel.find(filter).exec();
+      const filter: any = {};
+      
+      // Build filter object - only add non-null/undefined values
+      if (data.userId && data.userId.trim()) {
+        filter.userId = data.userId;
+      }
+      
+      if (data.status && data.status.trim()) {
+        filter.harvestStatus = data.status.toUpperCase();
+      }
+      
+      // Handle date range filtering
+      const hasStartDate = data.startDate && data.startDate.trim();
+      const hasEndDate = data.endDate && data.endDate.trim();
+      
+      if (hasStartDate || hasEndDate) {
+        filter.startDate = {};
+        if (hasStartDate && data.startDate) filter.startDate.$gte = new Date(data.startDate);
+        if (hasEndDate && data.endDate) filter.startDate.$lte = new Date(data.endDate);
+      }
+
+      // Build query with optional pagination (1-based page numbering)
+      let query = this.harvestPlanModel.find(filter);
+      
+      if (data.page !== undefined && data.page !== null && data.page >= 1 && data.limit !== undefined && data.limit !== null && data.limit > 0) {
+        // Convert 1-based page to 0-based skip (page 1 = skip 0, page 2 = skip limit, etc.)
+        const skip = (data.page - 1) * data.limit;
+        query = query.skip(skip).limit(data.limit);
+      }
+      
+      const plans = await query.exec();
 
       return {
         success: true,
@@ -121,20 +151,25 @@ export class HarvestPlanService {
           0: HarvestStatus.FRESHER,
           1: HarvestStatus.MIDLEVEL,
           2: HarvestStatus.HARVESTED,
+          3: HarvestStatus.DISPOSED,
         };
         updateData.harvestStatus = harvestStatusMap[data.harvestStatus];
       }
       if (data.planPeriod !== undefined) updateData.planPeriod = data.planPeriod;
-      if (data.startDate !== undefined) {
-        updateData.startDate = new Date(data.startDate);
-        // Recalculate end date if start date or plan period changes
+      if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
+      
+      // Recalculate end date if start date or plan period changes
+      if (data.startDate !== undefined || data.planPeriod !== undefined) {
         const plan = await this.harvestPlanModel.findById(data.id);
         if (plan) {
-          const endDate = new Date(updateData.startDate);
-          endDate.setDate(endDate.getDate() + (data.planPeriod || plan.planPeriod));
+          const startDate = data.startDate !== undefined ? new Date(data.startDate) : plan.startDate;
+          const planPeriod = data.planPeriod !== undefined ? data.planPeriod : plan.planPeriod;
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + planPeriod);
           updateData.endDate = endDate;
         }
       }
+      
       if (data.predictedProduction !== undefined)
         updateData.predictedProduction = data.predictedProduction;
       if (data.actualProduction !== undefined)
@@ -201,6 +236,7 @@ export class HarvestPlanService {
       [HarvestStatus.FRESHER]: 0,
       [HarvestStatus.MIDLEVEL]: 1,
       [HarvestStatus.HARVESTED]: 2,
+      [HarvestStatus.DISPOSED]: 3,
     };
 
     return {

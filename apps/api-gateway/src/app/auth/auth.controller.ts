@@ -1,23 +1,26 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Inject, Logger, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Inject, Logger, Post, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { catchError, firstValueFrom, of } from 'rxjs';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
-import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, OnboardingDto, LoginDto } from './dtos/auth.dto';
+import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto } from './dtos/auth.dto';
 import { JwtService } from '@nestjs/jwt';
+import { Role } from './decorators/role.enum';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('auth')
 export class AuthController {
   private authService: any;
+  private userService: any;
   private readonly logger = new Logger(AuthController.name);
 
   constructor(
     @Inject('AUTH_PACKAGE') private authClient: ClientGrpcProxy,
+    @Inject('USER_PACKAGE') private userClient: ClientGrpcProxy,
     private jwtService: JwtService,
   ) {
     this.authService = this.authClient.getService('AuthService');
-
+    this.userService = this.userClient.getService('UserService');
   }
 
   @Public()
@@ -131,38 +134,48 @@ export class AuthController {
     }
   }
 
-  @Put('onboarding')
-  @UseGuards(JwtAuthGuard)
+  @Post('onboarding/landowner')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Complete onboarding survey' })
-  @ApiResponse({ status: 200, description: 'Onboarding completed' })
-  @ApiBadRequestResponse({ description: 'Invalid onboarding data' })
-  @ApiInternalServerErrorResponse({ description: 'Internal server error during onboarding' })
-  async completeOnboarding(@Body() dto: OnboardingDto, @Req() req: any) {
+  @Roles(Role.LANDOWNER)
+  @ApiOperation({ summary: 'Onboard Landowner (landowner)' })
+  @ApiResponse({ status: 200, description: 'Landowner onboarding successful' })
+  async onboardLandOwner(@Body() dto: LandOwnerOnboardingDto, @Req() req: any) {
     try {
-      const userId = req?.user?.userId; // Extract from req.user.sub in production
-      if (!userId) return { success: false, message: 'User not authenticated' };
-
-      const result = await firstValueFrom(
-        this.authService.CompleteOnboarding({ userId, ...dto }).pipe(
-          catchError((error) => {
-            this.logger.error(`CompleteOnboarding error: ${error.message}`, error.stack);
-            if (error.code === 2 || error.code === 'INTERNAL') {
-              throw new HttpException('Internal server error during onboarding', HttpStatus.INTERNAL_SERVER_ERROR);
-            } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
-              throw new HttpException('Invalid onboarding data', HttpStatus.BAD_REQUEST);
-            } else if (error.details && error.details.includes('User not found')) {
-              throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-            } else {
-              throw new HttpException('Onboarding failed', HttpStatus.BAD_REQUEST);
-            }
-          })
-        )
-      );
-      return result;
+      const userId = req.user.userId;
+      return await firstValueFrom(this.userService.OnboardLandOwner({ userId, ...dto }));
     } catch (error: any) {
-      this.logger.error(`CompleteOnboarding failed: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error(`OnboardLandOwner error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @Post('onboarding/laboratory')
+  @ApiBearerAuth()
+  @Roles(Role.LABORATORY)
+  @ApiOperation({ summary: 'Onboard Laboratory (laboratory)' })
+  @ApiResponse({ status: 200, description: 'Laboratory onboarding successful' })
+  async onboardLaboratory(@Body() dto: LaboratoryOnboardingDto, @Req() req: any) {
+    try {
+      const userId = req.user.userId;
+      return await firstValueFrom(this.userService.OnboardLaboratory({ userId, ...dto }));
+    } catch (error: any) {
+      this.logger.error(`OnboardLaboratory error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @Post('onboarding/distributor')
+  @ApiBearerAuth()
+  @Roles(Role.DISTRIBUTOR)
+  @ApiOperation({ summary: 'Onboard Distributor (Service Provider)' })
+  @ApiResponse({ status: 200, description: 'Distributor onboarding successful' })
+  async onboardServiceProvider(@Body() dto: ServiceProviderOnboardingDto, @Req() req: any) {
+    try {
+      const userId = req.user.userId;
+      return await firstValueFrom(this.userService.OnboardServiceProvider({ userId, ...dto }));
+    } catch (error: any) {
+      this.logger.error(`OnboardServiceProvider error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -229,42 +242,18 @@ export class AuthController {
 
 
   // New: Endpoint for getting personal details (proxy to user service if needed)
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Get('personal-details')
-  @ApiOperation({ summary: 'Get personal details' })
-  @ApiResponse({ status: 200, description: 'Get personal details completed' })
-  @ApiBadRequestResponse({ description: 'Invalid Get personal details data' })
-  @ApiInternalServerErrorResponse({ description: 'Internal server error during get personal details' })
+  @ApiOperation({ summary: 'Get combined user and role-specific details (own details)' })
+  @ApiResponse({ status: 200, description: 'Details fetched successfully' })
   async getPersonalDetails(@Req() req: any) {
-    // Implementation depends on user service; assume proxy
-    // const userId = req?.user?.userId;
-    // // Call user service GetUserById and return relevant fields
-    // return userId;
     try {
-      const userId = req?.user?.userId; // Extract from req.user.sub in production
-      if (!userId) return { success: false, message: 'User not authenticated' };
-
-      const result = await firstValueFrom(
-        this.authService.CompleteOnboarding({ userId }).pipe(
-          catchError((error) => {
-            this.logger.error(`CompleteOnboarding error: ${error.message}`, error.stack);
-            if (error.code === 2 || error.code === 'INTERNAL') {
-              throw new HttpException('Internal server error during onboarding', HttpStatus.INTERNAL_SERVER_ERROR);
-            } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
-              throw new HttpException('Invalid onboarding data', HttpStatus.BAD_REQUEST);
-            } else if (error.details && error.details.includes('User not found')) {
-              throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-            } else {
-              throw new HttpException('Onboarding failed', HttpStatus.BAD_REQUEST);
-            }
-          })
-        )
-      );
-      return result;
+      const userId = req.user.userId;
+      return await firstValueFrom(this.userService.GetPersonalDetails({ id: userId }));
     } catch (error: any) {
-      this.logger.error(`CompleteOnboarding failed: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error(`GetPersonalDetails error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
 

@@ -32,7 +32,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create Daily Measurement' })
+  @ApiOperation({ summary: 'Create Daily Measurement (saltsociety)' })
   @ApiBody({ type: CreateDailyMeasurementDto })
   @ApiResponse({ status: 201, description: 'Daily measurement created successfully', type: CreateDailyMeasurementResponseDto })
   @ApiResponse({ status: 404, description: 'Daily measurement not created' })
@@ -81,7 +81,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get Daily Measurement by Date' })
+  @ApiOperation({ summary: 'Get Daily Measurement by Date (saltsociety)' })
   @ApiParam({ name: 'date', type: String, description: 'Date in YYYY-MM-DD format', example: '2025-12-12' })
   @ApiResponse({ status: 200, description: 'Daily measurement fetched successfully', type: GetDailyMeasurementResponseDto })
   @ApiResponse({ status: 404, description: 'Daily measurement not found' })
@@ -123,7 +123,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get Daily Measurements by Date Range' })
+  @ApiOperation({ summary: 'Get Daily Measurements by Date Range (saltsociety)' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
   @ApiQuery({ name: 'endDate', type: String, description: 'End date in YYYY-MM-DD format', example: '2025-12-29' })
   @ApiResponse({ status: 200, description: 'Daily measurements fetched successfully' })
@@ -170,7 +170,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update Daily Measurement by ID' })
+  @ApiOperation({ summary: 'Update Daily Measurement by ID (saltsociety)' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
   @ApiBody({ type: UpdateDailyMeasurementByIdDto })
   @ApiResponse({ status: 200, description: 'Daily measurement updated successfully', type: UpdateDailyMeasurementByIdResponseDto })
@@ -224,7 +224,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete Daily Measurement by ID' })
+  @ApiOperation({ summary: 'Delete Daily Measurement by ID (saltsociety)' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
   @ApiResponse({ status: 200, description: 'Daily measurement deleted successfully', type: DeleteDailyMeasurementByIdResponseDto })
   @ApiResponse({ status: 404, description: 'Daily measurement not found' })
@@ -260,7 +260,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get ML predictions for crystallization parameters' })
+  @ApiOperation({ summary: 'Get ML predictions for crystallization parameters (saltsociety)' })
   @ApiBody({ type: PredictionRequestDto })
   @ApiResponse({ status: 200, description: 'Predictions generated successfully' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
@@ -302,7 +302,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get predicted daily measurements by date range' })
+  @ApiOperation({ summary: 'Get predicted daily measurements by date range (saltsociety)' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
   @ApiQuery({ name: 'endDate', type: String, description: 'End date in YYYY-MM-DD format', example: '2025-12-31' })
   @ApiResponse({ status: 200, description: 'Predicted daily measurements fetched successfully', type: GetPredictedDailyMeasurementResponseDto })
@@ -348,7 +348,7 @@ export class CrystallizationController {
   @Roles(Role.SALTSOCIETY)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get predicted monthly productions by month range' })
+  @ApiOperation({ summary: 'Get predicted monthly productions by month range (saltsociety)' })
   @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-06' })
   @ApiQuery({ name: 'endMonth', type: String, description: 'End month in YYYY-MM format', example: '2025-12' })
   @ApiResponse({ status: 200, description: 'Predicted monthly productions fetched successfully', type: GetPredictedMonthlyProductionResponseDto })
@@ -389,44 +389,44 @@ export class CrystallizationController {
     }
   }
 
-  @Get("/model-performance")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
-  @ApiBearerAuth()
-  @ApiTags('Crystallization Model Performance')
-  @ApiOperation({ summary: 'Get model performance records' })
-  @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
-  @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
-  @ApiResponse({ status: 404, description: 'No model performance records found' })
-  async getModelPerformance(
-    @Query('limit') limit?: number
-  ): Promise<GetModelPerformanceResponseDto> {
-    try {
-      const requestData = {
-        limit: limit ? parseInt(limit.toString(), 10) : 10,
-      };
+  // @Get("/model-performance")
+  // @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  // @Roles(Role.SALTSOCIETY)
+  // @SubscriptionCheck(0)
+  // @ApiBearerAuth()
+  // @ApiTags('Crystallization Model Performance')
+  // @ApiOperation({ summary: 'Get model performance records (saltsociety)' })
+  // @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
+  // @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
+  // @ApiResponse({ status: 404, description: 'No model performance records found' })
+  // async getModelPerformance(
+  //   @Query('limit') limit?: number
+  // ): Promise<GetModelPerformanceResponseDto> {
+  //   try {
+  //     const requestData = {
+  //       limit: limit ? parseInt(limit.toString(), 10) : 10,
+  //     };
 
-      const result = await firstValueFrom(
-        this.crystallizationService.GetModelPerformance(requestData).pipe(
-          catchError((error) => {
-            this.logger.error(`Get Model Performance error: ${error.message}`);
-            throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
-          })
-        )
-      ) as { success: boolean; message: string; data?: any[] };
+  //     const result = await firstValueFrom(
+  //       this.crystallizationService.GetModelPerformance(requestData).pipe(
+  //         catchError((error) => {
+  //           this.logger.error(`Get Model Performance error: ${error.message}`);
+  //           throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
+  //         })
+  //       )
+  //     ) as { success: boolean; message: string; data?: any[] };
 
-      this.logger.log('=== GRPC RESULT ===');
-      this.logger.log(JSON.stringify(result, null, 2));
+  //     this.logger.log('=== GRPC RESULT ===');
+  //     this.logger.log(JSON.stringify(result, null, 2));
 
-      return {
-        success: result.success,
-        message: result.message,
-        data: result.data || [],
-      };
-    } catch (error: any) {
-      throw error;
-    }
-  }
+  //     return {
+  //       success: result.success,
+  //       message: result.message,
+  //       data: result.data || [],
+  //     };
+  //   } catch (error: any) {
+  //     throw error;
+  //   }
+  // }
 
 }

@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete, Query, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
@@ -34,24 +34,27 @@ export class CompassController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.LANDOWNER)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create Harvest Plan' })
+  @ApiOperation({ summary: 'Create Harvest Plan (landowner)' })
   @ApiBody({ type: CreatePlanDto })
   @ApiResponse({ status: 201, description: 'Harvest plan created successfully', type: CreatePlanResponseDto })
   @ApiResponse({ status: 400, description: 'Failed to create harvest plan' })
-  async createPlan(@Body() body: CreatePlanDto): Promise<CreatePlanResponseDto> {
+  async createPlan(@Body() body: CreatePlanDto, @Req() req: any): Promise<CreatePlanResponseDto> {
+    const userId = req.user.userId;
+
     try {
       // Convert enum string to number for gRPC
       const harvestStatusMap: Record<HarvestStatus, number> = {
         [HarvestStatus.FRESHER]: 0,
         [HarvestStatus.MIDLEVEL]: 1,
         [HarvestStatus.HARVESTED]: 2,
+        [HarvestStatus.DISPOSED]: 3,
       };
 
       const requestData = {
-        userId: body.userId,
+        userId,
         saltBeds: body.saltBeds,
         harvestStatus: harvestStatusMap[body.harvestStatus],
         planPeriod: body.planPeriod,
@@ -88,12 +91,65 @@ export class CompassController {
     }
   }
 
-  @Get(':id')
+  @Get('my-plans')
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.LANDOWNER)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get Harvest Plan by ID' })
+  @ApiOperation({ summary: 'Get My Harvest Plans (landowner)' })
+  @ApiQuery({ name: 'status', type: String, description: 'Filter by harvest status (FRESHER, MIDLEVEL, HARVESTED, DISPOSED)', required: false })
+  @ApiQuery({ name: 'startDate', type: String, description: 'Filter by start date (ISO format)', required: false })
+  @ApiQuery({ name: 'endDate', type: String, description: 'Filter by end date (ISO format)', required: false })
+  @ApiQuery({ name: 'page', type: Number, description: 'Page number for pagination (starts from 1)', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', type: Number, description: 'Number of items per page', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Harvest plans retrieved successfully', type: GetPlansResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to fetch harvest plans' })
+  async getMyPlans(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ): Promise<GetPlansResponseDto> {
+    const userId = req.user.userId;
+
+    try {
+      const requestData: any = { userId };
+      if (status && status.trim()) requestData.status = status;
+      if (startDate && startDate.trim()) requestData.startDate = startDate;
+      if (endDate && endDate.trim()) requestData.endDate = endDate;
+      if (page !== undefined && page !== null && page >= 1) requestData.page = page;
+      if (limit !== undefined && limit !== null && limit > 0) requestData.limit = limit;
+
+      const result = await firstValueFrom(
+        this.harvestPlanService.GetPlans(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get My Harvest Plans error: ${error.message}`);
+            throw new HttpException('Failed to fetch harvest plans', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(`Fetched ${result.data?.length || 0} plans for user ${userId}`);
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Harvest Plan by ID (landowner)' })
   @ApiParam({ name: 'id', type: String, description: 'Plan ID', example: '675945c5d1234567890abcde' })
   @ApiResponse({ status: 200, description: 'Harvest plan retrieved successfully', type: GetPlanResponseDto })
   @ApiResponse({ status: 404, description: 'Harvest plan not found' })
@@ -129,15 +185,34 @@ export class CompassController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.SALTSOCIETY, Role.ADMIN, Role.SUPERADMIN)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get All Harvest Plans' })
+  @ApiOperation({ summary: 'Get All Harvest Plans (admin, superadmin, saltsociety)' })
   @ApiQuery({ name: 'userId', type: String, description: 'Filter by user ID', required: false })
+  @ApiQuery({ name: 'status', type: String, description: 'Filter by harvest status (FRESHER, MIDLEVEL, HARVESTED, DISPOSED)', required: false })
+  @ApiQuery({ name: 'startDate', type: String, description: 'Filter by start date (ISO format)', required: false })
+  @ApiQuery({ name: 'endDate', type: String, description: 'Filter by end date (ISO format)', required: false })
+  @ApiQuery({ name: 'page', type: Number, description: 'Page number for pagination (starts from 1)', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', type: Number, description: 'Number of items per page', required: false, example: 10 })
   @ApiResponse({ status: 200, description: 'Harvest plans retrieved successfully', type: GetPlansResponseDto })
-  async getPlans(@Query('userId') userId?: string): Promise<GetPlansResponseDto> {
+  @ApiResponse({ status: 400, description: 'Failed to fetch harvest plans' })
+  async getPlans(
+    @Query('userId') userId?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ): Promise<GetPlansResponseDto> {
     try {
-      const requestData = userId ? { userId } : {};
+      const requestData: any = {};
+      if (userId && userId.trim()) requestData.userId = userId;
+      if (status && status.trim()) requestData.status = status;
+      if (startDate && startDate.trim()) requestData.startDate = startDate;
+      if (endDate && endDate.trim()) requestData.endDate = endDate;
+      if (page !== undefined && page !== null && page >= 1) requestData.page = page;
+      if (limit !== undefined && limit !== null && limit > 0) requestData.limit = limit;
 
       const result = await firstValueFrom(
         this.harvestPlanService.GetPlans(requestData).pipe(
@@ -163,10 +238,10 @@ export class CompassController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.LANDOWNER)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update Harvest Plan by ID' })
+  @ApiOperation({ summary: 'Update Harvest Plan by ID (landowner)' })
   @ApiParam({ name: 'id', type: String, description: 'Plan ID', example: '675945c5d1234567890abcde' })
   @ApiBody({ type: UpdatePlanDto })
   @ApiResponse({ status: 200, description: 'Harvest plan updated successfully', type: UpdatePlanResponseDto })
@@ -183,6 +258,7 @@ export class CompassController {
         [HarvestStatus.FRESHER]: 0,
         [HarvestStatus.MIDLEVEL]: 1,
         [HarvestStatus.HARVESTED]: 2,
+        [HarvestStatus.DISPOSED]: 3,
       };
 
       // Add only defined fields to the request
@@ -223,10 +299,10 @@ export class CompassController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.LANDOWNER)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete Harvest Plan by ID' })
+  @ApiOperation({ summary: 'Delete Harvest Plan by ID (landowner)' })
   @ApiParam({ name: 'id', type: String, description: 'Plan ID', example: '675945c5d1234567890abcde' })
   @ApiResponse({ status: 200, description: 'Harvest plan deleted successfully', type: DeletePlanResponseDto })
   @ApiResponse({ status: 404, description: 'Harvest plan not found' })

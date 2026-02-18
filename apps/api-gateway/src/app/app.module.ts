@@ -11,6 +11,7 @@ import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
 import { CompassModule } from './compass-service/compass.module';
+import { VisionModule } from './vision-service/vision.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CompassModule } from './compass-service/compass.module';
     CrystallizationModule,
     SaltProductionModule,
     CompassModule,
+    VisionModule,
   ],
   controllers: [AppController],
   providers: [

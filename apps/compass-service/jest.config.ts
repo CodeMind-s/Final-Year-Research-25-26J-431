@@ -11,11 +11,18 @@ swcJestConfig.swcrc = false;
 
 export default {
   displayName: 'compass-service',
-  preset: '../jest.preset.js',
+  preset: '../../jest.preset.js',
   testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  testMatch: ['<rootDir>/tests/**/*.spec.ts'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.spec.ts',
+    '!src/main.ts',
+  ],
 };

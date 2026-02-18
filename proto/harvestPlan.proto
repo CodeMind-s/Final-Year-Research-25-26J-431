@@ -13,6 +13,7 @@ enum HarvestStatus {
   FRESHER = 0;
   MIDLEVEL = 1;
   HARVESTED = 2;
+  DISPOSED = 3;
 }
 
 message HarvestPlan {
@@ -69,6 +70,11 @@ message GetPlanResponse {
 
 message GetPlansRequest {
   string userId = 1; // Optional filter by userId
+  string status = 2; // Optional filter by harvest status
+  string startDate = 3; // Optional filter by start date
+  string endDate = 4; // Optional filter by end date
+  int32 page = 5; // Optional pagination - page number
+  int32 limit = 6; // Optional pagination - items per page
 }
 
 message GetPlansResponse {
