@@ -71,7 +71,6 @@
     "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/websockets": "^11.1.13",
-    "@types/stripe": "^8.0.416",
     "axios": "^1.6.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -88,7 +87,6 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.2",
     "sharp": "^0.34.5",
-    "stripe": "^19.1.0",
     "twilio": "^5.9.0",
     "uuid": "^13.0.0"
   }
