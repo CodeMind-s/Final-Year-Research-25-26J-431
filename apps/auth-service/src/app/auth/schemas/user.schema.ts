@@ -18,7 +18,7 @@ export class User extends Document {
   @Prop({ default: false })
   isOnboarded!: boolean;
 
-  @Prop({ enum: ['free', 'pro', 'lab'], default: 'free' })
+  @Prop({ type: String, default: 'free' })
   plan: string;
 
   @Prop({ type: Date, default: null })
