@@ -95,9 +95,9 @@ export class SubscriptionService implements OnModuleInit {
     planKey: string,
     paymentMethod: string = 'free',
   ): Promise<Subscription> {
-    const plan = await this.planModel.findOne({ key: planKey });
+    const plan = await this.planModel.findOne({ key: planKey, isActive: true });
     if (!plan) {
-      throw new Error(`Plan not found: ${planKey}`);
+      throw new Error(`Plan not found or inactive: ${planKey}`);
     }
 
     // Deactivate existing active subscriptions
@@ -248,6 +248,63 @@ export class SubscriptionService implements OnModuleInit {
     }
 
     return { hasAccess: true, reason: 'allowed', requiredPlans: [] };
+  }
+
+  async createPlan(data: {
+    key: string;
+    name: string;
+    level: number;
+    priceMonthlyLKR: number;
+    priceAnnualLKR: number;
+    featureKeys: string[];
+    duration: string;
+  }): Promise<Plan> {
+    const existing = await this.planModel.findOne({ key: data.key });
+    if (existing) {
+      throw new Error(`Plan with key '${data.key}' already exists`);
+    }
+    const plan = await this.planModel.create({ ...data, isActive: true });
+    this.logger.log(`Created plan: ${data.key}`);
+    return plan;
+  }
+
+  async updatePlan(
+    key: string,
+    updates: Partial<{
+      name: string;
+      level: number;
+      priceMonthlyLKR: number;
+      priceAnnualLKR: number;
+      featureKeys: string[];
+      duration: string;
+      isActive: boolean;
+    }>,
+  ): Promise<Plan> {
+    const plan = await this.planModel.findOneAndUpdate(
+      { key },
+      { $set: updates },
+      { new: true },
+    );
+    if (!plan) {
+      throw new Error(`Plan not found: ${key}`);
+    }
+    this.logger.log(`Updated plan: ${key}`);
+    return plan;
+  }
+
+  async deletePlan(key: string): Promise<void> {
+    if (key === 'free') {
+      throw new Error('Cannot deactivate the free plan');
+    }
+    const plan = await this.planModel.findOneAndUpdate(
+      { key },
+      { isActive: false },
+      { new: true },
+    );
+    if (!plan) {
+      throw new Error(`Plan not found: ${key}`);
+    }
+    this.logger.log(`Deactivated plan: ${key}`);
   }
 
   async processExpiredTrials(): Promise<number> {
