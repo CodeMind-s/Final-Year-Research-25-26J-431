@@ -1,7 +1,5 @@
-// Updated user.proto
 syntax = "proto3";
 package user;
-import "google/protobuf/timestamp.proto";
 
 service UserService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
@@ -246,57 +244,3 @@ message LaboratoryDetails {
   string address = 6;
 }
 
-// New messages for subscriptions
-message CreateSubscriptionRequest {
-  string user_id = 1;
-  string plan = 2; // 'basic' or 'premium'
-}
-
-message CreateSubscriptionResponse {
-  bool success = 1;
-  string message = 2;
-  string checkout_url = 3;
-}
-
-message GetSubscriptionRequest {
-  string user_id = 1;
-}
-
-message GetSubscriptionResponse {
-  bool success = 1;
-  string message = 2;
-  SubscriptionData data = 3;
-}
-
-message SubscriptionData {
-  string id = 1;
-  string plan = 2; // 'free', 'basic', 'premium'
-  bool is_active = 3;
-  google.protobuf.Timestamp end_date = 4;
-  string stripe_subscription_id = 5;
-}
-
-message UpdateSubscriptionRequest {
-  string user_id = 1;
-  string plan = 2;
-}
-
-message UpdateSubscriptionResponse {
-  bool success = 1;
-  string message = 2;
-  string checkout_url = 3;
-}
-
-message HandleStripeWebhookRequest {
-  string event_type = 1; // e.g., 'checkout.session.completed'
-  string data = 2; // JSON string of event data
-}
-
-message CheckSubscriptionAccessRequest {
-  string user_id = 1;
-  int32 required_level = 2; // 0=free, 1=basic, 2=premium
-}
-
-message CheckSubscriptionAccessResponse {
-  bool has_access = 1;
-}
