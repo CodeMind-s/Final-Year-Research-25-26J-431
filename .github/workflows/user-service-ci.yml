@@ -83,7 +83,9 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build user-service
-        run: npx nx build user-service
+        run: npx nx build user-service --skip-nx-cache
+        env:
+          NX_NO_CLOUD: true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
