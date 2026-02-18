@@ -49,6 +49,8 @@ jobs:
       MONGO_URI: mongodb://root:testpassword@localhost:27017/compass-test?authSource=admin
       GRPC_URL: 0.0.0.0:50052
       NODE_ENV: test
+      # Skip Nx Cloud to avoid authorization errors in CI
+      NX_NO_CLOUD: true
 
     steps:
       - name: Checkout code
@@ -130,6 +132,7 @@ jobs:
       KAFKA_BROKER: localhost:9092
       GRPC_URL: 0.0.0.0:50052
       NODE_ENV: test
+      NX_NO_CLOUD: true
 
     steps:
       - name: Checkout code
@@ -184,6 +187,9 @@ jobs:
   code-quality:
     name: Code Quality Check
     runs-on: ubuntu-latest
+
+    env:
+      NX_NO_CLOUD: true
 
     steps:
       - name: Checkout code
