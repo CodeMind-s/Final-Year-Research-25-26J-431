@@ -1,0 +1,109 @@
+syntax = "proto3";
+package harvestplan;
+
+service HarvestPlanService {
+  rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc GetPlans(GetPlansRequest) returns (GetPlansResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
+  rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
+}
+
+enum HarvestStatus {
+  FRESHER = 0;
+  MIDLEVEL = 1;
+  HARVESTED = 2;
+}
+
+message HarvestPlan {
+  string _id = 1;
+  string userId = 2;
+  int32 saltBeds = 3;
+  HarvestStatus harvestStatus = 4;
+  int32 planPeriod = 5;
+  string startDate = 6;
+  string endDate = 7;
+  int32 predictedProduction = 8;
+  int32 actualProduction = 9;
+  int32 workerCount = 10;
+  double predictedProfit = 11;
+  double actualProfit = 12;
+  double expenses = 13;
+  double earnings = 14;
+  double avgSellingPrice = 15;
+  string createdAt = 16;
+  string updatedAt = 17;
+}
+
+message CreatePlanRequest {
+  string userId = 1;
+  int32 saltBeds = 2;
+  HarvestStatus harvestStatus = 3;
+  int32 planPeriod = 4;
+  string startDate = 5;
+  int32 predictedProduction = 6;
+  int32 actualProduction = 7;
+  int32 workerCount = 8;
+  double predictedProfit = 9;
+  double actualProfit = 10;
+  double expenses = 11;
+  double earnings = 12;
+  double avgSellingPrice = 13;
+}
+
+message CreatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message GetPlanRequest {
+  string id = 1;
+}
+
+message GetPlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message GetPlansRequest {
+  string userId = 1; // Optional filter by userId
+}
+
+message GetPlansResponse {
+  bool success = 1;
+  string message = 2;
+  repeated HarvestPlan data = 3;
+}
+
+message UpdatePlanRequest {
+  string id = 1;
+  int32 saltBeds = 2;
+  HarvestStatus harvestStatus = 3;
+  int32 planPeriod = 4;
+  string startDate = 5;
+  int32 predictedProduction = 6;
+  int32 actualProduction = 7;
+  int32 workerCount = 8;
+  double predictedProfit = 9;
+  double actualProfit = 10;
+  double expenses = 11;
+  double earnings = 12;
+  double avgSellingPrice = 13;
+}
+
+message UpdatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message DeletePlanRequest {
+  string id = 1;
+}
+
+message DeletePlanResponse {
+  bool success = 1;
+  string message = 2;
+}
