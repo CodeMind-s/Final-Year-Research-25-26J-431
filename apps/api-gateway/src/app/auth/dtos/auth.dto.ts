@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, Length, IsIn, ValidateIf, IsEnum, IsArray, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsOptional, Length, IsIn, ValidateIf, IsEnum, IsArray, IsNotEmpty, IsNumber, IsBoolean, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SignInDto {
@@ -348,4 +348,83 @@ export class ServiceProviderOnboardingDto {
   @ApiProperty()
   @IsString()
   address!: string;
+}
+
+// Admin Plan CRUD DTOs
+export class CreatePlanDto {
+  @ApiProperty({ example: 'enterprise', description: 'Unique plan key' })
+  @IsString()
+  @IsNotEmpty()
+  key!: string;
+
+  @ApiProperty({ example: 'Enterprise Plan', description: 'Plan display name' })
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiProperty({ example: 3, description: 'Plan level (0=Free, 1=Pro, 2=Lab, etc.)' })
+  @IsNumber()
+  @Min(0)
+  level!: number;
+
+  @ApiProperty({ example: 5000, description: 'Monthly price in LKR' })
+  @IsNumber()
+  @Min(0)
+  priceMonthlyLKR!: number;
+
+  @ApiProperty({ example: 50000, description: 'Annual price in LKR' })
+  @IsNumber()
+  @Min(0)
+  priceAnnualLKR!: number;
+
+  @ApiProperty({ example: ['weather_data', 'salinity', 'deals'], description: 'Feature keys included in this plan' })
+  @IsArray()
+  @IsString({ each: true })
+  featureKeys!: string[];
+
+  @ApiProperty({ example: 'monthly', enum: ['monthly', 'annual', 'lifetime'], description: 'Default billing duration' })
+  @IsString()
+  @IsIn(['monthly', 'annual', 'lifetime'])
+  duration!: string;
+}
+
+export class UpdatePlanDto {
+  @ApiProperty({ example: 'Enterprise Plan', required: false })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ example: 3, required: false })
+  @IsOptional()
+  @IsNumber()
+  level?: number;
+
+  @ApiProperty({ example: 5000, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  priceMonthlyLKR?: number;
+
+  @ApiProperty({ example: 50000, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  priceAnnualLKR?: number;
+
+  @ApiProperty({ example: ['weather_data', 'salinity'], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  featureKeys?: string[];
+
+  @ApiProperty({ example: 'monthly', enum: ['monthly', 'annual', 'lifetime'], required: false })
+  @IsOptional()
+  @IsString()
+  @IsIn(['monthly', 'annual', 'lifetime'])
+  duration?: string;
+
+  @ApiProperty({ example: true, required: false, description: 'Toggle plan active/inactive' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
