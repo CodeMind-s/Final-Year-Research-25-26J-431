@@ -1,16 +1,10 @@
-import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Inject, Post, Body, Get, Patch, Param, Delete, Query, Logger, HttpStatus, HttpException } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { SubscriptionGuard } from '../auth/guards/subscription.guard';
-import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
-import { Logger } from '@nestjs/common';
-import { HttpStatus } from '@nestjs/common';
-import { HttpException } from '@nestjs/common';
+import { RequireFeature } from '../auth/decorators/feature.decorator';
 import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/dailyMeasurement.dto';
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
@@ -28,9 +22,8 @@ export class CrystallizationController {
   }
 
   @Post("/daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('salinity')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Daily Measurement' })
   @ApiBody({ type: CreateDailyMeasurementDto })
@@ -77,9 +70,8 @@ export class CrystallizationController {
   }
 
   @Get("daily-measurement/:date")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('salinity')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurement by Date' })
   @ApiParam({ name: 'date', type: String, description: 'Date in YYYY-MM-DD format', example: '2025-12-12' })
@@ -119,9 +111,8 @@ export class CrystallizationController {
   }
 
   @Get("daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('salinity')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurements by Date Range' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -166,9 +157,8 @@ export class CrystallizationController {
   }
 
   @Patch("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('salinity')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update Daily Measurement by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -220,9 +210,8 @@ export class CrystallizationController {
   }
 
   @Delete("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('salinity')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete Daily Measurement by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -256,9 +245,8 @@ export class CrystallizationController {
   }
 
   @Post("/predictions")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get ML predictions for crystallization parameters' })
   @ApiBody({ type: PredictionRequestDto })
@@ -298,9 +286,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted daily measurements by date range' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -344,9 +331,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-monthly-productions")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted monthly productions by month range' })
   @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-06' })
@@ -390,9 +376,8 @@ export class CrystallizationController {
   }
 
   @Get("/model-performance")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequireFeature('production_forecast')
   @ApiBearerAuth()
   @ApiTags('Crystallization Model Performance')
   @ApiOperation({ summary: 'Get model performance records' })
