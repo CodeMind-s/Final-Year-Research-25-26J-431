@@ -17,6 +17,10 @@ service AuthService {
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
   // Feature-based access check (replaces numeric CheckSubscriptionAccess)
   rpc CheckFeatureAccess(CheckFeatureAccessRequest) returns (CheckFeatureAccessResponse);
+  // Admin Plan CRUD RPCs
+  rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
+  rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
   // PayHere payment RPCs
   rpc InitiatePayHereCheckout(PayHereCheckoutRequest) returns (PayHereCheckoutResponse);
   rpc HandlePayHereNotification(PayHereNotificationRequest) returns (PayHereNotificationResponse);
@@ -225,6 +229,49 @@ message PayHereNotificationRequest {
 }
 
 message PayHereNotificationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Admin Plan CRUD messages
+message CreatePlanRequest {
+  string key = 1;
+  string name = 2;
+  int32 level = 3;
+  double price_monthly_lkr = 4;
+  double price_annual_lkr = 5;
+  repeated string feature_keys = 6;
+  string duration = 7;
+}
+
+message CreatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  Plan plan = 3;
+}
+
+message UpdatePlanRequest {
+  string key = 1;
+  string name = 2;
+  int32 level = 3;
+  double price_monthly_lkr = 4;
+  double price_annual_lkr = 5;
+  repeated string feature_keys = 6;
+  string duration = 7;
+  bool is_active = 8;
+}
+
+message UpdatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  Plan plan = 3;
+}
+
+message DeletePlanRequest {
+  string key = 1;
+}
+
+message DeletePlanResponse {
   bool success = 1;
   string message = 2;
 }
