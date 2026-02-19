@@ -139,12 +139,12 @@ export class AuthController {
     }
   }
 
-  @GrpcMethod('AuthService', 'CheckFeatureAccess')
-  async checkFeatureAccess(@Payload() data: { userId: string; featureKey: string; userRole: string }) {
+  @GrpcMethod('AuthService', 'CheckPlanAccess')
+  async checkPlanAccess(@Payload() data: { userId: string; requiredPlanLevels: number[] }) {
     try {
-      return await this.authService.checkFeatureAccess(data.userId, data.featureKey, data.userRole);
+      return await this.authService.checkPlanAccess(data.userId, data.requiredPlanLevels);
     } catch (error: any) {
-      this.logger.error(`gRPC CheckFeatureAccess error: ${error.message}`, error.stack);
+      this.logger.error(`gRPC CheckPlanAccess error: ${error.message}`, error.stack);
       throw new RpcException({
         code: 2,
         message: error.message,

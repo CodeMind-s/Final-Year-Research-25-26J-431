@@ -229,11 +229,13 @@ export class AuthService {
         });
       }
 
+      const planDoc = await this.subscriptionService.getPlan(user.plan);
       const payload = {
         sub: user._id.toString(),
         email: user.email,
         role: user.role,
         plan: user.plan,
+        planIndex: planDoc?.level ?? 0,
         isTrialActive: user.isTrialActive,
       };
       const accessToken = this.jwtService.sign(payload);
@@ -386,11 +388,13 @@ export class AuthService {
         });
       }
 
+      const planDoc = await this.subscriptionService.getPlan(user.plan);
       const payload = {
         sub: user._id.toString(),
         email: user.email,
         role: user.role,
         plan: user.plan,
+        planIndex: planDoc?.level ?? 0,
         isTrialActive: user.isTrialActive,
       };
       const accessToken = this.jwtService.sign(payload);
@@ -434,11 +438,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      const planDoc = await this.subscriptionService.getPlan(user.plan);
       const payload = {
         sub: user._id.toString(),
         email: user.email,
         role: user.role,
         plan: user.plan,
+        planIndex: planDoc?.level ?? 0,
         isTrialActive: user.isTrialActive,
       };
       const token = this.jwtService.sign(payload);
@@ -511,8 +517,8 @@ export class AuthService {
     return { success: true, message: 'Subscription updated', subscription };
   }
 
-  async checkFeatureAccess(userId: string, featureKey: string, userRole: string): Promise<any> {
-    return this.subscriptionService.checkFeatureAccess(userId, featureKey, userRole);
+  async checkPlanAccess(userId: string, requiredPlanLevels: number[]): Promise<any> {
+    return this.subscriptionService.checkPlanAccess(userId, requiredPlanLevels);
   }
 
   // Admin Plan CRUD — delegated to SubscriptionService
