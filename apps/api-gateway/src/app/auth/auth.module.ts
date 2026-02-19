@@ -8,7 +8,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { RolesGuard } from './guards/roles.guard';
-import { FeatureAccessGuard } from './guards/feature-access.guard';
+import { PlanAccessGuard } from './guards/plan-access.guard';
 
 @Module({
   imports: [
@@ -49,7 +49,7 @@ import { FeatureAccessGuard } from './guards/feature-access.guard';
     },
     {
       provide: APP_GUARD,
-      useClass: FeatureAccessGuard,
+      useClass: PlanAccessGuard,
     },
     {
       provide: APP_FILTER,
