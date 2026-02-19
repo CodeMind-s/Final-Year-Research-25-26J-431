@@ -4,7 +4,7 @@ import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
-import { RequireFeature } from '../auth/decorators/feature.decorator';
+import { RequirePlan } from '../auth/decorators/plan.decorator';
 import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/dailyMeasurement.dto';
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
@@ -23,7 +23,7 @@ export class CrystallizationController {
 
   @Post("/daily-measurement")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('salinity')
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Daily Measurement' })
   @ApiBody({ type: CreateDailyMeasurementDto })
@@ -71,7 +71,7 @@ export class CrystallizationController {
 
   @Get("daily-measurement/:date")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('salinity')
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurement by Date' })
   @ApiParam({ name: 'date', type: String, description: 'Date in YYYY-MM-DD format', example: '2025-12-12' })
@@ -112,7 +112,7 @@ export class CrystallizationController {
 
   @Get("daily-measurement")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('salinity')
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurements by Date Range' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -158,7 +158,7 @@ export class CrystallizationController {
 
   @Patch("daily-measurement/:id")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('salinity')
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update Daily Measurement by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -211,7 +211,7 @@ export class CrystallizationController {
 
   @Delete("daily-measurement/:id")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('salinity')
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete Daily Measurement by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -246,7 +246,7 @@ export class CrystallizationController {
 
   @Post("/predictions")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get ML predictions for crystallization parameters' })
   @ApiBody({ type: PredictionRequestDto })
@@ -287,7 +287,7 @@ export class CrystallizationController {
 
   @Get("/predicted-daily-measurement")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted daily measurements by date range' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -332,7 +332,7 @@ export class CrystallizationController {
 
   @Get("/predicted-monthly-productions")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted monthly productions by month range' })
   @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-06' })
@@ -377,7 +377,7 @@ export class CrystallizationController {
 
   @Get("/model-performance")
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiTags('Crystallization Model Performance')
   @ApiOperation({ summary: 'Get model performance records' })
