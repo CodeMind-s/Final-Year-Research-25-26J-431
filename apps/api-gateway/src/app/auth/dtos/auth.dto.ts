@@ -297,55 +297,55 @@ export class AccountSettingsDto {
 
 // New Onboarding DTOs
 export class LandOwnerOnboardingDto {
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ type: [String], example: ['https://example.com/doc1.pdf'], description: 'Document URLs for verification' })
   @IsArray()
   docUrls!: string[];
 
-  @ApiProperty()
+  @ApiProperty({ example: 5, description: 'Total number of salt beds' })
   @IsNotEmpty()
   totalBeds!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: '123456789V', description: 'National Identity Card number' })
   @IsString()
   nic!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '123 Salt Rd, Puttalam', description: 'Address of the salt land' })
   @IsString()
   address!: string;
 }
 
 export class LaboratoryOnboardingDto {
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ type: [String], example: ['https://example.com/cert.pdf'], description: 'Document URLs for verification' })
   @IsArray()
   docUrls!: string[];
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Salt Quality Labs', description: 'Name of the laboratory' })
   @IsString()
   laboratoryName!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'LAB-2024-001', description: 'Laboratory registration number' })
   @IsString()
   registrationNumber!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '456 Lab Ave, Colombo', description: 'Laboratory address' })
   @IsString()
   address!: string;
 }
 
 export class ServiceProviderOnboardingDto {
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ type: [String], example: ['https://example.com/license.pdf'], description: 'Document URLs for verification' })
   @IsArray()
   docUrls!: string[];
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Salt Distribution Co.', description: 'Company name' })
   @IsString()
   companyName!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'DIST-2024-001', description: 'Company registration number' })
   @IsString()
   registrationNumber!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '789 Trade St, Galle', description: 'Company address' })
   @IsString()
   address!: string;
 }

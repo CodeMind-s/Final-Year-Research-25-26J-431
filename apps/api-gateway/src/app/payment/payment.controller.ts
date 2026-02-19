@@ -23,7 +23,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { CheckoutDto } from './dtos/payment.dto';
+import { CheckoutDto, PayHereNotifyDto } from './dtos/payment.dto';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -70,8 +70,9 @@ export class PaymentController {
   @Post('notify')
   @Public()
   @ApiOperation({ summary: 'PayHere webhook notification' })
+  @ApiBody({ type: PayHereNotifyDto })
   @ApiResponse({ status: 200, description: 'Notification processed' })
-  async notify(@Body() body: any) {
+  async notify(@Body() body: PayHereNotifyDto) {
     try {
       const result = await firstValueFrom(
         this.paymentService.HandleNotification({

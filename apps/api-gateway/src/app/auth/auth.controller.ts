@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Logger, Param, Patch, Post, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { catchError, firstValueFrom } from 'rxjs';
 import { Public } from './decorators/public.decorator';
 import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto } from './dtos/auth.dto';
@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Role } from './decorators/role.enum';
 import { Roles } from './decorators/roles.decorator';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   private authService: any;
