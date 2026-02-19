@@ -4,10 +4,6 @@ import { Model, Types } from 'mongoose';
 import { Plan } from '../schemas/plan.schema';
 import { Subscription } from '../schemas/subscription.schema';
 import { User } from '../schemas/user.schema';
-import {
-  FEATURE_ENTITLEMENTS,
-  FeatureEntitlement,
-} from '../config/feature-entitlements.config';
 
 const TRIAL_DURATION_DAYS = 14;
 
@@ -189,37 +185,13 @@ export class SubscriptionService implements OnModuleInit {
     this.logger.log(`Trial expired for user ${userId}, downgraded to free`);
   }
 
-  async checkFeatureAccess(
+  async checkPlanAccess(
     userId: string,
-    featureKey: string,
-    userRole: string,
-  ): Promise<{ hasAccess: boolean; reason: string; requiredPlans: string[] }> {
-    // ADMIN/SUPERADMIN bypass
-    if (userRole === 'ADMIN' || userRole === 'SUPERADMIN') {
-      return { hasAccess: true, reason: 'allowed', requiredPlans: [] };
-    }
-
-    const feature: FeatureEntitlement | undefined = FEATURE_ENTITLEMENTS.find(
-      (f) => f.key === featureKey,
-    );
-    if (!feature) {
-      // Unknown feature — allow by default (unprotected)
-      return { hasAccess: true, reason: 'allowed', requiredPlans: [] };
-    }
-
-    // Check role
-    if (!feature.allowedRoles.includes(userRole)) {
-      return {
-        hasAccess: false,
-        reason: 'role_not_allowed',
-        requiredPlans: feature.plans,
-      };
-    }
-
-    // Check plan
+    requiredPlanLevels: number[],
+  ): Promise<{ allowed: boolean; reason: string; requiredPlanLevels: number[] }> {
     const user = await this.userModel.findById(userId);
     if (!user) {
-      return { hasAccess: false, reason: 'plan_required', requiredPlans: feature.plans };
+      return { allowed: false, reason: 'plan_required', requiredPlanLevels };
     }
 
     // If trial, check expiry
@@ -229,25 +201,23 @@ export class SubscriptionService implements OnModuleInit {
         await this.expireTrial(userId);
         // Re-fetch user after downgrade
         const updatedUser = await this.userModel.findById(userId);
-        if (!updatedUser || !feature.plans.includes(updatedUser.plan)) {
-          return {
-            hasAccess: false,
-            reason: 'plan_required',
-            requiredPlans: feature.plans,
-          };
+        const plan = updatedUser ? await this.getPlan(updatedUser.plan) : null;
+        const level = plan?.level ?? 0;
+        if (!requiredPlanLevels.includes(level)) {
+          return { allowed: false, reason: 'trial_expired', requiredPlanLevels };
         }
+        return { allowed: true, reason: 'allowed', requiredPlanLevels: [] };
       }
     }
 
-    if (!feature.plans.includes(user.plan)) {
-      return {
-        hasAccess: false,
-        reason: 'plan_required',
-        requiredPlans: feature.plans,
-      };
+    // Check user's plan level against required levels
+    const plan = await this.getPlan(user.plan);
+    const level = plan?.level ?? 0;
+    if (!requiredPlanLevels.includes(level)) {
+      return { allowed: false, reason: 'plan_required', requiredPlanLevels };
     }
 
-    return { hasAccess: true, reason: 'allowed', requiredPlans: [] };
+    return { allowed: true, reason: 'allowed', requiredPlanLevels: [] };
   }
 
   async createPlan(data: {
