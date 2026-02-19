@@ -32,7 +32,7 @@ import { PlanAccessGuard } from './guards/plan-access.guard';
         options: {
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
-          url: process.env.USER_SERVICE_URL || 'localhost:50001',
+          url: process.env.USER_SERVICE_URL || 'localhost:50053',
         },
       },
     ]),
