@@ -25,7 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
-import { RequireFeature } from '../auth/decorators/feature.decorator';
+import { RequirePlan } from '../auth/decorators/plan.decorator';
 import {
   CreateActualMonthlyProductionDto,
   CreateActualMonthlyProductionResponseDto,
@@ -52,7 +52,7 @@ export class SaltProductionController {
 
   @Post()
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create or update actual monthly production' })
   @ApiBody({ type: CreateActualMonthlyProductionDto })
@@ -93,7 +93,7 @@ export class SaltProductionController {
 
   @Get()
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly productions by month range' })
   @ApiQuery({
@@ -158,7 +158,7 @@ export class SaltProductionController {
 
   @Get(':id')
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly production by ID' })
   @ApiParam({
@@ -206,7 +206,7 @@ export class SaltProductionController {
 
   @Get('month/:month')
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get actual monthly production by month' })
   @ApiParam({
@@ -254,7 +254,7 @@ export class SaltProductionController {
 
   @Put(':id')
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update actual monthly production by ID' })
   @ApiParam({
@@ -307,7 +307,7 @@ export class SaltProductionController {
 
   @Delete(':id')
   @Roles(Role.SALTSOCIETY)
-  @RequireFeature('production_forecast')
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete actual monthly production by ID' })
   @ApiParam({
