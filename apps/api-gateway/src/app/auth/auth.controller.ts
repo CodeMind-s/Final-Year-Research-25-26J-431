@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Logger, Param, Patch, Post, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
-import { catchError, firstValueFrom, of } from 'rxjs';
+import { catchError, firstValueFrom } from 'rxjs';
 import { Public } from './decorators/public.decorator';
 import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto } from './dtos/auth.dto';
 import { JwtService } from '@nestjs/jwt';
@@ -76,22 +76,6 @@ export class AuthController {
           })
         )
       ) as any;
-      // New: Assign free plan if new user
-      if (result.isNewUser) {
-        const payload = this.jwtService.verify(result.accessToken);
-        const userId = payload.sub;
-        const freePlanId = 'free'; // Hardcoded; fetch dynamically in production
-        await firstValueFrom(
-          this.authService.CreateSubscription({ userId, planId: freePlanId }).pipe(
-            catchError((err) => {
-              this.logger.error(`CreateSubscription error: ${err.message}`);
-              // Don't fail auth if subscription creation fails
-              console.warn('Free plan assignment failed, but auth succeeded');
-              return of(null);
-            })
-          )
-        );
-      }
 
       return result;
     } catch (error: any) {
