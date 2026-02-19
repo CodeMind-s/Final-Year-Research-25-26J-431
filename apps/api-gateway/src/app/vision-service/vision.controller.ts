@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
-import { RequireFeature } from '../auth/decorators/feature.decorator';
+import { RequirePlan } from '../auth/decorators/plan.decorator';
 import {
   DetectionFilterDto,
   BatchFilterDto,
@@ -57,7 +57,7 @@ export class VisionController {
   }
 
   @Get('detections')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get paginated detections' })
   async getDetections(@Query() query: DetectionFilterDto) {
     try {
@@ -75,7 +75,7 @@ export class VisionController {
   }
 
   @Get('detections/:id')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get a single detection by ID' })
   async getDetection(@Param('id') id: string) {
     try {
@@ -93,7 +93,7 @@ export class VisionController {
   }
 
   @Delete('detections/:id')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Delete a detection by ID' })
   async deleteDetection(@Param('id') id: string) {
     try {
@@ -111,7 +111,7 @@ export class VisionController {
   }
 
   @Get('sessions/:id')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get a session by ID' })
   async getSession(@Param('id') id: string) {
     try {
@@ -129,7 +129,7 @@ export class VisionController {
   }
 
   @Get('batches')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get all batches with optional filtering' })
   async getAllBatches(@Query() query: BatchFilterDto) {
     try {
@@ -147,7 +147,7 @@ export class VisionController {
   }
 
   @Get('batches/:id')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get a batch by ID' })
   async getBatch(@Param('id') id: string) {
     try {
@@ -165,7 +165,7 @@ export class VisionController {
   }
 
   @Get('batches/session/:sessionId')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get all batches for a session' })
   async getSessionBatches(@Param('sessionId') sessionId: string) {
     try {
@@ -183,7 +183,7 @@ export class VisionController {
   }
 
   @Get('batches/trends/:sessionId')
-  @RequireFeature('quality_vision_control')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get batch purity trends for a session' })
   async getBatchTrends(@Param('sessionId') sessionId: string) {
     try {
@@ -201,7 +201,7 @@ export class VisionController {
   }
 
   @Get('statistics/summary')
-  @RequireFeature('realtime_statistics')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get detection statistics summary' })
   async getStatsSummary(@Query() query: StatsSummaryQueryDto) {
     try {
@@ -219,7 +219,7 @@ export class VisionController {
   }
 
   @Get('statistics/hourly')
-  @RequireFeature('realtime_statistics')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get hourly detection statistics' })
   async getStatsHourly(@Query() query: StatsHourlyQueryDto) {
     try {
@@ -237,7 +237,7 @@ export class VisionController {
   }
 
   @Get('statistics/daily')
-  @RequireFeature('realtime_statistics')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get daily detection statistics' })
   async getStatsDaily(@Query() query: StatsDailyQueryDto) {
     try {
@@ -255,7 +255,7 @@ export class VisionController {
   }
 
   @Get('statistics/trends')
-  @RequireFeature('realtime_statistics')
+  @RequirePlan(2)
   @ApiOperation({ summary: 'Get detection purity trends' })
   async getStatsTrends(@Query() query: StatsTrendsQueryDto) {
     try {
