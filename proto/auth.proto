@@ -21,9 +21,6 @@ service AuthService {
   rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
   rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
   rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
-  // PayHere payment RPCs
-  rpc InitiatePayHereCheckout(PayHereCheckoutRequest) returns (PayHereCheckoutResponse);
-  rpc HandlePayHereNotification(PayHereNotificationRequest) returns (PayHereNotificationResponse);
 }
 
 message SignInRequest {
@@ -196,40 +193,6 @@ message CheckPlanAccessResponse {
   bool allowed = 1;
   string reason = 2;          // 'allowed' | 'plan_required' | 'trial_expired'
   repeated int32 required_plan_levels = 3;
-}
-
-// PayHere payment messages
-message PayHereCheckoutRequest {
-  string user_id = 1;
-  string plan_key = 2;
-  string billing_cycle = 3;   // 'monthly' | 'annual'
-}
-
-message PayHereCheckoutResponse {
-  string merchant_id = 1;
-  string order_id = 2;
-  string hash = 3;
-  double amount = 4;
-  string currency = 5;
-  string items = 6;
-  string notify_url = 7;
-  string return_url = 8;
-  string cancel_url = 9;
-}
-
-message PayHereNotificationRequest {
-  string merchant_id = 1;
-  string order_id = 2;
-  string payment_id = 3;
-  string payhere_amount = 4;
-  string payhere_currency = 5;
-  string status_code = 6;
-  string md5sig = 7;
-}
-
-message PayHereNotificationResponse {
-  bool success = 1;
-  string message = 2;
 }
 
 // Admin Plan CRUD messages
