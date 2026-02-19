@@ -25,11 +25,13 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = this.jwtService.verify(token);
       // Attach the full payload to req.user, including sub (userId)
+      const PLAN_INDEX_MAP: Record<string, number> = { free: 0, pro: 1, lab: 2 };
       request['user'] = {
         userId: payload.sub,
         email: payload.email,
         role: payload.role,
         plan: payload.plan,
+        planIndex: payload.planIndex ?? PLAN_INDEX_MAP[payload.plan] ?? 0,
         isTrialActive: payload.isTrialActive,
       };
     } catch (error) {
