@@ -11,6 +11,7 @@ import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
 import { CrystallizationModule } from './crystallization-service/crystallization.module';
 import { SaltProductionModule } from './salt-production/salt-production.module';
 import { VisionModule } from './vision-service/vision.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { VisionModule } from './vision-service/vision.module';
     CrystallizationModule,
     SaltProductionModule,
     VisionModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [
