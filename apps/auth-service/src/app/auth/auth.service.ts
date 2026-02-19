@@ -62,20 +62,30 @@ export class AuthService {
    */
   private async sendSmsViaNofityLk(to: string, message: string): Promise<any> {
     // Notify.lk expects phone numbers in format 94XXXXXXXXX (no + prefix)
-    const formattedPhone = to.replace(/^\+/, '');
-    const response = await axios.post(`${this.notifyLkConfig.baseUrl}/send`, null, {
-      params: {
-        user_id: this.notifyLkConfig.userId,
-        api_key: this.notifyLkConfig.apiKey,
-        sender_id: this.notifyLkConfig.senderId,
-        to: formattedPhone,
-        message,
-      },
-    });
-    if (response.data?.status !== 'success') {
-      throw new Error(`Notify.lk SMS failed: ${JSON.stringify(response.data)}`);
+    let formattedPhone = to.replace(/^\+/, '');
+    // Convert local Sri Lankan format (07XXXXXXXX) to international (947XXXXXXXX)
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '94' + formattedPhone.substring(1);
     }
-    return response.data;
+    this.logger.log(`Sending SMS to ${formattedPhone} (original: ${to})`);
+    try {
+      const response = await axios.post(`${this.notifyLkConfig.baseUrl}/send`, null, {
+        params: {
+          user_id: this.notifyLkConfig.userId,
+          api_key: this.notifyLkConfig.apiKey,
+          sender_id: this.notifyLkConfig.senderId,
+          to: formattedPhone,
+          message,
+        },
+      });
+      if (response.data?.status !== 'success') {
+        throw new Error(`Notify.lk SMS failed: ${JSON.stringify(response.data)}`);
+      }
+      return response.data;
+    } catch (error: any) {
+      this.logger.error(`Notify.lk SMS error for ${formattedPhone}: ${error.response?.status} - ${JSON.stringify(error.response?.data)}`);
+      throw error;
+    }
   }
 
   /**
