@@ -175,6 +175,7 @@ services:
     environment:
       - GRPC_URL=0.0.0.0:50057
       - MONGO_URI=${MONGO_URI}
+      - VISION_MODEL_PATH=/app/models/best.onnx
     networks:
       - app-network
     volumes:

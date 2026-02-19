@@ -73,6 +73,9 @@ COPY --from=builder /app/dist/apps/vision-service ./dist/
 RUN --mount=type=cache,target=/root/.npm \
     cd dist && npm install --omit=dev --legacy-peer-deps && cd ..
 
+# Copy proto files (protoPath resolves to /proto/vision.proto from /app/dist)
+COPY --from=builder /app/proto/ /proto/
+
 # Create models directory (will be mounted as volume)
 RUN mkdir -p /app/models
 
