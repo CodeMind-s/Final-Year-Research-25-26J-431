@@ -54,6 +54,13 @@ export class PaymentService implements OnModuleInit {
       });
     }
 
+    if (!notifyUrl) {
+      this.logger.warn(
+        'PAYHERE_NOTIFY_URL is not set. PayHere needs a publicly accessible URL to send payment notifications. ' +
+        'Use ngrok or a similar tunnel and set PAYHERE_NOTIFY_URL=https://<your-tunnel>/api/v1/payments/notify',
+      );
+    }
+
     // Get plan details from auth-service
     let planResponse;
     try {
