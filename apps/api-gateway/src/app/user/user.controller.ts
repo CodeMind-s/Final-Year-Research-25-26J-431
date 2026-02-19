@@ -9,7 +9,7 @@ import { Logger } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { HttpException } from '@nestjs/common';
 import { CreateUserDto, UpdatePersonalDetailsDto, UpdateUserRequestDto, UpdateProfileRequestDto } from './dtos/user.dto';
-import { AccountSettingsDto } from '../auth/dtos/auth.dto';
+
 
 @ApiTags('User')
 @Controller('user')
