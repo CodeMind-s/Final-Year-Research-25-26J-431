@@ -181,6 +181,31 @@ services:
       - ./apps/vision-service/models:/app/models
     restart: unless-stopped
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: payment-service
+    container_name: payment-service
+    ports:
+      - "50056:50056"
+    environment:
+      - GRPC_URL=0.0.0.0:50056
+      - MONGO_URI=${MONGO_URI}
+      - AUTH_SERVICE_URL=auth-service:50000
+      - PAYHERE_MERCHANT_ID=${PAYHERE_MERCHANT_ID}
+      - PAYHERE_MERCHANT_SECRET=${PAYHERE_MERCHANT_SECRET}
+      - PAYHERE_SANDBOX=${PAYHERE_SANDBOX}
+      - PAYHERE_NOTIFY_URL=${PAYHERE_NOTIFY_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -198,6 +223,7 @@ services:
       - USER_SERVICE_URL=user-service:50053
       - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
       - VISION_SERVICE_URL=vision-service:50057
+      - PAYMENT_SERVICE_URL=payment-service:50056
     networks:
       - app-network
     depends_on:
@@ -205,6 +231,7 @@ services:
       - user-service
       - crystallization-service
       - vision-service
+      - payment-service
       - audit-log-service
       - email-service
     restart: unless-stopped
