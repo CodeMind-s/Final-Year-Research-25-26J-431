@@ -15,8 +15,8 @@ service AuthService {
   rpc GetPlans(GetPlansRequest) returns (GetPlansResponse);
   rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
-  // Feature-based access check (replaces numeric CheckSubscriptionAccess)
-  rpc CheckFeatureAccess(CheckFeatureAccessRequest) returns (CheckFeatureAccessResponse);
+  // Plan-index-based access check
+  rpc CheckPlanAccess(CheckPlanAccessRequest) returns (CheckPlanAccessResponse);
   // Admin Plan CRUD RPCs
   rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
   rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
@@ -186,17 +186,16 @@ message UpdateSubscriptionResponse {
   Subscription subscription = 3;
 }
 
-// Feature-based access check
-message CheckFeatureAccessRequest {
+// Plan-index-based access check
+message CheckPlanAccessRequest {
   string user_id = 1;
-  string feature_key = 2;
-  string user_role = 3;
+  repeated int32 required_plan_levels = 2;
 }
 
-message CheckFeatureAccessResponse {
-  bool has_access = 1;
-  string reason = 2;          // 'allowed' | 'role_not_allowed' | 'plan_required'
-  repeated string required_plans = 3;
+message CheckPlanAccessResponse {
+  bool allowed = 1;
+  string reason = 2;          // 'allowed' | 'plan_required' | 'trial_expired'
+  repeated int32 required_plan_levels = 3;
 }
 
 // PayHere payment messages
