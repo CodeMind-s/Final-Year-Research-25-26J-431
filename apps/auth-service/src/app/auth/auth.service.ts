@@ -509,9 +509,22 @@ export class AuthService {
     };
   }
 
+  private mapPlanToProto(plan: any) {
+    return {
+      key: plan.key,
+      name: plan.name,
+      level: plan.level,
+      priceMonthlyLkr: plan.priceMonthlyLKR,
+      priceAnnualLkr: plan.priceAnnualLKR,
+      featureKeys: plan.featureKeys,
+      duration: plan.duration,
+      isActive: plan.isActive,
+    };
+  }
+
   async getPlans(): Promise<any> {
     const plans = await this.subscriptionService.getPlans();
-    return { success: true, plans };
+    return { success: true, plans: plans.map((p) => this.mapPlanToProto(p)) };
   }
 
   async getPlan(planKey: string): Promise<any> {
@@ -519,7 +532,7 @@ export class AuthService {
     if (!plan) {
       throw new BadRequestException(`Plan not found: ${planKey}`);
     }
-    return { success: true, plan };
+    return { success: true, plan: this.mapPlanToProto(plan) };
   }
 
   async updateSubscription(userId: string, planKey: string): Promise<any> {
