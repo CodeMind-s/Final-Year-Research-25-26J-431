@@ -10,6 +10,8 @@ import {
   Logger,
   HttpStatus,
   HttpException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
@@ -69,10 +71,15 @@ export class PaymentController {
 
   @Post('notify')
   @Public()
+  @UsePipes(new ValidationPipe({ transform: false }))
   @ApiOperation({ summary: 'PayHere webhook notification' })
   @ApiBody({ type: PayHereNotifyDto })
   @ApiResponse({ status: 200, description: 'Notification processed' })
-  async notify(@Body() body: PayHereNotifyDto) {
+  async notify(@Body() body: any) {
+    // TODO: remove debug logging after testing
+    this.logger.debug(`PayHere notify received - raw body: ${JSON.stringify(body)}`);
+    this.logger.debug(`PayHere notify - order_id=${body.order_id}, status_code=${body.status_code}, payment_id=${body.payment_id}, md5sig=${body.md5sig}`);
+
     try {
       const result = await firstValueFrom(
         this.paymentService.HandleNotification({
@@ -85,7 +92,7 @@ export class PaymentController {
           md5sig: body.md5sig,
         }).pipe(
           catchError((error: any) => {
-            this.logger.error(`Notification error: ${error.message}`);
+            this.logger.error(`Notification gRPC error: ${JSON.stringify({ message: error.message, details: error.details, code: error.code })}`);
             throw new HttpException(
               error.details || 'Failed to process notification',
               HttpStatus.BAD_REQUEST,
@@ -94,8 +101,10 @@ export class PaymentController {
         ),
       );
 
+      this.logger.debug(`PayHere notify - result: ${JSON.stringify(result)}`);
       return result;
     } catch (error: any) {
+      this.logger.error(`PayHere notify - catch error: ${error.message}`);
       if (error instanceof HttpException) throw error;
       throw new HttpException('Failed to process notification', HttpStatus.INTERNAL_SERVER_ERROR);
     }

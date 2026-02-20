@@ -60,4 +60,29 @@ export class PayHereNotifyDto {
   @IsOptional()
   @IsString()
   card_expiry?: string;
+
+  @ApiProperty({ description: 'Status message (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  status_message?: string;
+
+  @ApiProperty({ description: 'Recurring indicator (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  recurring?: string;
+
+  @ApiProperty({ description: 'Message type (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  message_type?: string;
+
+  @ApiProperty({ description: 'Custom field 1 (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  custom_1?: string;
+
+  @ApiProperty({ description: 'Custom field 2 (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  custom_2?: string;
 }
