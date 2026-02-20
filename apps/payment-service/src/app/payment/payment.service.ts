@@ -42,9 +42,10 @@ export class PaymentService implements OnModuleInit {
   }
 
   async initiateCheckout(userId: string, planKey: string, billingCycle: string) {
-    const merchantId = process.env.PAYHERE_MERCHANT_ID;
-    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
-    const notifyUrl = process.env.PAYHERE_NOTIFY_URL;
+    // TODO: revert hardcoded values after testing
+    const merchantId = process.env.PAYHERE_MERCHANT_ID || '1228391';
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || 'MjA2MDQ3Njk5NTQxNTk4NzUyODk3Mzg2MTY2MDI3ODg4NDMwNjY=';
+    const notifyUrl = process.env.PAYHERE_NOTIFY_URL || 'https://nonceremoniously-limitless-ami.ngrok-free.dev/api/v1/payments/notify';
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
     if (!merchantId || !merchantSecret) {
@@ -103,6 +104,9 @@ export class PaymentService implements OnModuleInit {
     });
 
     // Generate PayHere checkout hash
+    // TODO: remove debug logging after testing
+    this.logger.debug(`Hash inputs: merchantId="${merchantId}", orderId="${orderId}", amount=${amount}, amountFormatted="${amount.toFixed(2)}", currency="LKR", secretLength=${merchantSecret.length}`);
+
     const hash = this.payHereService.generateCheckoutHash(
       merchantId,
       orderId,
@@ -110,6 +114,8 @@ export class PaymentService implements OnModuleInit {
       'LKR',
       merchantSecret,
     );
+
+    this.logger.debug(`Generated hash: ${hash}`);
 
     return {
       success: true,
@@ -134,7 +140,9 @@ export class PaymentService implements OnModuleInit {
     status_code: string;
     md5sig: string;
   }) {
-    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
+    // TODO: revert hardcoded fallback after testing
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || 'MjA2MDQ3Njk5NTQxNTk4NzUyODk3Mzg2MTY2MDI3ODg4NDMwNjY=';
+    this.logger.debug(`Notification received: order=${params.order_id}, status_code=${params.status_code}, payment_id=${params.payment_id}`);
 
     if (!merchantSecret) {
       throw new RpcException({
