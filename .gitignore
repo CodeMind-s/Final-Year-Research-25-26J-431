@@ -57,4 +57,3 @@ CLAUDE.md
 # ONNX model files
 **/models/*.onnx
 /docs/
-test-payhere-checkout.html
