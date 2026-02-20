@@ -26,6 +26,7 @@ COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-
 COPY apps/email-service/package.json ./apps/email-service/
 COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
+COPY apps/payment-service/package.json ./apps/payment-service/
 
 # Install all dependencies — this layer is CACHED when only source.json files change
 # --mount=type=cache persists npm download cache across Docker builds for faster installs
