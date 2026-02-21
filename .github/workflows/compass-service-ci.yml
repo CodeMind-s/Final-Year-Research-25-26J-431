@@ -53,9 +53,11 @@ jobs:
         continue-on-error: true
 
       - name: Run unit tests
-        run: npx jest --config apps/compass-service/jest.config.ts --ci --passWithNoTests
+        run: npx jest --config apps/compass-service/jest.config.js --ci --passWithNoTests
         env:
           CI: true
+          # E2E tests are skipped in CI by default (requires MongoDB connection)
+          # To run e2e tests, set MONGO_URI in GitHub secrets
 
       - name: Upload test results
         if: always()
