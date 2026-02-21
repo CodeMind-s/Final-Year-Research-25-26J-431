@@ -8,6 +8,8 @@ import { SubscriptionGuard } from '../auth/guards/subscription.guard';
 import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { CompassController } from './compass.controller';
+import { DistributorOfferController } from './distributor-offer.controller';
+import { DealController } from './deal.controller';
 
 @Module({
   imports: [
@@ -43,7 +45,7 @@ import { CompassController } from './compass.controller';
       },
     ]),
   ],
-  controllers: [CompassController],
+  controllers: [CompassController, DistributorOfferController, DealController],
   providers: [
     CompassService,
     {

@@ -28,17 +28,21 @@ describe('HarvestPlanService', () => {
     updatedAt: new Date(),
   };
 
-  const mockHarvestPlanModel = {
-    new: jest.fn().mockResolvedValue(mockHarvestPlan),
-    constructor: jest.fn().mockResolvedValue(mockHarvestPlan),
+  const mockSave = jest.fn().mockResolvedValue(mockHarvestPlan);
+  
+  const mockHarvestPlanModel = jest.fn().mockImplementation(() => ({
+    save: mockSave,
+    ...mockHarvestPlan,
+  })) as any;
+  
+  Object.assign(mockHarvestPlanModel, {
     find: jest.fn(),
     findById: jest.fn(),
     findByIdAndUpdate: jest.fn(),
     findByIdAndDelete: jest.fn(),
     exec: jest.fn(),
     create: jest.fn(),
-    save: jest.fn(),
-  };
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -81,19 +85,13 @@ describe('HarvestPlanService', () => {
         avgSellingPrice: 50,
       };
 
-      const saveMock = jest.fn().mockResolvedValue(mockHarvestPlan);
-      mockHarvestPlanModel.save = saveMock;
-
-      // Mock the constructor to return an object with save method
-      jest.spyOn(model, 'constructor' as any).mockImplementation(() => ({
-        save: saveMock,
-        ...mockHarvestPlan,
-      }));
+      mockSave.mockResolvedValue(mockHarvestPlan);
 
       const result = await service.CreatePlan(createPlanDto);
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Harvest plan created successfully');
+      expect(mockSave).toHaveBeenCalled();
     });
 
     it('should handle errors when creating plan', async () => {
@@ -105,9 +103,7 @@ describe('HarvestPlanService', () => {
         startDate: '2026-02-15T00:00:00Z',
       };
 
-      jest.spyOn(model, 'constructor' as any).mockImplementation(() => {
-        throw new Error('Database error');
-      });
+      mockSave.mockRejectedValue(new Error('Database error'));
 
       const result = await service.CreatePlan(createPlanDto);
 

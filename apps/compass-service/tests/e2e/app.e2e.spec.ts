@@ -27,7 +27,9 @@ describe('Compass Service E2E Tests', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('HarvestPlanController (gRPC)', () => {
