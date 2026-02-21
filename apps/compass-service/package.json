@@ -84,7 +84,7 @@
           "{workspaceRoot}/apps/compass-service/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/compass-service/jest.config.ts",
+          "jestConfig": "apps/compass-service/jest.config.js",
           "passWithNoTests": true
         }
       },

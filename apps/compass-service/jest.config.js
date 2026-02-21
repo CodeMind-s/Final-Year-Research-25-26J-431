@@ -35,5 +35,4 @@ module.exports = {
     '!src/**/*.spec.ts',
     '!src/main.ts',
   ],
-  verbose: true,
 };
