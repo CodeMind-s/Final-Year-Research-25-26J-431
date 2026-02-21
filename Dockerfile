@@ -25,6 +25,8 @@ COPY apps/crystallization-service/package.json ./apps/crystallization-service/
 COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-service/
 COPY apps/email-service/package.json ./apps/email-service/
 COPY apps/user-service/package.json ./apps/user-service/
+COPY apps/vision-service/package.json ./apps/vision-service/
+COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/compass-service/package.json ./apps/compass-service/
 
 # Install all dependencies — this layer is CACHED when only source.json files change

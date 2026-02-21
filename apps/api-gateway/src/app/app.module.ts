@@ -12,6 +12,7 @@ import { CrystallizationModule } from './crystallization-service/crystallization
 import { SaltProductionModule } from './salt-production/salt-production.module';
 import { CompassModule } from './compass-service/compass.module';
 import { VisionModule } from './vision-service/vision.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { VisionModule } from './vision-service/vision.module';
     SaltProductionModule,
     CompassModule,
     VisionModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

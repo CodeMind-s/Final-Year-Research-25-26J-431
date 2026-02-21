@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>PayHere Sandbox Test</title>
+  <script src="https://www.payhere.lk/lib/payhere.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      box-sizing: border-box;
+      font-family: monospace;
+    }
+
+    textarea {
+      height: 120px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    .note {
+      background: #fff3cd;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .success {
+      background: #d4edda;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .error {
+      background: #f8d7da;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    #log {
+      background: #1e1e1e;
+      color: #0f0;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    h2 { margin-top: 30px; }
+  </style>
+</head>
+
+<body>
+  <h1>PayHere Sandbox Test</h1>
+
+  <div class="note">
+    <strong>How to use:</strong><br>
+    1. Call <code>POST /api/v1/payments/checkout</code> from Swagger<br>
+    2. Paste the <strong>full JSON response</strong> in the box below<br>
+    3. Click "Pay with PayHere Sandbox"<br>
+    4. Use sandbox test card: <strong>4916217501611292</strong>, expiry: any future date, CVV: any 3 digits
+  </div>
+
+  <h2>Option A: Paste Full Checkout Response</h2>
+  <label>Paste checkout JSON response:
+    <textarea id="jsonInput" placeholder='{"success":true,"merchant_id":"1228391","order_id":"...","hash":"...","amount":1500,"currency":"LKR","items":"Pro Plan - monthly","notify_url":"https://...","return_url":"...","cancel_url":"..."}'></textarea>
+  </label>
+  <button onclick="payFromJson()">Pay with PayHere Sandbox (from JSON)</button>
+
+  <h2>Option B: Manual Entry</h2>
+  <label>Merchant ID
+    <input type="text" id="merchant_id" value="1228391">
+  </label>
+  <label>Order ID
+    <input type="text" id="order_id" placeholder="from checkout response">
+  </label>
+  <label>Amount
+    <input type="text" id="amount" placeholder="e.g. 1500.00">
+  </label>
+  <label>Currency
+    <input type="text" id="currency" value="LKR">
+  </label>
+  <label>Hash
+    <input type="text" id="hash" placeholder="from checkout response">
+  </label>
+  <label>Items
+    <input type="text" id="items" value="Pro Plan - monthly">
+  </label>
+  <label>Notify URL
+    <input type="text" id="notify_url"
+      value="https://nonceremoniously-limitless-ami.ngrok-free.dev/api/v1/payments/notify">
+  </label>
+  <label>Return URL
+    <input type="text" id="return_url" value="http://localhost:3000/payments/success">
+  </label>
+  <label>Cancel URL
+    <input type="text" id="cancel_url" value="http://localhost:3000/payments/cancel">
+  </label>
+  <button onclick="payManual()">Pay with PayHere Sandbox (manual)</button>
+
+  <div id="successMsg" class="success"></div>
+  <div id="errorMsg" class="error"></div>
+  <div id="log"></div>
+
+  <script>
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.textContent += new Date().toLocaleTimeString() + ' | ' + msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // PayHere event handlers
+    payhere.onCompleted = function (orderId) {
+      log('Payment completed. Order ID: ' + orderId);
+      document.getElementById('successMsg').style.display = 'block';
+      document.getElementById('successMsg').textContent = 'Payment completed! Order ID: ' + orderId;
+    };
+
+    payhere.onDismissed = function () {
+      log('Payment dismissed by user.');
+    };
+
+    payhere.onError = function (error) {
+      log('Payment error: ' + error);
+      document.getElementById('errorMsg').style.display = 'block';
+      document.getElementById('errorMsg').textContent = 'Payment error: ' + error;
+    };
+
+    function startPayment(data) {
+      var payment = {
+        sandbox: true,
+        merchant_id: data.merchant_id,
+        return_url: data.return_url || 'http://localhost:3000/payments/success',
+        cancel_url: data.cancel_url || 'http://localhost:3000/payments/cancel',
+        notify_url: data.notify_url || 'https://nonceremoniously-limitless-ami.ngrok-free.dev/api/v1/payments/notify',
+        order_id: data.order_id,
+        items: data.items || 'Pro Plan - monthly',
+        amount: String(Number(data.amount).toFixed(2)),
+        currency: data.currency || 'LKR',
+        hash: data.hash,
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@example.com',
+        phone: '0771234567',
+        address: 'No. 1, Test Street',
+        city: 'Colombo',
+        country: 'Sri Lanka',
+      };
+
+      log('Starting PayHere payment with:');
+      log('  sandbox: true');
+      log('  merchant_id: ' + payment.merchant_id);
+      log('  order_id: ' + payment.order_id);
+      log('  amount: ' + payment.amount);
+      log('  currency: ' + payment.currency);
+      log('  hash: ' + payment.hash);
+      log('  notify_url: ' + payment.notify_url);
+
+      payhere.startPayment(payment);
+    }
+
+    function payFromJson() {
+      try {
+        var json = JSON.parse(document.getElementById('jsonInput').value);
+        log('Parsed checkout response: ' + JSON.stringify(json, null, 2));
+        startPayment(json);
+      } catch (e) {
+        alert('Invalid JSON. Paste the full checkout response.');
+        log('JSON parse error: ' + e.message);
+      }
+    }
+
+    function payManual() {
+      startPayment({
+        merchant_id: document.getElementById('merchant_id').value,
+        order_id: document.getElementById('order_id').value,
+        amount: document.getElementById('amount').value,
+        currency: document.getElementById('currency').value,
+        hash: document.getElementById('hash').value,
+        items: document.getElementById('items').value,
+        notify_url: document.getElementById('notify_url').value,
+        return_url: document.getElementById('return_url').value,
+        cancel_url: document.getElementById('cancel_url').value,
+      });
+    }
+  </script>
+</body>
+
+</html>
