@@ -1,13 +1,14 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Inject, Logger, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Logger, Param, Patch, Post, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
-import { catchError, firstValueFrom, of } from 'rxjs';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { catchError, firstValueFrom } from 'rxjs';
 import { Public } from './decorators/public.decorator';
-import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto } from './dtos/auth.dto';
+import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto } from './dtos/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from './decorators/role.enum';
 import { Roles } from './decorators/roles.decorator';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   private authService: any;
@@ -76,22 +77,6 @@ export class AuthController {
           })
         )
       ) as any;
-      // New: Assign free plan if new user
-      if (result.isNewUser) {
-        const payload = this.jwtService.verify(result.accessToken);
-        const userId = payload.sub;
-        const freePlanId = 'free'; // Hardcoded; fetch dynamically in production
-        await firstValueFrom(
-          this.authService.CreateSubscription({ userId, planId: freePlanId }).pipe(
-            catchError((err) => {
-              this.logger.error(`CreateSubscription error: ${err.message}`);
-              // Don't fail auth if subscription creation fails
-              console.warn('Free plan assignment failed, but auth succeeded');
-              return of(null);
-            })
-          )
-        );
-      }
 
       return result;
     } catch (error: any) {
@@ -254,6 +239,130 @@ export class AuthController {
     } catch (error: any) {
       this.logger.error(`GetPersonalDetails error: ${error.message}`);
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  // Admin Plan CRUD endpoints
+  @Get('plans')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'List all plans (admin only)' })
+  @ApiResponse({ status: 200, description: 'Plans fetched successfully' })
+  async getPlans() {
+    try {
+      return await firstValueFrom(this.authService.GetPlans({}));
+    } catch (error: any) {
+      this.logger.error(`GetPlans error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get('plans/:key')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Get a single plan by key (admin only)' })
+  @ApiResponse({ status: 200, description: 'Plan fetched successfully' })
+  async getPlan(@Param('key') key: string) {
+    try {
+      return await firstValueFrom(
+        this.authService.GetPlan({ planKey: key }).pipe(
+          catchError((error) => {
+            if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+              throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+            }
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      this.logger.error(`GetPlan error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Post('plans')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Create a new plan (admin only)' })
+  @ApiResponse({ status: 201, description: 'Plan created successfully' })
+  async createPlan(@Body() dto: CreatePlanDto) {
+    try {
+      return await firstValueFrom(
+        this.authService.CreatePlan({
+          key: dto.key,
+          name: dto.name,
+          level: dto.level,
+          price_monthly_lkr: dto.priceMonthlyLKR,
+          price_annual_lkr: dto.priceAnnualLKR,
+          feature_keys: dto.featureKeys,
+          duration: dto.duration,
+        }).pipe(
+          catchError((error) => {
+            if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+              throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+            }
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      this.logger.error(`CreatePlan error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Patch('plans/:key')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Partially update a plan (admin only)' })
+  @ApiResponse({ status: 200, description: 'Plan updated successfully' })
+  async updatePlan(@Param('key') key: string, @Body() dto: UpdatePlanDto) {
+    try {
+      return await firstValueFrom(
+        this.authService.UpdatePlan({
+          key,
+          name: dto.name ?? '',
+          level: dto.level ?? 0,
+          price_monthly_lkr: dto.priceMonthlyLKR ?? 0,
+          price_annual_lkr: dto.priceAnnualLKR ?? 0,
+          feature_keys: dto.featureKeys ?? [],
+          duration: dto.duration ?? '',
+          is_active: dto.isActive ?? false,
+        }).pipe(
+          catchError((error) => {
+            if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+              throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+            }
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      this.logger.error(`UpdatePlan error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Delete('plans/:key')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'Soft-delete (deactivate) a plan (admin only)' })
+  @ApiResponse({ status: 200, description: 'Plan deactivated successfully' })
+  async deletePlan(@Param('key') key: string) {
+    try {
+      return await firstValueFrom(
+        this.authService.DeletePlan({ key }).pipe(
+          catchError((error) => {
+            if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+              throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+            }
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      this.logger.error(`DeletePlan error: ${error.message}`);
+      throw error;
     }
   }
 

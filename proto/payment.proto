@@ -1,0 +1,82 @@
+syntax = "proto3";
+package payment;
+import "google/protobuf/timestamp.proto";
+
+service PaymentService {
+  rpc InitiateCheckout(InitiateCheckoutRequest) returns (InitiateCheckoutResponse);
+  rpc HandleNotification(HandleNotificationRequest) returns (HandleNotificationResponse);
+  rpc GetPayments(GetPaymentsRequest) returns (GetPaymentsResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+}
+
+message InitiateCheckoutRequest {
+  string user_id = 1;
+  string plan_key = 2;
+  string billing_cycle = 3;  // 'monthly' | 'annual'
+}
+
+message InitiateCheckoutResponse {
+  bool success = 1;
+  string merchant_id = 2;
+  string order_id = 3;
+  string hash = 4;
+  double amount = 5;
+  string currency = 6;
+  string items = 7;
+  string notify_url = 8;
+  string return_url = 9;
+  string cancel_url = 10;
+}
+
+message HandleNotificationRequest {
+  string merchant_id = 1;
+  string order_id = 2;
+  string payment_id = 3;
+  string payhere_amount = 4;
+  string payhere_currency = 5;
+  string status_code = 6;
+  string md5sig = 7;
+}
+
+message HandleNotificationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetPaymentsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message Payment {
+  string id = 1;
+  string user_id = 2;
+  string order_id = 3;
+  string plan_key = 4;
+  string billing_cycle = 5;
+  double amount = 6;
+  string currency = 7;
+  string status = 8;
+  string payment_method = 9;
+  string payhere_payment_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message GetPaymentsResponse {
+  bool success = 1;
+  repeated Payment payments = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+message GetPaymentRequest {
+  string id = 1;
+}
+
+message GetPaymentResponse {
+  bool success = 1;
+  Payment payment = 2;
+}

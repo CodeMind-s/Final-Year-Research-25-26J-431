@@ -1,16 +1,10 @@
-import { Controller, UseGuards, Inject, Post, Body, Get, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Inject, Post, Body, Get, Patch, Param, Delete, Query, Logger, HttpStatus, HttpException } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { SubscriptionGuard } from '../auth/guards/subscription.guard';
-import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
-import { Logger } from '@nestjs/common';
-import { HttpStatus } from '@nestjs/common';
-import { HttpException } from '@nestjs/common';
+import { RequirePlan } from '../auth/decorators/plan.decorator';
 import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdResponseDto } from './dtos/dailyMeasurement.dto';
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
@@ -28,9 +22,8 @@ export class CrystallizationController {
   }
 
   @Post("/daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Daily Measurement (saltsociety)' })
   @ApiBody({ type: CreateDailyMeasurementDto })
@@ -77,9 +70,8 @@ export class CrystallizationController {
   }
 
   @Get("daily-measurement/:date")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurement by Date (saltsociety)' })
   @ApiParam({ name: 'date', type: String, description: 'Date in YYYY-MM-DD format', example: '2025-12-12' })
@@ -119,9 +111,8 @@ export class CrystallizationController {
   }
 
   @Get("daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Daily Measurements by Date Range (saltsociety)' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -166,9 +157,8 @@ export class CrystallizationController {
   }
 
   @Patch("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update Daily Measurement by ID (saltsociety)' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -220,9 +210,8 @@ export class CrystallizationController {
   }
 
   @Delete("daily-measurement/:id")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete Daily Measurement by ID (saltsociety)' })
   @ApiParam({ name: 'id', type: String, description: 'Measurement ID', example: '675945c5d1234567890abcde' })
@@ -256,9 +245,8 @@ export class CrystallizationController {
   }
 
   @Post("/predictions")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get ML predictions for crystallization parameters (saltsociety)' })
   @ApiBody({ type: PredictionRequestDto })
@@ -298,9 +286,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-daily-measurement")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted daily measurements by date range (saltsociety)' })
   @ApiQuery({ name: 'startDate', type: String, description: 'Start date in YYYY-MM-DD format', example: '2025-12-01' })
@@ -344,9 +331,8 @@ export class CrystallizationController {
   }
 
   @Get("/predicted-monthly-productions")
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles(Role.SALTSOCIETY)
-  @SubscriptionCheck(0)
+  @RequirePlan(1)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get predicted monthly productions by month range (saltsociety)' })
   @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-06' })
@@ -389,44 +375,43 @@ export class CrystallizationController {
     }
   }
 
-  // @Get("/model-performance")
-  // @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  // @Roles(Role.SALTSOCIETY)
-  // @SubscriptionCheck(0)
-  // @ApiBearerAuth()
-  // @ApiTags('Crystallization Model Performance')
-  // @ApiOperation({ summary: 'Get model performance records (saltsociety)' })
-  // @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
-  // @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
-  // @ApiResponse({ status: 404, description: 'No model performance records found' })
-  // async getModelPerformance(
-  //   @Query('limit') limit?: number
-  // ): Promise<GetModelPerformanceResponseDto> {
-  //   try {
-  //     const requestData = {
-  //       limit: limit ? parseInt(limit.toString(), 10) : 10,
-  //     };
+  @Get("/model-performance")
+  @Roles(Role.SALTSOCIETY)
+  @RequirePlan(1)
+  @ApiBearerAuth()
+  @ApiTags('Crystallization Model Performance')
+  @ApiOperation({ summary: 'Get model performance records' })
+  @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
+  @ApiResponse({ status: 404, description: 'No model performance records found' })
+  async getModelPerformance(
+    @Query('limit') limit?: number
+  ): Promise<GetModelPerformanceResponseDto> {
+    try {
+      const requestData = {
+        limit: limit ? parseInt(limit.toString(), 10) : 10,
+      };
 
-  //     const result = await firstValueFrom(
-  //       this.crystallizationService.GetModelPerformance(requestData).pipe(
-  //         catchError((error) => {
-  //           this.logger.error(`Get Model Performance error: ${error.message}`);
-  //           throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
-  //         })
-  //       )
-  //     ) as { success: boolean; message: string; data?: any[] };
+      const result = await firstValueFrom(
+        this.crystallizationService.GetModelPerformance(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Model Performance error: ${error.message}`);
+            throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
 
-  //     this.logger.log('=== GRPC RESULT ===');
-  //     this.logger.log(JSON.stringify(result, null, 2));
+      this.logger.log('=== GRPC RESULT ===');
+      this.logger.log(JSON.stringify(result, null, 2));
 
-  //     return {
-  //       success: result.success,
-  //       message: result.message,
-  //       data: result.data || [],
-  //     };
-  //   } catch (error: any) {
-  //     throw error;
-  //   }
-  // }
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
 
 }

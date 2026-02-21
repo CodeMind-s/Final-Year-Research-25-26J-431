@@ -18,8 +18,17 @@ export class User extends Document {
   @Prop({ default: false })
   isOnboarded!: boolean;
 
-  @Prop({ enum: ['free', 'basic', 'premium'], default: 'free' })
+  @Prop({ type: String, default: 'free' })
   plan: string;
+
+  @Prop({ type: Date, default: null })
+  trialStartDate: Date | null;
+
+  @Prop({ type: Date, default: null })
+  trialEndDate: Date | null;
+
+  @Prop({ default: false })
+  isTrialActive: boolean;
 
   @Prop({ default: false })
   isSubscribed: boolean;

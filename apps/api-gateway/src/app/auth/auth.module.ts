@@ -7,8 +7,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
-import { SubscriptionGuard } from './guards/subscription.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PlanAccessGuard } from './guards/plan-access.guard';
 
 @Module({
   imports: [
@@ -32,7 +32,7 @@ import { RolesGuard } from './guards/roles.guard';
         options: {
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
-          url: process.env.USER_SERVICE_URL || 'localhost:50001',
+          url: process.env.USER_SERVICE_URL || 'localhost:50053',
         },
       },
     ]),
@@ -48,10 +48,13 @@ import { RolesGuard } from './guards/roles.guard';
       useClass: RolesGuard,
     },
     {
+      provide: APP_GUARD,
+      useClass: PlanAccessGuard,
+    },
+    {
       provide: APP_FILTER,
       useClass: GrpcExceptionFilter,
     },
-    SubscriptionGuard
   ],
 })
 export class AuthModule { }

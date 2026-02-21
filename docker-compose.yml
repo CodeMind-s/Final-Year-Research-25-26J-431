@@ -1,5 +1,4 @@
 # docker-compose.yml
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -79,8 +78,6 @@ services:
       - GRPC_URL=0.0.0.0:50053
       - KAFKA_BROKER=kafka:9092
       - MONGO_URI=${MONGO_URI}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
     networks:
       - app-network
     depends_on:
@@ -102,6 +99,8 @@ services:
       - KAFKA_BROKER=kafka:9092
       - MONGO_URI=${MONGO_URI}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - OPENWEATHER_LAT=${OPENWEATHER_LAT}
+      - OPENWEATHER_LON=${OPENWEATHER_LON}
       - ONNX_SERVICE_GRPC_URL=crystallization-onnx-service:50055
     networks:
       - app-network
@@ -156,13 +155,55 @@ services:
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT}
       - EMAIL_USER=${EMAIL_USER}
-      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
       - EMAIL_FROM=${EMAIL_FROM}
     networks:
       - app-network
     depends_on:
       kafka:
         condition: service_healthy
+    restart: unless-stopped
+
+  vision-service:
+    build:
+      context: .
+      dockerfile: apps/vision-service/Dockerfile
+    container_name: vision-service
+    ports:
+      - "50057:50057"
+    environment:
+      - GRPC_URL=0.0.0.0:50057
+      - MONGO_URI=${MONGO_URI}
+      - VISION_MODEL_PATH=/app/models/best.onnx
+    networks:
+      - app-network
+    volumes:
+      - ./apps/vision-service/models:/app/models
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: payment-service
+    container_name: payment-service
+    ports:
+      - "50056:50056"
+    environment:
+      - GRPC_URL=0.0.0.0:50056
+      - MONGO_URI=${MONGO_URI}
+      - AUTH_SERVICE_URL=auth-service:50000
+      - PAYHERE_MERCHANT_ID=${PAYHERE_MERCHANT_ID}
+      - PAYHERE_MERCHANT_SECRET=${PAYHERE_MERCHANT_SECRET}
+      - PAYHERE_SANDBOX=${PAYHERE_SANDBOX}
+      - PAYHERE_NOTIFY_URL=${PAYHERE_NOTIFY_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - app-network
+    depends_on:
+      auth-service:
+        condition: service_started
     restart: unless-stopped
 
   compass-service:
@@ -201,6 +242,8 @@ services:
       - AUTH_SERVICE_URL=auth-service:50000
       - USER_SERVICE_URL=user-service:50053
       - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
+      - VISION_SERVICE_URL=vision-service:50057
+      - PAYMENT_SERVICE_URL=payment-service:50056
       - COMPASS_SERVICE_URL=compass-service:50052
     networks:
       - app-network
@@ -208,9 +251,25 @@ services:
       - auth-service
       - user-service
       - crystallization-service
+      - vision-service
+      - payment-service
       - compass-service
       - audit-log-service
       - email-service
+    restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http api-gateway:3400
+    ports:
+      - "4040:4040"
+    networks:
+      - app-network
+    depends_on:
+      - api-gateway
     restart: unless-stopped
 
 networks:
