@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsEnum, IsOptional } from 'class-validator';
 
 export enum DealStatus {
   DRAFT = 'DRAFT',

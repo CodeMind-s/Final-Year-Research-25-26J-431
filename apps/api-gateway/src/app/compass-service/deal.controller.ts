@@ -4,8 +4,6 @@ import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { SubscriptionGuard } from '../auth/guards/subscription.guard';
-import { SubscriptionCheck } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
 import { Logger } from '@nestjs/common';
@@ -33,9 +31,8 @@ export class DealController {
   }
 
   @Post('offer/:offerId')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.LANDOWNER)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Deal for an Offer (landowner)' })
   @ApiParam({ name: 'offerId', type: String, description: 'Distributor Offer ID', example: '675945c5d1234567890abcde' })
@@ -80,9 +77,8 @@ export class DealController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.LANDOWNER, Role.DISTRIBUTOR)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update Deal by ID (landowner, distributor)' })
   @ApiParam({ name: 'id', type: String, description: 'Deal ID', example: '675945c5d1234567890abcde' })
@@ -124,9 +120,8 @@ export class DealController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.LANDOWNER)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete Deal by ID (landowner)' })
   @ApiParam({ name: 'id', type: String, description: 'Deal ID', example: '675945c5d1234567890abcde' })
@@ -158,9 +153,8 @@ export class DealController {
   }
 
   @Get('landowner/my-deals')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.LANDOWNER)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get My Deals as Landowner (landowner)' })
   @ApiQuery({ name: 'status', enum: DealStatus, description: 'Filter by deal status', required: false })
@@ -206,9 +200,8 @@ export class DealController {
   }
 
   @Get('distributor/my-deals')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.DISTRIBUTOR)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get My Deals as Distributor (distributor)' })
   @ApiQuery({ name: 'status', enum: DealStatus, description: 'Filter by deal status', required: false })
@@ -254,9 +247,8 @@ export class DealController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.LANDOWNER, Role.DISTRIBUTOR)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Deal by ID (landowner, distributor)' })
   @ApiParam({ name: 'id', type: String, description: 'Deal ID', example: '675945c5d1234567890abcde' })
@@ -293,9 +285,8 @@ export class DealController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SALTSOCIETY, Role.ADMIN, Role.SUPERADMIN)
-  @SubscriptionCheck(0)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get All Deals (admin, superadmin, saltsociety)' })
   @ApiQuery({ name: 'status', enum: DealStatus, description: 'Filter by deal status', required: false })
