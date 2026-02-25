@@ -67,9 +67,6 @@ docs/
 *.md
 !README.md
 
-# Compass service (not in docker-compose)
-apps/compass-service/
-
 # Nx cache
 .nx/
 nx-cloud.env

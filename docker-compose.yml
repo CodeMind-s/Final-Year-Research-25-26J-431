@@ -1,5 +1,4 @@
 # docker-compose.yml
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -207,6 +206,26 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  compass-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: compass-service
+    container_name: compass-service
+    ports:
+      - "50052:50052"
+    environment:
+      - GRPC_URL=0.0.0.0:50052
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -225,6 +244,7 @@ services:
       - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
       - VISION_SERVICE_URL=vision-service:50057
       - PAYMENT_SERVICE_URL=payment-service:50056
+      - COMPASS_SERVICE_URL=compass-service:50052
     networks:
       - app-network
     depends_on:
@@ -233,6 +253,7 @@ services:
       - crystallization-service
       - vision-service
       - payment-service
+      - compass-service
       - audit-log-service
       - email-service
     restart: unless-stopped

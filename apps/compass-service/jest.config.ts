@@ -10,18 +10,19 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 export default {
-  displayName: '@brinex-server/user-service',
+  displayName: 'compass-service',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  testMatch: ['<rootDir>/tests/**/*.spec.ts'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
-  testMatch: [
-    '<rootDir>/src/**/*.spec.ts',
-    '<rootDir>/src/**/*.test.ts',
-    '<rootDir>/test/**/*.spec.ts',
-    '<rootDir>/test/**/*.test.ts',
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.spec.ts',
+    '!src/main.ts',
   ],
 };

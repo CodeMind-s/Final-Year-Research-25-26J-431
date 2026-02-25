@@ -1,0 +1,312 @@
+syntax = "proto3";
+package harvestplan;
+
+service HarvestPlanService {
+  rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc GetPlans(GetPlansRequest) returns (GetPlansResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
+  rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
+}
+
+service DistributorOfferService {
+  rpc CreateOffer(CreateOfferRequest) returns (CreateOfferResponse);
+  rpc UpdateOffer(UpdateOfferRequest) returns (UpdateOfferResponse);
+  rpc GetOffer(GetOfferRequest) returns (GetOfferResponse);
+  rpc GetOffers(GetOffersRequest) returns (GetOffersResponse);
+  rpc DeleteOffer(DeleteOfferRequest) returns (DeleteOfferResponse);
+}
+
+service DealService {
+  rpc CreateDeal(CreateDealRequest) returns (CreateDealResponse);
+  rpc UpdateDeal(UpdateDealRequest) returns (UpdateDealResponse);
+  rpc GetDeal(GetDealRequest) returns (GetDealResponse);
+  rpc GetDeals(GetDealsRequest) returns (GetDealsResponse);
+  rpc DeleteDeal(DeleteDealRequest) returns (DeleteDealResponse);
+}
+
+enum HarvestStatus {
+  FRESHER = 0;
+  MIDLEVEL = 1;
+  HARVESTED = 2;
+  DISPOSED = 3;
+}
+
+enum OfferRequirement {
+  HIGH = 0;
+  MEDIUM = 1;
+  LOW = 2;
+}
+
+enum OfferStatus {
+  DRAFT = 0;
+  PUBLISH = 1;
+  CLOSED = 2;
+}
+
+enum DealStatus {
+  DEAL_DRAFT = 0;
+  DEAL_PENDING = 1;
+  DEAL_ACCEPTED = 2;
+  DEAL_CLOSED = 3;
+  DEAL_CANCELED = 4;
+}
+
+message HarvestPlan {
+  string _id = 1;
+  string userId = 2;
+  int32 saltBeds = 3;
+  HarvestStatus harvestStatus = 4;
+  int32 planPeriod = 5;
+  string startDate = 6;
+  string endDate = 7;
+  int32 predictedProduction = 8;
+  int32 actualProduction = 9;
+  int32 workerCount = 10;
+  double predictedProfit = 11;
+  double actualProfit = 12;
+  double expenses = 13;
+  double earnings = 14;
+  double avgSellingPrice = 15;
+  string createdAt = 16;
+  string updatedAt = 17;
+}
+
+message CreatePlanRequest {
+  string userId = 1;
+  int32 saltBeds = 2;
+  HarvestStatus harvestStatus = 3;
+  int32 planPeriod = 4;
+  string startDate = 5;
+  int32 predictedProduction = 6;
+  int32 actualProduction = 7;
+  int32 workerCount = 8;
+  double predictedProfit = 9;
+  double actualProfit = 10;
+  double expenses = 11;
+  double earnings = 12;
+  double avgSellingPrice = 13;
+}
+
+message CreatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message GetPlanRequest {
+  string id = 1;
+}
+
+message GetPlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message GetPlansRequest {
+  string userId = 1; // Optional filter by userId
+  string status = 2; // Optional filter by harvest status
+  string startDate = 3; // Optional filter by start date
+  string endDate = 4; // Optional filter by end date
+  int32 page = 5; // Optional pagination - page number
+  int32 limit = 6; // Optional pagination - items per page
+}
+
+message GetPlansResponse {
+  bool success = 1;
+  string message = 2;
+  repeated HarvestPlan data = 3;
+}
+
+message UpdatePlanRequest {
+  string id = 1;
+  optional int32 saltBeds = 2;
+  optional HarvestStatus harvestStatus = 3;
+  optional int32 planPeriod = 4;
+  optional string startDate = 5;
+  optional int32 predictedProduction = 6;
+  optional int32 actualProduction = 7;
+  optional int32 workerCount = 8;
+  optional double predictedProfit = 9;
+  optional double actualProfit = 10;
+  optional double expenses = 11;
+  optional double earnings = 12;
+  optional double avgSellingPrice = 13;
+}
+
+message UpdatePlanResponse {
+  bool success = 1;
+  string message = 2;
+  HarvestPlan data = 3;
+}
+
+message DeletePlanRequest {
+  string id = 1;
+}
+
+message DeletePlanResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============= Distributor Offer Messages =============
+
+message DistributorOffer {
+  string _id = 1;
+  string userId = 2;
+  double pricePerKilo = 3;
+  int32 targetQuantity = 4;
+  int32 collectedQuantity = 5;
+  double totalInvestment = 6;
+  string status = 7;
+  string requirement = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+}
+
+message CreateOfferRequest {
+  string userId = 1;
+  double pricePerKilo = 2;
+  int32 targetQuantity = 3;
+  double totalInvestment = 4;
+  string requirement = 5;
+}
+
+message CreateOfferResponse {
+  bool success = 1;
+  string message = 2;
+  DistributorOffer data = 3;
+}
+
+message UpdateOfferRequest {
+  string id = 1;
+  optional double pricePerKilo = 2;
+  optional int32 targetQuantity = 3;
+  optional int32 collectedQuantity = 4;
+  optional double totalInvestment = 5;
+  optional string requirement = 6;
+  optional string status = 7;
+}
+
+message UpdateOfferResponse {
+  bool success = 1;
+  string message = 2;
+  DistributorOffer data = 3;
+}
+
+message GetOfferRequest {
+  string id = 1;
+}
+
+message GetOfferResponse {
+  bool success = 1;
+  string message = 2;
+  DistributorOffer data = 3;
+}
+
+message GetOffersRequest {
+  string userId = 1; // Optional filter by userId
+  string status = 2; // Optional filter by status
+  string requirement = 3; // Optional filter by requirement
+  int32 page = 4; // Optional pagination - page number
+  int32 limit = 5; // Optional pagination - items per page
+}
+
+message Pagination {
+  int32 currentPage = 1;
+  int32 totalPages = 2;
+  int32 totalItems = 3;
+  int32 itemsPerPage = 4;
+}
+
+message GetOffersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated DistributorOffer data = 3;
+  Pagination pagination = 4;
+}
+
+message DeleteOfferRequest {
+  string id = 1;
+}
+
+message DeleteOfferResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============= Deal Messages =============
+
+message Deal {
+  string _id = 1;
+  string landownerId = 2;
+  string distributorId = 3;
+  string offerId = 4;
+  int32 quantity = 5;
+  double pricePerKilo = 6;
+  string status = 7;
+  string acceptedAt = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+  DistributorOffer offer = 11;
+}
+
+message CreateDealRequest {
+  string landownerId = 1;
+  string offerId = 2;
+  int32 quantity = 3;
+}
+
+message CreateDealResponse {
+  bool success = 1;
+  string message = 2;
+  Deal data = 3;
+}
+
+message UpdateDealRequest {
+  string id = 1;
+  optional int32 quantity = 2;
+  optional double pricePerKilo = 3;
+  optional string status = 4;
+}
+
+message UpdateDealResponse {
+  bool success = 1;
+  string message = 2;
+  Deal data = 3;
+}
+
+message GetDealRequest {
+  string id = 1;
+}
+
+message GetDealResponse {
+  bool success = 1;
+  string message = 2;
+  Deal data = 3;
+}
+
+message GetDealsRequest {
+  string landownerId = 1; // Optional filter by landowner
+  string distributorId = 2; // Optional filter by distributor
+  string status = 3; // Optional filter by status
+  int32 page = 4; // Optional pagination - page number
+  int32 limit = 5; // Optional pagination - items per page
+}
+
+message GetDealsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Deal data = 3;
+  Pagination pagination = 4;
+}
+
+message DeleteDealRequest {
+  string id = 1;
+}
+
+message DeleteDealResponse {
+  bool success = 1;
+  string message = 2;
+}
