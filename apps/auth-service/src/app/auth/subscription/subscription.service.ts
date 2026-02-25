@@ -6,6 +6,7 @@ import { Subscription } from '../schemas/subscription.schema';
 import { User } from '../schemas/user.schema';
 
 const TRIAL_DURATION_DAYS = 14;
+const SUBSCRIPTION_DURATION_DAYS = 30;
 
 @Injectable()
 export class SubscriptionService implements OnModuleInit {
@@ -102,13 +103,20 @@ export class SubscriptionService implements OnModuleInit {
       { status: 'inactive' },
     );
 
+    const now = new Date();
+    // Free plan has no expiry; paid plans expire after 30 days
+    const endDate =
+      planKey === 'free'
+        ? null
+        : new Date(now.getTime() + SUBSCRIPTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
+
     const subscription = await this.subscriptionModel.create({
       userId: new Types.ObjectId(userId),
       planId: plan._id,
       planKey,
       status: 'active',
-      startDate: new Date(),
-      endDate: null,
+      startDate: now,
+      endDate,
       isTrial: false,
       paymentMethod,
     });
@@ -210,6 +218,26 @@ export class SubscriptionService implements OnModuleInit {
       }
     }
 
+    // Check if active paid subscription has expired
+    const activeSub = await this.getActiveSubscription(userId);
+    if (activeSub && activeSub.endDate && new Date() >= new Date(activeSub.endDate)) {
+      await this.subscriptionModel.updateOne(
+        { _id: activeSub._id },
+        { status: 'expired' },
+      );
+      await this.userModel.findByIdAndUpdate(userId, {
+        plan: 'free',
+        isSubscribed: false,
+      });
+      this.logger.log(`Subscription expired on access check for user ${userId}`);
+      const freePlan = await this.getPlan('free');
+      const freeLevel = freePlan?.level ?? 0;
+      if (!requiredPlanLevels.includes(freeLevel)) {
+        return { allowed: false, reason: 'subscription_expired', requiredPlanLevels };
+      }
+      return { allowed: true, reason: 'allowed', requiredPlanLevels: [] };
+    }
+
     // Check user's plan level against required levels
     const plan = await this.getPlan(user.plan);
     const level = plan?.level ?? 0;
@@ -277,6 +305,21 @@ export class SubscriptionService implements OnModuleInit {
     this.logger.log(`Deactivated plan: ${key}`);
   }
 
+  async getAllSubscriptions(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [subscriptions, total] = await Promise.all([
+      this.subscriptionModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.subscriptionModel.countDocuments(),
+    ]);
+
+    return { subscriptions, total, page, limit };
+  }
+
   async processExpiredTrials(): Promise<number> {
     const expiredTrials = await this.subscriptionModel.find({
       status: 'trial',
@@ -291,6 +334,36 @@ export class SubscriptionService implements OnModuleInit {
 
     if (count > 0) {
       this.logger.log(`Processed ${count} expired trial(s)`);
+    }
+    return count;
+  }
+
+  async processExpiredSubscriptions(): Promise<number> {
+    const expiredSubs = await this.subscriptionModel.find({
+      status: 'active',
+      endDate: { $ne: null, $lt: new Date() },
+    });
+
+    let count = 0;
+    for (const sub of expiredSubs) {
+      await this.subscriptionModel.updateOne(
+        { _id: sub._id },
+        { status: 'expired' },
+      );
+
+      await this.userModel.findByIdAndUpdate(sub.userId, {
+        plan: 'free',
+        isSubscribed: false,
+      });
+
+      this.logger.log(
+        `Subscription expired for user ${sub.userId}, plan ${sub.planKey} — downgraded to free`,
+      );
+      count++;
+    }
+
+    if (count > 0) {
+      this.logger.log(`Processed ${count} expired subscription(s)`);
     }
     return count;
   }
