@@ -243,6 +243,27 @@ export class PaymentService implements OnModuleInit {
     };
   }
 
+  async getAllPayments(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [payments, total] = await Promise.all([
+      this.paymentModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.paymentModel.countDocuments(),
+    ]);
+
+    return {
+      success: true,
+      payments: payments.map((p) => this.toPaymentProto(p)),
+      total,
+      page,
+      limit,
+    };
+  }
+
   async getPayment(id: string) {
     const payment = await this.paymentModel.findById(id).lean();
     if (!payment) {
@@ -259,6 +280,7 @@ export class PaymentService implements OnModuleInit {
   }
 
   private toPaymentProto(p: any) {
+    // Payment service uses keepCase: true — keys must match proto snake_case
     return {
       id: p._id.toString(),
       user_id: p.userId.toString(),
@@ -270,8 +292,8 @@ export class PaymentService implements OnModuleInit {
       status: p.status,
       payment_method: p.paymentMethod,
       payhere_payment_id: p.payHerePaymentId || '',
-      created_at: p.createdAt ? { seconds: Math.floor(new Date(p.createdAt).getTime() / 1000), nanos: 0 } : null,
-      updated_at: p.updatedAt ? { seconds: Math.floor(new Date(p.updatedAt).getTime() / 1000), nanos: 0 } : null,
+      created_at: p.createdAt ? { seconds: Math.floor(new Date(p.createdAt).getTime() / 1000).toString(), nanos: 0 } : null,
+      updated_at: p.updatedAt ? { seconds: Math.floor(new Date(p.updatedAt).getTime() / 1000).toString(), nanos: 0 } : null,
     };
   }
 }

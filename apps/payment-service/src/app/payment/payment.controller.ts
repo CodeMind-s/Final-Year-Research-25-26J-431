@@ -43,4 +43,11 @@ export class PaymentController {
   async GetPayment(data: { id: string }) {
     return this.paymentService.getPayment(data.id);
   }
+
+  @GrpcMethod('PaymentService', 'GetAllPayments')
+  async GetAllPayments(data: { page: number; limit: number }) {
+    const page = data.page || 1;
+    const limit = data.limit || 10;
+    return this.paymentService.getAllPayments(page, limit);
+  }
 }
