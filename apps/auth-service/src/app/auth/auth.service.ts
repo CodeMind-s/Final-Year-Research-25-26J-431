@@ -6,7 +6,7 @@ import { User } from './schemas/user.schema';
 import { LandOwnerDetails } from './schemas/land-owner-details.schema';
 import { ServiceProviderDetails } from './schemas/service-provider-details.schema';
 import { LaboratoryDetails } from './schemas/laboratory-details.schema';
-import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto } from './dtos/auth.dto';
+import { SignInDto, VerifyOtpDto, OnboardingDto, OAuthProfileDto, AuthResponseDto, SignUpDto } from './dtos/auth.dto';
 import axios from 'axios';
 import { ClientKafka } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
@@ -103,19 +103,108 @@ export class AuthService {
     }
   }
 
-  async signIn(dto: SignInDto): Promise<any> {
+  async signUp(dto: SignUpDto): Promise<any> {
     const identifier = dto.email || dto.phone;
     try {
       const { email, phone } = dto;
       if (!identifier) throw new BadRequestException('Email or phone required');
 
       // Check if user exists (for logging, not blocking)
-      const existingUser = await this.userModel.findOne({ email, phone });
-      this.logger.log(`SignIn attempt for ${identifier}, existing user: ${!!existingUser}`);
+      const query = email ? { email } : { phone };
+      const existingUser = await this.userModel.findOne(query);
+      this.logger.log(`SignUp attempt for ${identifier}, existing user: ${!!existingUser}`);
 
       const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
       otpStore.set(identifier, { code, role: dto.role });
       this.logger.debug(`Generated OTP ${code} for ${identifier} with role ${dto.role}`);
+
+      if (email) {
+        const emailRes = await this.emailClient.emit('send_verification_code_email', {
+          user: { email },
+          code,
+        }).toPromise();
+        this.logger.log(`Email OTP request sent to email-service for ${emailRes}`);
+        this.logger.log(`Email OTP sent to ${email}`);
+
+        // Audit log for successful OTP send
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'SIGN_UP_OTP_SENT',
+          userId: existingUser?._id?.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ email, method: 'email', isExistingUser: !!existingUser }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/sign-up',
+        });
+
+        return { success: emailRes ? true : false, user: email };
+      } else if (phone) {
+        // Send OTP via SMS using Notify.lk
+        const smsResult = await this.sendSmsViaNofityLk(
+          phone,
+          `Your Brinex verification code is ${code}. It is valid for 10 minutes.`,
+        );
+        this.logger.log(`SMS OTP sent to ${phone} via Notify.lk: ${JSON.stringify(smsResult)}`);
+
+        // Audit log for successful OTP send via SMS
+        await this.emitAuditLog({
+          serviceName: 'auth-service',
+          action: 'SIGN_UP_OTP_SENT',
+          userId: existingUser?._id?.toString(),
+          resourceType: 'user',
+          details: JSON.stringify({ phone, method: 'sms', isExistingUser: !!existingUser }),
+          status: 'success',
+          method: 'POST',
+          path: '/auth/sign-up',
+        });
+
+        return { success: smsResult ? true : false, user: phone };
+      } else {
+        throw new BadRequestException('Must provide email or phone');
+      }
+    } catch (error: any) {
+      this.logger.error(`SignUp failed for ${dto.email || dto.phone}: ${error.message}`, error.stack);
+
+      // Audit log for failed sign-up
+      await this.emitAuditLog({
+        serviceName: 'auth-service',
+        action: 'SIGN_UP_FAILED',
+        resourceType: 'user',
+        details: JSON.stringify({ identifier, error: error.message }),
+        status: 'error',
+        method: 'POST',
+        path: '/auth/sign-up',
+      });
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      } else if (error.message?.includes('Invalid phone') || error.message?.includes('invalid number')) {
+        throw new BadRequestException('Invalid phone number');
+      } else if (error.message?.includes('Invalid email')) {
+        throw new BadRequestException('Invalid email address');
+      } else {
+        throw new InternalServerErrorException('Failed to send OTP');
+      }
+    }
+  }
+
+  async signIn(dto: SignInDto): Promise<any> {
+    const identifier = dto.email || dto.phone;
+    try {
+      const { email, phone } = dto;
+      if (!identifier) throw new BadRequestException('Email or phone required');
+
+      const query = email ? { email } : { phone };
+      const existingUser = await this.userModel.findOne(query);
+      if (!existingUser) {
+        throw new BadRequestException('User not found. Please sign up first');
+      }
+      this.logger.log(`SignIn attempt for ${identifier}, existing user: ${!!existingUser}`);
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+      otpStore.set(identifier, { code, role: existingUser.role });
+      this.logger.debug(`Generated OTP ${code} for ${identifier} with role ${existingUser.role}`);
 
       if (email) {
         const emailRes = await this.emailClient.emit('send_verification_code_email', {
@@ -176,7 +265,9 @@ export class AuthService {
         path: '/auth/sign-in',
       });
 
-      if (error.message?.includes('Invalid phone') || error.message?.includes('invalid number')) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      } else if (error.message?.includes('Invalid phone') || error.message?.includes('invalid number')) {
         throw new BadRequestException('Invalid phone number');
       } else if (error.message?.includes('Invalid email')) {
         throw new BadRequestException('Invalid email address');

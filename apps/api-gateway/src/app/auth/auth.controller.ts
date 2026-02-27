@@ -3,7 +3,7 @@ import { ClientGrpcProxy } from '@nestjs/microservices';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { catchError, firstValueFrom } from 'rxjs';
 import { Public } from './decorators/public.decorator';
-import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto } from './dtos/auth.dto';
+import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto, SignUpDto } from './dtos/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from './decorators/role.enum';
 import { Roles } from './decorators/roles.decorator';
@@ -25,8 +25,37 @@ export class AuthController {
   }
 
   @Public()
+  @Post('sign-up')
+  @ApiOperation({ summary: 'Send OTP for sign up (creates user if new)' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid email or phone provided' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error while sending OTP' })
+  async signUp(@Body() dto: SignUpDto) {
+    try {
+      const result = await firstValueFrom(
+        this.authService.SignUp(dto).pipe(
+          catchError((error) => {
+            this.logger.error(`SignUp error: ${error.message}`, error.stack);
+            if (error.code === 2 || error.code === 'INTERNAL') {
+              throw new HttpException('Internal server error while sending OTP', HttpStatus.INTERNAL_SERVER_ERROR);
+            } else if (error.code === 3 || error.code === 'INVALID_ARGUMENT') {
+              throw new HttpException('Invalid email or phone provided', HttpStatus.BAD_REQUEST);
+            } else {
+              throw new HttpException('Failed to send OTP', HttpStatus.BAD_REQUEST);
+            }
+          })
+        )
+      );
+      return result;
+    } catch (error: any) {
+      this.logger.error(`SignUp failed: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Public()
   @Post('sign-in')
-  @ApiOperation({ summary: 'Send OTP for sign in (creates user if new)' })
+  @ApiOperation({ summary: 'Send OTP for sign in (existing user login)' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
   @ApiBadRequestResponse({ description: 'Invalid email or phone provided' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error while sending OTP' })
@@ -87,7 +116,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Login with email and password (supports admin/superadmin)' })
+  @ApiOperation({ summary: 'Login with email and password (supports admin / superadmin / salt society)' })
   @ApiResponse({ status: 200, description: 'Login successful', type: AuthResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid credentials' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error during login' })

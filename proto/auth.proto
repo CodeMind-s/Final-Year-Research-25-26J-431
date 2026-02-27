@@ -4,6 +4,7 @@ import "google/protobuf/timestamp.proto";
 
 service AuthService {
   rpc SignIn(SignInRequest) returns (SignInResponse);
+  rpc SignUp(SignUpRequest) returns (SignUpResponse);
   rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse);
   rpc CompleteOnboarding(CompleteOnboardingRequest) returns (OnboardingResponse);
   rpc OAuthSignIn(OAuthSignInRequest) returns (AuthResponse);
@@ -23,12 +24,23 @@ service AuthService {
   rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
 }
 
-message SignInRequest {
+message SignUpRequest {
   string email = 1;
   string phone = 2;
   string role = 3;
 }
 
+message SignInRequest {
+  string email = 1;
+  string phone = 2;
+}
+
+message SignUpResponse {
+  bool success = 1;
+  string user = 2;
+  string message = 3;
+}
+  
 message SignInResponse {
   bool success = 1;
   string user = 2;
