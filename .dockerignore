@@ -36,14 +36,13 @@ env/
 **/*.whl
 
 # ML models & heavy binary files (not needed for most services)
-apps/crystallization-onnx-service/models/
 **/*.keras
-**/*.onnx
 **/*.h5
 **/*.pb
 **/*.pt
 **/*.pth
-**/*.bin
+# NOTE: .onnx files are NOT excluded — vision-service and crystallization-onnx-service
+# need their models copied into Docker images via their custom Dockerfiles.
 
 # Environment files
 .env*

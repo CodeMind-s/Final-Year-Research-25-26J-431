@@ -22,6 +22,21 @@ service AuthService {
   rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
   rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
   rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
+  // Admin: list all subscriptions
+  rpc GetAllSubscriptions(GetAllSubscriptionsRequest) returns (GetAllSubscriptionsResponse);
+}
+
+message GetAllSubscriptionsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message GetAllSubscriptionsResponse {
+  bool success = 1;
+  repeated Subscription subscriptions = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
 }
 
 message SignUpRequest {

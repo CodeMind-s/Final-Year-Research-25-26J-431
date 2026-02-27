@@ -7,6 +7,12 @@ service PaymentService {
   rpc HandleNotification(HandleNotificationRequest) returns (HandleNotificationResponse);
   rpc GetPayments(GetPaymentsRequest) returns (GetPaymentsResponse);
   rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  rpc GetAllPayments(GetAllPaymentsRequest) returns (GetPaymentsResponse);
+}
+
+message GetAllPaymentsRequest {
+  int32 page = 1;
+  int32 limit = 2;
 }
 
 message InitiateCheckoutRequest {

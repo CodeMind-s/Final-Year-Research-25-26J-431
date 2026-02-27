@@ -11,15 +11,20 @@ export class TrialExpiryScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   onModuleInit() {
-    this.logger.log('Starting trial expiry scheduler (hourly)');
+    this.logger.log('Starting subscription expiry scheduler (hourly)');
     this.intervalHandle = setInterval(async () => {
       try {
-        const count = await this.subscriptionService.processExpiredTrials();
-        if (count > 0) {
-          this.logger.log(`Hourly check: expired ${count} trial(s)`);
+        const trialCount = await this.subscriptionService.processExpiredTrials();
+        if (trialCount > 0) {
+          this.logger.log(`Hourly check: expired ${trialCount} trial(s)`);
+        }
+
+        const subCount = await this.subscriptionService.processExpiredSubscriptions();
+        if (subCount > 0) {
+          this.logger.log(`Hourly check: expired ${subCount} subscription(s)`);
         }
       } catch (error: any) {
-        this.logger.error(`Trial expiry check failed: ${error.message}`);
+        this.logger.error(`Subscription expiry check failed: ${error.message}`);
       }
     }, EXPIRY_CHECK_INTERVAL_MS);
   }

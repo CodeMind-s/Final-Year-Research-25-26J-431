@@ -25,6 +25,8 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../auth/decorators/role.enum';
 import { CheckoutDto, PayHereNotifyDto } from './dtos/payment.dto';
 
 @ApiTags('Payments')
@@ -131,6 +133,40 @@ export class PaymentController {
         }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetPayments error: ${error.message}`);
+            throw new HttpException(
+              error.details || 'Failed to fetch payments',
+              HttpStatus.BAD_REQUEST,
+            );
+          }),
+        ),
+      );
+
+      return result;
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException('Failed to fetch payments', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get('all')
+  @ApiBearerAuth()
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @ApiOperation({ summary: 'Get all payments (admin only)' })
+  @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
+  @ApiQuery({ name: 'limit', type: Number, required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'All payments retrieved' })
+  async getAllPayments(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    try {
+      const result = await firstValueFrom(
+        this.paymentService.GetAllPayments({
+          page: page ? parseInt(page.toString(), 10) : 1,
+          limit: limit ? parseInt(limit.toString(), 10) : 10,
+        }).pipe(
+          catchError((error: any) => {
+            this.logger.error(`GetAllPayments error: ${error.message}`);
             throw new HttpException(
               error.details || 'Failed to fetch payments',
               HttpStatus.BAD_REQUEST,

@@ -75,8 +75,8 @@ COPY --from=builder /app/dist/apps/crystallization-onnx-service ./dist/
 RUN --mount=type=cache,target=/root/.npm \
     cd dist && npm install --omit=dev --legacy-peer-deps && cd ..
 
-# Create models directory (will be mounted as volume)
-RUN mkdir -p /app/models
+# Copy ONNX model into the image (also available via volume mount override)
+COPY --from=builder /app/apps/crystallization-onnx-service/models/crystallization_model.onnx /app/models/crystallization_model.onnx
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

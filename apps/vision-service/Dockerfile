@@ -77,8 +77,8 @@ RUN --mount=type=cache,target=/root/.npm \
 # Copy proto files (protoPath resolves to /proto/vision.proto from /app/dist)
 COPY --from=builder /app/proto/ /proto/
 
-# Create models directory (will be mounted as volume)
-RUN mkdir -p /app/models
+# Copy ONNX model into the image (also available via volume mount override)
+COPY --from=builder /app/apps/vision-service/models/best.onnx /app/models/best.onnx
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

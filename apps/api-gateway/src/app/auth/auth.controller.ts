@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Logger, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Logger, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { catchError, firstValueFrom } from 'rxjs';
 import { Public } from './decorators/public.decorator';
 import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, LandOwnerOnboardingDto, LaboratoryOnboardingDto, ServiceProviderOnboardingDto, CreatePlanDto, UpdatePlanDto, SignUpDto } from './dtos/auth.dto';
@@ -391,6 +391,35 @@ export class AuthController {
       );
     } catch (error: any) {
       this.logger.error(`DeletePlan error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Get('subscriptions')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @ApiOperation({ summary: 'List all subscriptions (admin only)' })
+  @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
+  @ApiQuery({ name: 'limit', type: Number, required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Subscriptions fetched successfully' })
+  async getAllSubscriptions(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    try {
+      return await firstValueFrom(
+        this.authService.GetAllSubscriptions({
+          page: page ? parseInt(page.toString(), 10) : 1,
+          limit: limit ? parseInt(limit.toString(), 10) : 10,
+        }).pipe(
+          catchError((error) => {
+            this.logger.error(`GetAllSubscriptions error: ${error.message}`);
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      this.logger.error(`GetAllSubscriptions failed: ${error.message}`);
       throw error;
     }
   }

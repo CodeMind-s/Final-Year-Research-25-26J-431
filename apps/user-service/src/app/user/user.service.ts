@@ -272,7 +272,22 @@ export class UserService {
     if (!user) throw new NotFoundException('User not found');
 
     const roleDetails = await this.getRoleDetails(user);
-    return { user, ...roleDetails };
+    return {
+      user: {
+        id: (user as any)._id.toString(),
+        email: user.email || '',
+        phone: user.phone || '',
+        role: user.role,
+        isOnboarded: user.isOnboarded,
+        plan: user.plan,
+        isSubscribed: user.isSubscribed,
+        isVerified: user.isVerified,
+        isTrialActive: user.isTrialActive,
+        trialStartDate: user.trialStartDate ? user.trialStartDate.toISOString() : '',
+        trialEndDate: user.trialEndDate ? user.trialEndDate.toISOString() : '',
+      },
+      ...roleDetails,
+    };
   }
 
   async updatePersonalDetails(data: any): Promise<any> {

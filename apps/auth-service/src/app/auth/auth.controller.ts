@@ -266,4 +266,17 @@ export class AuthController {
       });
     }
   }
+
+  @GrpcMethod('AuthService', 'GetAllSubscriptions')
+  async getAllSubscriptions(@Payload() data: { page: number; limit: number }) {
+    try {
+      return await this.authService.getAllSubscriptions(data.page || 1, data.limit || 10);
+    } catch (error: any) {
+      this.logger.error(`gRPC GetAllSubscriptions error: ${error.message}`, error.stack);
+      throw new RpcException({
+        code: 2,
+        message: error.message,
+      });
+    }
+  }
 }

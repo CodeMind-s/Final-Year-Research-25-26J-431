@@ -304,10 +304,10 @@ export class AuthService {
         await user.save();
         this.logger.log(`New user created: ${user._id}`);
 
-        // Start trial or assign lab plan based on role
+        // Start trial for non-LABORATORY roles; LABORATORY users must purchase lab plan
         if (storedData.role === 'LABORATORY') {
-          await this.subscriptionService.createSubscription(user._id.toString(), 'lab', 'free');
-          this.logger.log(`Lab plan assigned to LABORATORY user ${user._id}`);
+          // LABORATORY users must purchase the lab plan after onboarding via PayHere
+          this.logger.log(`LABORATORY user ${user._id} created with free plan — subscription purchase required`);
         } else {
           await this.subscriptionService.startProTrial(user._id.toString());
           this.logger.log(`Pro trial started for user ${user._id}`);
@@ -683,6 +683,31 @@ export class AuthService {
   async deletePlan(key: string): Promise<any> {
     await this.subscriptionService.deletePlan(key);
     return { success: true, message: `Plan '${key}' deactivated` };
+  }
+
+  async getAllSubscriptions(page: number, limit: number): Promise<any> {
+    const result = await this.subscriptionService.getAllSubscriptions(page, limit);
+    return {
+      success: true,
+      subscriptions: result.subscriptions.map((s: any) => ({
+        id: s._id.toString(),
+        userId: s.userId.toString(),
+        planId: s.planId?.toString() || '',
+        planKey: s.planKey,
+        status: s.status,
+        startDate: s.startDate
+          ? { seconds: Math.floor(new Date(s.startDate).getTime() / 1000), nanos: 0 }
+          : null,
+        endDate: s.endDate
+          ? { seconds: Math.floor(new Date(s.endDate).getTime() / 1000), nanos: 0 }
+          : null,
+        isTrial: s.isTrial,
+        paymentMethod: s.paymentMethod,
+      })),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+    };
   }
 
   async getPersonalDetail(userId: string): Promise<any> {
