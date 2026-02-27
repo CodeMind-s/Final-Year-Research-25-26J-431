@@ -1,7 +1,7 @@
 import { IsEmail, IsString, IsOptional, Length, IsIn, ValidateIf, IsEnum, IsArray, IsNotEmpty, IsNumber, IsBoolean, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class SignInDto {
+export class SignUpDto {
   @ApiProperty({ example: 'john@example.com', description: 'User email' })
   @IsString()
   @IsOptional()
@@ -15,10 +15,25 @@ export class SignInDto {
   @ValidateIf(o => o.phone)
   phone?: string;
 
-  @ApiProperty({ example: 'LANDOWNER', enum: ['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR'] })
+  @ApiProperty({ example: 'LANDOWNER', enum: ['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR', 'SALTSOCIETY'] })
   @IsString()
-  @IsEnum(['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR'])
+  @IsEnum(['LANDOWNER', 'LABORATORY', 'DISTRIBUTOR', 'SALTSOCIETY'])
   role!: string;
+}
+
+export class SignInDto {
+    @ApiProperty({ example: 'john@example.com', description: 'User email' })
+  @IsString()
+  @IsOptional()
+  @ValidateIf(o => o.email)
+  @IsEmail({}, { message: 'Invalid email' })
+  email?: string;
+
+  @ApiProperty({ example: '+1234567890', description: 'User phone number' })
+  @IsString()
+  @IsOptional()
+  @ValidateIf(o => o.phone)
+  phone?: string;
 }
 
 export class VerifyOtpDto {
