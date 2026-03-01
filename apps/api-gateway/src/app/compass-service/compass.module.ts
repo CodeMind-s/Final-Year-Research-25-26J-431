@@ -43,6 +43,15 @@ import { DealController } from './deal.controller';
           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
         },
       },
+      {
+        name: 'USER_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'user',
+          protoPath: join(__dirname, 'proto/user.proto'),
+          url: process.env.USER_SERVICE_URL || 'localhost:50053',
+        },
+      },
     ]),
   ],
   controllers: [CompassController, DistributorOfferController, DealController],
@@ -59,4 +68,4 @@ import { DealController } from './deal.controller';
     SubscriptionGuard,
   ],
 })
-export class CompassModule {}
+export class CompassModule { }

@@ -27,10 +27,58 @@ import {
 @Controller('distributor-offers')
 export class DistributorOfferController {
   private distributorOfferService: any;
+  private userService: any;
   private readonly logger = new Logger(DistributorOfferController.name);
 
-  constructor(@Inject('COMPASS_PACKAGE') private client: ClientGrpcProxy) {
+  constructor(
+    @Inject('COMPASS_PACKAGE') private client: ClientGrpcProxy,
+    @Inject('USER_PACKAGE') private userClient: ClientGrpcProxy
+  ) {
     this.distributorOfferService = this.client.getService('DistributorOfferService');
+    this.userService = this.userClient.getService('UserService');
+  }
+
+  private async enrichOffer(offer: any): Promise<any> {
+    try {
+      if (!offer || !offer.userId) return offer;
+      const userResponse: any = await firstValueFrom(
+        this.userService.GetUserById({ id: offer.userId }).pipe(
+          catchError((err) => {
+            this.logger.warn(`Failed to fetch user details for userId ${offer.userId}: ${err.message}`);
+            return [{ data: null, distributorDetails: null }];
+          })
+        )
+      );
+
+      if (userResponse.data) {
+        return {
+          ...offer,
+          distributor: {
+            user: {
+              id: userResponse.data.id,
+              email: userResponse.data.email,
+              role: userResponse.data.role,
+              isOnboarded: userResponse.data.isOnboarded,
+              plan: userResponse.data.plan,
+              isSubscribed: userResponse.data.isSubscribed,
+              isVerified: userResponse.data.isVerified,
+            },
+            distributorDetails: userResponse.distributorDetails ? {
+              id: userResponse.distributorDetails.id,
+              userId: userResponse.distributorDetails.userId,
+              docUrls: userResponse.distributorDetails.docUrls || [],
+              companyName: userResponse.distributorDetails.companyName,
+              registrationNumber: userResponse.distributorDetails.registrationNumber,
+              address: userResponse.distributorDetails.address,
+            } : null,
+          }
+        };
+      }
+      return offer;
+    } catch (error) {
+      this.logger.warn(`Error enriching offer with user details: ${error.message}`);
+      return offer;
+    }
   }
 
   @Post()
@@ -66,10 +114,12 @@ export class DistributorOfferController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichOffer(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -113,10 +163,12 @@ export class DistributorOfferController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichOffer(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -197,10 +249,15 @@ export class DistributorOfferController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} offers for user ${userId}`);
 
+      let enrichedData: any[] = [];
+      if (result.data && Array.isArray(result.data)) {
+        enrichedData = await Promise.all(result.data.map((offer) => this.enrichOffer(offer)));
+      }
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: enrichedData,
         pagination: result.pagination,
       };
     } catch (error: any) {
@@ -237,10 +294,12 @@ export class DistributorOfferController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichOffer(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -249,10 +308,10 @@ export class DistributorOfferController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
-  @Roles(Role.SALTSOCIETY, Role.ADMIN, Role.SUPERADMIN)
+  @Roles(Role.SALTSOCIETY, Role.ADMIN, Role.SUPERADMIN, Role.LANDOWNER)
   @SubscriptionCheck(0)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get All Distributor Offers (admin, superadmin, saltsociety)' })
+  @ApiOperation({ summary: 'Get All Distributor Offers (admin, superadmin, saltsociety, landowner)' })
   @ApiQuery({ name: 'status', enum: OfferStatus, description: 'Filter by offer status', required: false })
   @ApiQuery({ name: 'requirement', enum: OfferRequirement, description: 'Filter by requirement level', required: false })
   @ApiQuery({ name: 'page', type: Number, description: 'Page number for pagination (starts from 1)', required: false, example: 1 })
@@ -284,10 +343,15 @@ export class DistributorOfferController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} offers`);
 
+      let enrichedData: any[] = [];
+      if (result.data && Array.isArray(result.data)) {
+        enrichedData = await Promise.all(result.data.map((offer) => this.enrichOffer(offer)));
+      }
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: enrichedData,
         pagination: result.pagination,
       };
     } catch (error: any) {
