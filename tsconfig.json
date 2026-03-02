@@ -29,6 +29,9 @@
     },
     {
       "path": "./apps/payment-service"
+    },
+    {
+      "path": "./apps/compass-service"
     }
   ]
 }
