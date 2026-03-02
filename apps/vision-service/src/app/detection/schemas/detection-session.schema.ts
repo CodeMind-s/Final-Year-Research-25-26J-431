@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type DetectionSessionDocument = HydratedDocument<DetectionSession>;
 
@@ -22,6 +22,9 @@ const ROISubdocSchema = SchemaFactory.createForClass(ROISubdoc);
 
 @Schema({ timestamps: false, collection: 'vision_sessions' })
 export class DetectionSession {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  userId: Types.ObjectId;
+
   @Prop({ default: () => new Date() })
   startTime: Date;
 
