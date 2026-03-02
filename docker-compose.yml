@@ -226,6 +226,32 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  waste-valorization-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: waste-valorization-service
+    container_name: waste-valorization-service
+    ports:
+      - "50058:50058"
+    environment:
+      - GRPC_URL=0.0.0.0:50058
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=${MONGO_URI}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SQS_QUEUE_URL=${AWS_SQS_QUEUE_URL}
+      - AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
+      - ENVIRONMENT=${ENVIRONMENT}
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -245,6 +271,7 @@ services:
       - VISION_SERVICE_URL=vision-service:50057
       - PAYMENT_SERVICE_URL=payment-service:50056
       - COMPASS_SERVICE_URL=compass-service:50052
+      - WASTE_VALORIZATION_SERVICE_URL=waste-valorization-service:50058
     networks:
       - app-network
     depends_on:
@@ -254,6 +281,7 @@ services:
       - vision-service
       - payment-service
       - compass-service
+      - waste-valorization-service
       - audit-log-service
       - email-service
     restart: unless-stopped

@@ -13,6 +13,7 @@ import { SaltProductionModule } from './salt-production/salt-production.module';
 import { CompassModule } from './compass-service/compass.module';
 import { VisionModule } from './vision-service/vision.module';
 import { PaymentModule } from './payment/payment.module';
+import { WasteValorizationModule } from './waste-valorization-service/waste-valorization.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PaymentModule } from './payment/payment.module';
     CompassModule,
     VisionModule,
     PaymentModule,
+    WasteValorizationModule,
   ],
   controllers: [AppController],
   providers: [
