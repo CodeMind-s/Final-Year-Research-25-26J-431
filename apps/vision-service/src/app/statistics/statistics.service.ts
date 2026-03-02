@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Detection, DetectionDocument } from '../detection/schemas/detection.schema';
 
 @Injectable()
@@ -10,8 +10,12 @@ export class StatisticsService {
     private readonly detectionModel: Model<DetectionDocument>,
   ) {}
 
-  async getSummary(startDate?: string, endDate?: string) {
+  async getSummary(startDate?: string, endDate?: string, userId?: string) {
     const match: any = {};
+
+    if (userId) {
+      match.userId = new Types.ObjectId(userId);
+    }
 
     if (startDate || endDate) {
       match.timestamp = {};
@@ -73,17 +77,22 @@ export class StatisticsService {
     };
   }
 
-  async getHourlyStats(date?: string) {
+  async getHourlyStats(date?: string, userId?: string) {
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const filter: any = {
+      timestamp: { $gte: startOfDay, $lte: endOfDay },
+    };
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
+    }
+
     const detections = await this.detectionModel
-      .find({
-        timestamp: { $gte: startOfDay, $lte: endOfDay },
-      })
+      .find(filter)
       .select({
         pureCount: 1,
         impureCount: 1,
@@ -121,16 +130,21 @@ export class StatisticsService {
     }));
   }
 
-  async getDailyStats(startDate?: string, endDate?: string, limit: number = 30) {
+  async getDailyStats(startDate?: string, endDate?: string, limit: number = 30, userId?: string) {
     const end = endDate ? new Date(endDate) : new Date();
     const start = startDate
       ? new Date(startDate)
       : new Date(end.getTime() - limit * 24 * 60 * 60 * 1000);
 
+    const filter: any = {
+      timestamp: { $gte: start, $lte: end },
+    };
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
+    }
+
     const detections = await this.detectionModel
-      .find({
-        timestamp: { $gte: start, $lte: end },
-      })
+      .find(filter)
       .select({
         pureCount: 1,
         impureCount: 1,
@@ -168,7 +182,7 @@ export class StatisticsService {
     }));
   }
 
-  async getTrends(period: string = 'daily', limit: number = 30) {
+  async getTrends(period: string = 'daily', limit: number = 30, userId?: string) {
     const now = new Date();
     let startDate: Date;
 
@@ -183,10 +197,15 @@ export class StatisticsService {
         startDate = new Date(now.getTime() - limit * 24 * 60 * 60 * 1000);
     }
 
+    const filter: any = {
+      timestamp: { $gte: startDate },
+    };
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
+    }
+
     const detections = await this.detectionModel
-      .find({
-        timestamp: { $gte: startDate },
-      })
+      .find(filter)
       .select({ purityPercentage: 1, timestamp: 1 })
       .sort({ timestamp: 1 })
       .exec();
