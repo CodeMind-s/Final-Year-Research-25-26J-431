@@ -4,6 +4,7 @@ import {
   Delete,
   Param,
   Query,
+  Req,
   Inject,
   Logger,
   HttpException,
@@ -59,10 +60,10 @@ export class VisionController {
   @Get('detections')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get paginated detections' })
-  async getDetections(@Query() query: DetectionFilterDto) {
+  async getDetections(@Query() query: DetectionFilterDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetDetections(query).pipe(
+        this.visionService.GetDetections({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetDetections error: ${error.message}`);
             throw new HttpException('Failed to fetch detections', HttpStatus.BAD_REQUEST);
@@ -77,7 +78,7 @@ export class VisionController {
   @Get('detections/:id')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get a single detection by ID' })
-  async getDetection(@Param('id') id: string) {
+  async getDetection(@Param('id') id: string, @Req() req: any) {
     try {
       return await firstValueFrom(
         this.visionService.GetDetection({ id }).pipe(
@@ -95,7 +96,7 @@ export class VisionController {
   @Delete('detections/:id')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Delete a detection by ID' })
-  async deleteDetection(@Param('id') id: string) {
+  async deleteDetection(@Param('id') id: string, @Req() req: any) {
     try {
       return await firstValueFrom(
         this.visionService.DeleteDetection({ id }).pipe(
@@ -113,7 +114,7 @@ export class VisionController {
   @Get('sessions/:id')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get a session by ID' })
-  async getSession(@Param('id') id: string) {
+  async getSession(@Param('id') id: string, @Req() req: any) {
     try {
       return await firstValueFrom(
         this.visionService.GetSession({ sessionId: id }).pipe(
@@ -131,10 +132,10 @@ export class VisionController {
   @Get('batches')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get all batches with optional filtering' })
-  async getAllBatches(@Query() query: BatchFilterDto) {
+  async getAllBatches(@Query() query: BatchFilterDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetAllBatches(query).pipe(
+        this.visionService.GetAllBatches({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetAllBatches error: ${error.message}`);
             throw new HttpException('Failed to fetch batches', HttpStatus.BAD_REQUEST);
@@ -149,7 +150,7 @@ export class VisionController {
   @Get('batches/:id')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get a batch by ID' })
-  async getBatch(@Param('id') id: string) {
+  async getBatch(@Param('id') id: string, @Req() req: any) {
     try {
       return await firstValueFrom(
         this.visionService.GetBatch({ batchId: id }).pipe(
@@ -167,10 +168,10 @@ export class VisionController {
   @Get('batches/session/:sessionId')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get all batches for a session' })
-  async getSessionBatches(@Param('sessionId') sessionId: string) {
+  async getSessionBatches(@Param('sessionId') sessionId: string, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetSessionBatches({ sessionId }).pipe(
+        this.visionService.GetSessionBatches({ sessionId, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetSessionBatches error: ${error.message}`);
             throw new HttpException('Failed to fetch batches', HttpStatus.BAD_REQUEST);
@@ -185,10 +186,10 @@ export class VisionController {
   @Get('batches/trends/:sessionId')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get batch purity trends for a session' })
-  async getBatchTrends(@Param('sessionId') sessionId: string) {
+  async getBatchTrends(@Param('sessionId') sessionId: string, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetBatchTrends({ sessionId }).pipe(
+        this.visionService.GetBatchTrends({ sessionId, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetBatchTrends error: ${error.message}`);
             throw new HttpException('Failed to fetch batch trends', HttpStatus.BAD_REQUEST);
@@ -203,10 +204,10 @@ export class VisionController {
   @Get('statistics/summary')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get detection statistics summary' })
-  async getStatsSummary(@Query() query: StatsSummaryQueryDto) {
+  async getStatsSummary(@Query() query: StatsSummaryQueryDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetStatsSummary(query).pipe(
+        this.visionService.GetStatsSummary({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetStatsSummary error: ${error.message}`);
             throw new HttpException('Failed to fetch statistics', HttpStatus.BAD_REQUEST);
@@ -221,10 +222,10 @@ export class VisionController {
   @Get('statistics/hourly')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get hourly detection statistics' })
-  async getStatsHourly(@Query() query: StatsHourlyQueryDto) {
+  async getStatsHourly(@Query() query: StatsHourlyQueryDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetStatsHourly(query).pipe(
+        this.visionService.GetStatsHourly({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetStatsHourly error: ${error.message}`);
             throw new HttpException('Failed to fetch hourly statistics', HttpStatus.BAD_REQUEST);
@@ -239,10 +240,10 @@ export class VisionController {
   @Get('statistics/daily')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get daily detection statistics' })
-  async getStatsDaily(@Query() query: StatsDailyQueryDto) {
+  async getStatsDaily(@Query() query: StatsDailyQueryDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetStatsDaily(query).pipe(
+        this.visionService.GetStatsDaily({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetStatsDaily error: ${error.message}`);
             throw new HttpException('Failed to fetch daily statistics', HttpStatus.BAD_REQUEST);
@@ -257,10 +258,10 @@ export class VisionController {
   @Get('statistics/trends')
   @RequirePlan(2)
   @ApiOperation({ summary: 'Get detection purity trends' })
-  async getStatsTrends(@Query() query: StatsTrendsQueryDto) {
+  async getStatsTrends(@Query() query: StatsTrendsQueryDto, @Req() req: any) {
     try {
       return await firstValueFrom(
-        this.visionService.GetStatsTrends(query).pipe(
+        this.visionService.GetStatsTrends({ ...query, user_id: req.user.userId }).pipe(
           catchError((error: any) => {
             this.logger.error(`GetStatsTrends error: ${error.message}`);
             throw new HttpException('Failed to fetch trends', HttpStatus.BAD_REQUEST);

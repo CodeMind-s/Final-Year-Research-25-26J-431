@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger, Inject } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
+import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
 import { Server, Socket } from 'socket.io';
 
@@ -20,6 +21,7 @@ interface ROIConfig {
 }
 
 interface StreamSettings {
+  userId?: string;
   sessionId?: string;
   currentBatchId?: string;
   currentBatchNumber: number;
@@ -43,14 +45,31 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(@Inject('VISION_PACKAGE') private client: ClientGrpcProxy) {
+  constructor(
+    @Inject('VISION_PACKAGE') private client: ClientGrpcProxy,
+    private readonly jwtService: JwtService,
+  ) {
     this.visionService = this.client.getService('VisionService');
   }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
 
+    let userId: string | undefined;
+    try {
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.replace('Bearer ', '');
+      if (token) {
+        const payload = this.jwtService.verify(token);
+        userId = payload.sub;
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to extract userId from socket auth: ${(err as Error).message}`);
+    }
+
     this.clientSettings.set(client.id, {
+      userId,
       saveDetections: true,
       confidenceThreshold: 0.5,
       currentBatchNumber: 0,
@@ -101,6 +120,7 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       const roi = data.roi || { x: 0.05, y: 0.05, width: 0.9, height: 0.9 };
+      const settings = this.clientSettings.get(client.id);
 
       let sessionId = data.sessionId;
 
@@ -109,12 +129,12 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.visionService.CreateSession({
             cameraSource: data.cameraSource || '',
             roi,
+            user_id: settings?.userId || '',
           }),
         ) as any;
         sessionId = session.id;
       }
 
-      const settings = this.clientSettings.get(client.id);
       if (settings) {
         settings.sessionId = sessionId;
         settings.roi = roi;
@@ -185,6 +205,7 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.visionService.CreateBatch({
           sessionId: settings.sessionId,
           roi: settings.roi,
+          user_id: settings.userId || '',
         }),
       ) as any;
 
@@ -270,6 +291,7 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
           batchId: settings?.currentBatchId || '',
           roi: settings?.roi || { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
           saveDetection: settings?.saveDetections && !!settings?.currentBatchId,
+          user_id: settings?.userId || '',
         }),
       ) as any;
 
@@ -319,7 +341,10 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       const result = await firstValueFrom(
-        this.visionService.GetSessionBatches({ sessionId: settings.sessionId }),
+        this.visionService.GetSessionBatches({
+          sessionId: settings.sessionId,
+          user_id: settings.userId || '',
+        }),
       ) as any;
 
       const batches = result.batches || [];
