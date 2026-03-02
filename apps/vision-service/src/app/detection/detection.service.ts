@@ -8,6 +8,7 @@ import {
 } from './schemas/detection-session.schema';
 
 export interface CreateDetectionDto {
+  userId: string;
   frameWidth: number;
   frameHeight: number;
   processingTimeMs: number;
@@ -36,6 +37,7 @@ export interface CreateDetectionDto {
 }
 
 export interface DetectionFilter {
+  userId?: string;
   page?: number;
   limit?: number;
   startDate?: string;
@@ -63,6 +65,7 @@ export class DetectionService {
     const purityPercentage = saltCount > 0 ? (pureCount / saltCount) * 100 : 100;
 
     const detection = new this.detectionModel({
+      userId: new Types.ObjectId(dto.userId),
       frameWidth: dto.frameWidth,
       frameHeight: dto.frameHeight,
       processingTimeMs: dto.processingTimeMs,
@@ -99,10 +102,14 @@ export class DetectionService {
   }
 
   async findAll(filter: DetectionFilter) {
-    const { page = 1, limit = 20, startDate, endDate, minPurity, maxPurity, sessionId } = filter;
+    const { page = 1, limit = 20, startDate, endDate, minPurity, maxPurity, sessionId, userId } = filter;
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    if (userId) {
+      where.userId = new Types.ObjectId(userId);
+    }
 
     if (startDate || endDate) {
       where.timestamp = {};
