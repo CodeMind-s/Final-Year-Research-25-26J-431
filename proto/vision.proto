@@ -73,6 +73,7 @@ message ProcessFrameRequest {
   string batchId = 3;
   ROI roi = 4;
   bool saveDetection = 5;
+  string user_id = 6;
 }
 
 message ProcessFrameResponse {
@@ -134,6 +135,7 @@ message BatchStats {
 message CreateSessionRequest {
   string cameraSource = 1;
   ROI roi = 2;
+  string user_id = 3;
 }
 
 message EndSessionRequest {
@@ -159,6 +161,7 @@ message SessionResponse {
   ROI roi = 12;
   string cameraSource = 13;
   string notes = 14;
+  string user_id = 15;
 }
 
 // ─── Batch ─────────────────────────────────────────────────
@@ -166,6 +169,7 @@ message SessionResponse {
 message CreateBatchRequest {
   string sessionId = 1;
   ROI roi = 2;
+  string user_id = 3;
 }
 
 message EndBatchRequest {
@@ -180,14 +184,17 @@ message GetAllBatchesRequest {
   int32 page = 1;
   int32 limit = 2;
   string sessionId = 3;
+  string user_id = 4;
 }
 
 message GetSessionBatchesRequest {
   string sessionId = 1;
+  string user_id = 2;
 }
 
 message GetBatchTrendsRequest {
   string sessionId = 1;
+  string user_id = 2;
 }
 
 message BatchResponse {
@@ -205,6 +212,7 @@ message BatchResponse {
   double avgWhiteness = 12;
   double avgQualityScore = 13;
   string sessionId = 14;
+  string user_id = 15;
 }
 
 message BatchListResponse {
@@ -230,6 +238,7 @@ message GetDetectionsRequest {
   double minPurity = 5;
   double maxPurity = 6;
   string sessionId = 7;
+  string user_id = 8;
 }
 
 message GetDetectionRequest {
@@ -263,6 +272,7 @@ message DetectionMessage {
   string sessionId = 20;
   string batchId = 21;
   repeated BoundingBox boundingBoxes = 22;
+  string user_id = 23;
 }
 
 message DetectionResponse {
@@ -284,6 +294,7 @@ message DeleteResponse {
 message GetStatsSummaryRequest {
   string startDate = 1;
   string endDate = 2;
+  string user_id = 3;
 }
 
 message StatsSummaryResponse {
@@ -300,6 +311,7 @@ message StatsSummaryResponse {
 
 message GetStatsHourlyRequest {
   string date = 1;
+  string user_id = 2;
 }
 
 message HourlyStatPoint {
@@ -319,6 +331,7 @@ message GetStatsDailyRequest {
   string startDate = 1;
   string endDate = 2;
   int32 limit = 3;
+  string user_id = 4;
 }
 
 message DailyStatPoint {
@@ -337,6 +350,7 @@ message StatsDailyResponse {
 message GetStatsTrendsRequest {
   string period = 1;
   int32 limit = 2;
+  string user_id = 3;
 }
 
 message TrendPoint {
