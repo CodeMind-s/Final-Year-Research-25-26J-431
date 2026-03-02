@@ -10,6 +10,7 @@ import { ROIConfig } from '../roi/roi.service';
 
 export interface BatchSummary {
   id: string;
+  userId: string;
   batchNumber: number;
   startTime: Date;
   endTime: Date | null;
@@ -47,7 +48,7 @@ export class BatchService {
     private readonly sessionModel: Model<DetectionSessionDocument>,
   ) {}
 
-  async createBatch(sessionId: string, roi: ROIConfig): Promise<BatchSummary> {
+  async createBatch(sessionId: string, roi: ROIConfig, userId?: string): Promise<BatchSummary> {
     const lastBatch = await this.batchModel
       .findOne({ sessionId: new Types.ObjectId(sessionId) })
       .sort({ batchNumber: -1 })
@@ -56,6 +57,7 @@ export class BatchService {
     const batchNumber = lastBatch ? lastBatch.batchNumber + 1 : 1;
 
     const batch = new this.batchModel({
+      userId: userId ? new Types.ObjectId(userId) : undefined,
       sessionId: new Types.ObjectId(sessionId),
       batchNumber,
       roi: {
@@ -106,10 +108,14 @@ export class BatchService {
     page: number = 1,
     limit: number = 20,
     sessionId?: string,
+    userId?: string,
   ): Promise<{ batches: BatchSummary[]; total: number }> {
     const filter: any = {};
     if (sessionId) {
       filter.sessionId = new Types.ObjectId(sessionId);
+    }
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
     }
 
     const [batches, total] = await Promise.all([
@@ -128,9 +134,13 @@ export class BatchService {
     };
   }
 
-  async getSessionBatches(sessionId: string): Promise<BatchSummary[]> {
+  async getSessionBatches(sessionId: string, userId?: string): Promise<BatchSummary[]> {
+    const filter: any = { sessionId: new Types.ObjectId(sessionId) };
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
+    }
     const batches = await this.batchModel
-      .find({ sessionId: new Types.ObjectId(sessionId) })
+      .find(filter)
       .sort({ batchNumber: -1 })
       .exec();
 
@@ -198,12 +208,17 @@ export class BatchService {
 
   async getBatchTrends(
     sessionId: string,
+    userId?: string,
   ): Promise<{ batchNumber: number; purityPercentage: number }[]> {
+    const filter: any = {
+      sessionId: new Types.ObjectId(sessionId),
+      endTime: { $ne: null },
+    };
+    if (userId) {
+      filter.userId = new Types.ObjectId(userId);
+    }
     const batches = await this.batchModel
-      .find({
-        sessionId: new Types.ObjectId(sessionId),
-        endTime: { $ne: null },
-      })
+      .find(filter)
       .sort({ batchNumber: 1 })
       .select({ batchNumber: 1, purityPercentage: 1 })
       .exec();
@@ -217,6 +232,7 @@ export class BatchService {
   private toBatchSummary(batch: BatchDocument): BatchSummary {
     return {
       id: batch._id.toString(),
+      userId: batch.userId?.toString() || '',
       batchNumber: batch.batchNumber,
       startTime: batch.startTime,
       endTime: batch.endTime,

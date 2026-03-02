@@ -10,12 +10,13 @@ export class BatchController {
   async createBatch(data: {
     sessionId: string;
     roi?: { x: number; y: number; width: number; height: number };
+    user_id?: string;
   }) {
     const roi = data.roi && data.roi.width > 0
       ? data.roi
       : { x: 0.05, y: 0.05, width: 0.9, height: 0.9 };
 
-    const batch = await this.batchService.createBatch(data.sessionId, roi);
+    const batch = await this.batchService.createBatch(data.sessionId, roi, data.user_id);
     return this.toBatchResponse(batch);
   }
 
@@ -35,26 +36,26 @@ export class BatchController {
   }
 
   @GrpcMethod('VisionService', 'GetAllBatches')
-  async getAllBatches(data: { page?: number; limit?: number; sessionId?: string }) {
+  async getAllBatches(data: { page?: number; limit?: number; sessionId?: string; user_id?: string }) {
     const page = data.page && data.page > 0 ? data.page : 1;
     const limit = data.limit && data.limit > 0 ? data.limit : 20;
-    const { batches, total } = await this.batchService.getAllBatches(page, limit, data.sessionId);
+    const { batches, total } = await this.batchService.getAllBatches(page, limit, data.sessionId, data.user_id);
     return {
       batches: batches.map((b) => this.toBatchResponse(b)),
     };
   }
 
   @GrpcMethod('VisionService', 'GetSessionBatches')
-  async getSessionBatches(data: { sessionId: string }) {
-    const batches = await this.batchService.getSessionBatches(data.sessionId);
+  async getSessionBatches(data: { sessionId: string; user_id?: string }) {
+    const batches = await this.batchService.getSessionBatches(data.sessionId, data.user_id);
     return {
       batches: batches.map((b) => this.toBatchResponse(b)),
     };
   }
 
   @GrpcMethod('VisionService', 'GetBatchTrends')
-  async getBatchTrends(data: { sessionId: string }) {
-    const trends = await this.batchService.getBatchTrends(data.sessionId);
+  async getBatchTrends(data: { sessionId: string; user_id?: string }) {
+    const trends = await this.batchService.getBatchTrends(data.sessionId, data.user_id);
     return { trends };
   }
 
@@ -74,6 +75,7 @@ export class BatchController {
       avgWhiteness: batch.avgWhiteness ?? 0,
       avgQualityScore: batch.avgQualityScore ?? 0,
       sessionId: batch.sessionId,
+      user_id: batch.userId || '',
     };
   }
 }
