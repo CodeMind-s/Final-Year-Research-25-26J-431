@@ -7,10 +7,13 @@
     "emitDecoratorMetadata": true
   },
   "include": [
-    "jest.config.ts",
+    "jest.config.js",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
-    "src/**/*.d.ts"
+    "src/**/*.d.ts",
+    "tests/**/*.spec.ts",
+    "tests/**/*.test.ts",
+    "tests/**/*.d.ts"
   ],
   "references": [
     {

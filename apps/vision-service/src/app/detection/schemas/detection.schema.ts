@@ -63,6 +63,9 @@ export class Detection {
   @Prop()
   roiAvgQualityScore?: number;
 
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  userId: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'DetectionSession', default: null })
   sessionId: Types.ObjectId | null;
 

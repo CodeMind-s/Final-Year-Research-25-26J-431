@@ -22,6 +22,9 @@ const ROISubdocSchema = SchemaFactory.createForClass(ROISubdoc);
 
 @Schema({ timestamps: false, collection: 'vision_batches' })
 export class Batch {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  userId: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'DetectionSession', required: true })
   sessionId: Types.ObjectId;
 

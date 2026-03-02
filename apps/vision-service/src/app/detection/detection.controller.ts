@@ -7,7 +7,7 @@ import { ROIService } from '../roi/roi.service';
 import { BatchService } from '../batch/batch.service';
 import { DetectionSession, DetectionSessionDocument } from './schemas/detection-session.schema';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 @Controller()
 export class DetectionController {
@@ -28,6 +28,7 @@ export class DetectionController {
     batchId?: string;
     roi?: { x: number; y: number; width: number; height: number };
     saveDetection?: boolean;
+    user_id?: string;
   }) {
     const imageBuffer = Buffer.from(data.imageData);
     const result = await this.inferenceService.runInference(imageBuffer);
@@ -53,6 +54,7 @@ export class DetectionController {
 
     if (data.saveDetection && data.batchId) {
       await this.detectionService.create({
+        userId: data.user_id || '',
         frameWidth: result.frameWidth,
         frameHeight: result.frameHeight,
         processingTimeMs: result.processingTimeMs,
@@ -146,12 +148,14 @@ export class DetectionController {
   async createSession(data: {
     cameraSource?: string;
     roi?: { x: number; y: number; width: number; height: number };
+    user_id?: string;
   }) {
     const roi = data.roi && data.roi.width > 0
       ? data.roi
       : this.roiService.getDefaultROI();
 
     const session = new this.sessionModel({
+      userId: new Types.ObjectId(data.user_id),
       cameraSource: data.cameraSource || null,
       roi: { x: roi.x, y: roi.y, width: roi.width, height: roi.height },
     });
@@ -196,8 +200,12 @@ export class DetectionController {
     minPurity?: number;
     maxPurity?: number;
     sessionId?: string;
+    user_id?: string;
   }) {
-    const result = await this.detectionService.findAll(data);
+    const result = await this.detectionService.findAll({
+      ...data,
+      userId: data.user_id,
+    });
 
     return {
       detections: result.data.map((d) => ({
@@ -222,6 +230,7 @@ export class DetectionController {
         roiAvgQualityScore: d.roiAvgQualityScore ?? 0,
         sessionId: d.sessionId?.toString() || '',
         batchId: d.batchId?.toString() || '',
+        user_id: d.userId?.toString() || '',
         boundingBoxes: d.boundingBoxes.map((box) => ({
           x: box.x,
           y: box.y,
@@ -267,6 +276,7 @@ export class DetectionController {
         roiAvgQualityScore: d.roiAvgQualityScore ?? 0,
         sessionId: d.sessionId?.toString() || '',
         batchId: d.batchId?.toString() || '',
+        user_id: d.userId?.toString() || '',
         boundingBoxes: d.boundingBoxes.map((box) => ({
           x: box.x,
           y: box.y,
@@ -308,6 +318,7 @@ export class DetectionController {
         : { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
       cameraSource: session.cameraSource || '',
       notes: session.notes || '',
+      user_id: session.userId?.toString() || '',
     };
   }
 }
