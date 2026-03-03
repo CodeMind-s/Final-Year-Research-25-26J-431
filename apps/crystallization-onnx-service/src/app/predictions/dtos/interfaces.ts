@@ -17,6 +17,11 @@ export interface PredictionRequest {
     start_date: string;
     forecast_days: number;
     current_values: CurrentValues;
+    /** Number of active salt beds — used by production forecast formula */
+    num_salt_beds?: number;
+    /** Optional GPS override; defaults from env OPENWEATHER_LAT/LON */
+    latitude?: number;
+    longitude?: number;
 }
 
 export interface Parameters {
@@ -122,4 +127,90 @@ export interface PredictionResponse {
     seasonal_production: SeasonalProduction;
     model_info: ModelInfo;
     summary: Summary;
+    /** Calibrated 2-month forecast using formula + yield ratio */
+    calibratedMonthlyForecast?: CalibratedMonthlyForecast[];
+    /** Current + next agriculture season forecasts */
+    seasonalForecast?: SeasonForecast[];
+    /** Confidence report for the production forecast */
+    confidence?: ConfidenceReport;
+}
+
+// ─── New interfaces for production forecast, confidence & retraining ──────────
+
+export interface CalibratedMonthlyForecast {
+    month: string;
+    season: string;
+    lower95: number;
+    expected: number;
+    upper95: number;
+    type: 'PREDICTED' | 'ACTUAL';
+}
+
+export interface SeasonForecast {
+    season: string;
+    status: 'current' | 'next';
+    lower95Total: number;
+    expectedTotal: number;
+    upper95Total: number;
+    actualToDate: number;
+    months: CalibratedMonthlyForecast[];
+}
+
+export interface ConfidenceReport {
+    overallScore: number;
+    overallRating: string;
+    yieldRatio: number;
+    yieldStatus: 'NORMAL' | 'BELOW_AVERAGE' | 'LOW' | 'CRITICAL';
+    decliningTrend: boolean;
+    improvingTrend: boolean;
+    formulaR2: number;
+    holdoutMae: number;
+    nHistoryMonths: number;
+    formulaFitScore: number;
+    holdoutScore: number;
+    dataVolumeScore: number;
+    yieldScore: number;
+}
+
+export interface ProductionForecastResult {
+    calibratedMonthlyForecast: CalibratedMonthlyForecast[];
+    seasonalForecast: SeasonForecast[];
+    confidence: ConfidenceReport;
+}
+
+export interface ProductionHistoryItem {
+    month: string;
+    production_volume: number;
+}
+
+export interface CalibrationConstants {
+    beds_coef: number;
+    rain_coef: number;
+    temp_coef: number;
+    sin_coef: number;
+    cos_coef: number;
+    intercept: number;
+    pi_half_width: number;
+    resid_std: number;
+    r2_score: number;
+    holdout_mae: number;
+    n_months: number;
+    historical_avg_beds: number;
+    historical_weather: Record<string, { avg_rain_mm: number; avg_temp_c: number }>;
+    season_months: { Yala: number[]; Maha: number[]; Transition: number[] };
+    last_retrained?: string;
+}
+
+export interface RetrainingRequest {
+    triggered_by: string;
+}
+
+export interface RetrainingResponse {
+    success: boolean;
+    message: string;
+    newR2Score: number;
+    newHoldoutMae: number;
+    newPiHalfWidth: number;
+    nMonthsUsed: number;
+    lastRetrained: string;
 }
