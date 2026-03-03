@@ -28,6 +28,7 @@ COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
 COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/compass-service/package.json ./apps/compass-service/
+COPY apps/waste-valorization-service/package.json ./apps/waste-valorization-service/
 
 # Install all dependencies — this layer is CACHED when only source.json files change
 # --mount=type=cache persists npm download cache across Docker builds for faster installs

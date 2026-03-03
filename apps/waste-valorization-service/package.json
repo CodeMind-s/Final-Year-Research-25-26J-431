@@ -1,0 +1,123 @@
+{
+  "name": "@brinex-server/waste-valorization-service",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "@brinex-server/waste-valorization-service",
+    "targets": {
+      "build": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "npx webpack-cli build",
+          "args": [
+            "--node-env=production"
+          ],
+          "cwd": "apps/waste-valorization-service"
+        },
+        "configurations": {
+          "development": {
+            "args": [
+              "--node-env=development"
+            ]
+          }
+        }
+      },
+      "prune-lockfile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "executor": "@nx/js:prune-lockfile",
+        "outputs": [
+          "{workspaceRoot}/apps/waste-valorization-service/dist/package.json",
+          "{workspaceRoot}/apps/waste-valorization-service/dist/package-lock.json"
+        ],
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "copy-workspace-modules": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "outputs": [
+          "{workspaceRoot}/apps/waste-valorization-service/dist/workspace_modules"
+        ],
+        "executor": "@nx/js:copy-workspace-modules",
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "prune": {
+        "dependsOn": [
+          "prune-lockfile",
+          "copy-workspace-modules"
+        ],
+        "executor": "nx:noop"
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@brinex-server/waste-valorization-service:build",
+          "runBuildTargetDependencies": false,
+          "inspect": true,
+          "port": 9238
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@brinex-server/waste-valorization-service:build:development"
+          },
+          "production": {
+            "buildTarget": "@brinex-server/waste-valorization-service:build:production"
+          }
+        }
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/apps/waste-valorization-service/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/waste-valorization-service/jest.config.ts",
+          "passWithNoTests": true
+        }
+      },
+      "lint": {
+        "executor": "@nx/eslint:lint",
+        "outputs": [
+          "{options.outputFile}"
+        ],
+        "options": {
+          "lintFilePatterns": [
+            "apps/waste-valorization-service/**/*.ts"
+          ],
+          "eslintConfig": "apps/waste-valorization-service/eslint.config.mjs"
+        }
+      },
+      "typecheck": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "tsc --noEmit -p apps/waste-valorization-service/tsconfig.app.json"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.3.0",
+    "@aws-sdk/client-sqs": "^3.908.0"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.0"
+  }
+}

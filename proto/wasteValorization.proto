@@ -1,0 +1,100 @@
+syntax = "proto3";
+package wasteval;
+
+service WasteValorizationJobService {
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc GetJobs(GetJobsRequest) returns (GetJobsResponse);
+  rpc UpdateJob(UpdateJobRequest) returns (UpdateJobResponse);
+  rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+}
+
+enum JobStatus {
+  PENDING = 0;
+  PROCESSING = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+}
+
+enum JobType {
+  WASTE_PREDICTION = 0;
+  VALORIZATION_ANALYSIS = 1;
+  OPTIMIZATION = 2;
+}
+
+message Job {
+  string _id = 1;
+  string userId = 2;
+  JobType jobType = 3;
+  JobStatus status = 4;
+  string requestData = 5;    // JSON string of input data
+  string resultData = 6;     // JSON string of result data
+  string errorMessage = 7;
+  string createdAt = 8;
+  string updatedAt = 9;
+}
+
+message CreateJobRequest {
+  string userId = 1;
+  JobType jobType = 2;
+  string requestData = 3;
+}
+
+message CreateJobResponse {
+  bool success = 1;
+  string message = 2;
+  Job data = 3;
+}
+
+message GetJobRequest {
+  string id = 1;
+}
+
+message GetJobResponse {
+  bool success = 1;
+  string message = 2;
+  Job data = 3;
+}
+
+message GetJobsRequest {
+  string userId = 1;
+  JobStatus status = 2;
+  JobType jobType = 3;
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+message GetJobsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Job data = 3;
+  int32 total = 4;
+  int32 page = 5;
+  int32 limit = 6;
+}
+
+message UpdateJobRequest {
+  string id = 1;
+  JobStatus status = 2;
+  string resultData = 3;
+  string errorMessage = 4;
+}
+
+message UpdateJobResponse {
+  bool success = 1;
+  string message = 2;
+  Job data = 3;
+}
+
+message GetJobStatusRequest {
+  string id = 1;
+}
+
+message GetJobStatusResponse {
+  bool success = 1;
+  string message = 2;
+  string jobId = 3;
+  JobStatus status = 4;
+  string resultData = 5;
+  string errorMessage = 6;
+}
