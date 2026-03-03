@@ -2,7 +2,8 @@
   "ts-node": {
     "compilerOptions": {
       "module": "commonjs",
-      "moduleResolution": "node10"
+      "moduleResolution": "node10",
+      "customConditions": []
     }
   },
   "compilerOptions": {
