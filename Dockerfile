@@ -53,7 +53,7 @@ ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 
 # Build the specific service
-RUN npx nx build ${SERVICE_NAME} --configuration=production
+RUN npx nx build ${SERVICE_NAME} --configuration=production --skip-nx-cache
 
 # ============================================================
 # Stage 3: Production image (minimal — only prod dependencies)
