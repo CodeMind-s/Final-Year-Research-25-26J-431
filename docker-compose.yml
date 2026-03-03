@@ -172,22 +172,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # vision-service:
-  #   build:
-  #     context: .
-  #     dockerfile: apps/vision-service/Dockerfile
-  #   container_name: vision-service
-  #   ports:
-  #     - "50057:50057"
-  #   environment:
-  #     - GRPC_URL=0.0.0.0:50057
-  #     - MONGO_URI=${MONGO_URI}
-  #     - VISION_MODEL_PATH=/app/models/best.onnx
-  #   networks:
-  #     - app-network
-  #   volumes:
-  #     - ./apps/vision-service/models:/app/models
-  #   restart: unless-stopped
+  vision-service:
+    build:
+      context: .
+      dockerfile: apps/vision-service/Dockerfile
+    container_name: vision-service
+    ports:
+      - "50057:50057"
+    environment:
+      - GRPC_URL=0.0.0.0:50057
+      - MONGO_URI=${MONGO_URI}
+      - VISION_MODEL_PATH=/app/models/best.onnx
+    networks:
+      - app-network
+    volumes:
+      - ./apps/vision-service/models:/app/models
+    restart: unless-stopped
 
   payment-service:
     build:
