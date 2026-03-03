@@ -1,16 +1,17 @@
 /* eslint-disable */
-import { readFileSync } from 'fs';
+const { readFileSync } = require('fs');
+const { join } = require('path');
 
 // Reading the SWC compilation config for the spec files
 const swcJestConfig = JSON.parse(
-  readFileSync(`${__dirname}/.spec.swcrc`, 'utf-8')
+  readFileSync(join(__dirname, '.spec.swcrc'), 'utf-8')
 );
 
 // Disable .swcrc look-up by SWC core because we're passing in swcJestConfig ourselves
 swcJestConfig.swcrc = false;
 
-export default {
-  displayName: '@brinex-server/email-service',
+module.exports = {
+  displayName: '@brinex-server/api-gateway',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {

@@ -49,7 +49,7 @@ jobs:
         continue-on-error: true
 
       - name: Run unit tests
-        run: npx jest --config apps/email-service/jest.config.ts --ci --passWithNoTests
+        run: npx jest --config apps/email-service/jest.config.js --ci --passWithNoTests
         env:
           CI: true
 
