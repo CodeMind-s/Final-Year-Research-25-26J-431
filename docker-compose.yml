@@ -120,10 +120,18 @@ services:
       - "50055:50055"
     environment:
       - GRPC_URL=0.0.0.0:50055
+      - MONGO_URI=${MONGO_URI}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - OPENWEATHER_LAT=${OPENWEATHER_LAT}
+      - OPENWEATHER_LON=${OPENWEATHER_LON}
+      - KAFKA_BROKER=kafka:9092
     networks:
       - app-network
     volumes:
       - ./apps/crystallization-onnx-service/models:/app/models
+    depends_on:
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
   audit-log-service:
@@ -164,22 +172,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  vision-service:
-    build:
-      context: .
-      dockerfile: apps/vision-service/Dockerfile
-    container_name: vision-service
-    ports:
-      - "50057:50057"
-    environment:
-      - GRPC_URL=0.0.0.0:50057
-      - MONGO_URI=${MONGO_URI}
-      - VISION_MODEL_PATH=/app/models/best.onnx
-    networks:
-      - app-network
-    volumes:
-      - ./apps/vision-service/models:/app/models
-    restart: unless-stopped
+  # vision-service:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/vision-service/Dockerfile
+  #   container_name: vision-service
+  #   ports:
+  #     - "50057:50057"
+  #   environment:
+  #     - GRPC_URL=0.0.0.0:50057
+  #     - MONGO_URI=${MONGO_URI}
+  #     - VISION_MODEL_PATH=/app/models/best.onnx
+  #   networks:
+  #     - app-network
+  #   volumes:
+  #     - ./apps/vision-service/models:/app/models
+  #   restart: unless-stopped
 
   payment-service:
     build:
@@ -278,7 +286,7 @@ services:
       - auth-service
       - user-service
       - crystallization-service
-      - vision-service
+      # - vision-service
       - payment-service
       - compass-service
       - waste-valorization-service
