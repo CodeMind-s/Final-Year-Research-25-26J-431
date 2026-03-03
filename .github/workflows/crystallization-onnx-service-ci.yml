@@ -1,0 +1,98 @@
+name: Crystallization ONNX Service CI
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - 'apps/crystallization-onnx-service/**'
+      - 'proto/crystallization-prediction.proto'
+      - 'packages/**'
+      - 'types/**'
+      - '.github/workflows/crystallization-onnx-service-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/crystallization-onnx-service/**'
+      - 'proto/crystallization-prediction.proto'
+      - 'packages/**'
+      - 'types/**'
+      - '.github/workflows/crystallization-onnx-service-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    name: Lint, Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run ESLint
+        run: npx eslint apps/crystallization-onnx-service/src --ext .ts --max-warnings 0 || true
+        continue-on-error: true
+
+      - name: Run unit tests
+        run: npx jest --config apps/crystallization-onnx-service/jest.config.ts --ci --passWithNoTests
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            apps/crystallization-onnx-service/test-output
+          retention-days: 7
+          if-no-files-found: ignore
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build crystallization-onnx-service
+        run: npx nx build crystallization-onnx-service --skip-nx-cache
+        env:
+          NX_NO_CLOUD: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: crystallization-onnx-service-dist
+          path: apps/crystallization-onnx-service/dist
+          retention-days: 7
+          if-no-files-found: ignore

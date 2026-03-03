@@ -1,18 +1,26 @@
 /* eslint-disable */
-import { readFileSync } from 'fs';
+const { readFileSync } = require('fs');
+const { join } = require('path');
 
 // Reading the SWC compilation config for the spec files
 const swcJestConfig = JSON.parse(
-  readFileSync(`${__dirname}/.spec.swcrc`, 'utf-8')
+  readFileSync(join(__dirname, '.spec.swcrc'), 'utf-8')
 );
 
 // Disable .swcrc look-up by SWC core because we're passing in swcJestConfig ourselves
 swcJestConfig.swcrc = false;
 
-export default {
-  displayName: '@brinex-server/auth-service',
+module.exports = {
+  displayName: 'payment-service',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
+  rootDir: __dirname,
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  testMatch: ['**/*.spec.ts', '**/*.test.ts'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    process.env.CI === 'true' && !process.env.MONGO_URI ? '<rootDir>/tests/e2e/' : null,
+  ].filter(Boolean),
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
