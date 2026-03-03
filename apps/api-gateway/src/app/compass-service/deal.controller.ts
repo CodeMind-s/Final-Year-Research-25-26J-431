@@ -24,10 +24,94 @@ import {
 @Controller('deals')
 export class DealController {
   private dealService: any;
+  private userService: any;
   private readonly logger = new Logger(DealController.name);
 
-  constructor(@Inject('COMPASS_PACKAGE') private client: ClientGrpcProxy) {
+  constructor(
+    @Inject('COMPASS_PACKAGE') private client: ClientGrpcProxy,
+    @Inject('USER_PACKAGE') private userClient: ClientGrpcProxy
+  ) {
     this.dealService = this.client.getService('DealService');
+    this.userService = this.userClient.getService('UserService');
+  }
+
+  private async enrichDeal(deal: any): Promise<any> {
+    try {
+      if (!deal) return deal;
+
+      const enrichedDeal = { ...deal };
+
+      if (deal.landownerId) {
+        const landownerResponse: any = await firstValueFrom(
+          this.userService.GetUserById({ id: deal.landownerId }).pipe(
+            catchError((err) => {
+              this.logger.warn(`Failed to fetch landowner details (userId: ${deal.landownerId}): ${err.message}`);
+              return [{ data: null, landOwnerDetails: null }];
+            })
+          )
+        );
+
+        if (landownerResponse.data) {
+          enrichedDeal.landowner = {
+            user: {
+              id: landownerResponse.data.id,
+              email: landownerResponse.data.email,
+              role: landownerResponse.data.role,
+              isOnboarded: landownerResponse.data.isOnboarded,
+              plan: landownerResponse.data.plan,
+              isSubscribed: landownerResponse.data.isSubscribed,
+              isVerified: landownerResponse.data.isVerified,
+            },
+            landOwnerDetails: landownerResponse.landOwnerDetails ? {
+              id: landownerResponse.landOwnerDetails.id,
+              userId: landownerResponse.landOwnerDetails.userId,
+              docUrls: landownerResponse.landOwnerDetails.docUrls || [],
+              totalBeds: landownerResponse.landOwnerDetails.totalBeds,
+              nic: landownerResponse.landOwnerDetails.nic,
+              address: landownerResponse.landOwnerDetails.address,
+            } : null,
+          };
+        }
+      }
+
+      if (deal.distributorId) {
+        const distributorResponse: any = await firstValueFrom(
+          this.userService.GetUserById({ id: deal.distributorId }).pipe(
+            catchError((err) => {
+              this.logger.warn(`Failed to fetch distributor details (userId: ${deal.distributorId}): ${err.message}`);
+              return [{ data: null, distributorDetails: null }];
+            })
+          )
+        );
+
+        if (distributorResponse.data) {
+          enrichedDeal.distributor = {
+            user: {
+              id: distributorResponse.data.id,
+              email: distributorResponse.data.email,
+              role: distributorResponse.data.role,
+              isOnboarded: distributorResponse.data.isOnboarded,
+              plan: distributorResponse.data.plan,
+              isSubscribed: distributorResponse.data.isSubscribed,
+              isVerified: distributorResponse.data.isVerified,
+            },
+            distributorDetails: distributorResponse.distributorDetails ? {
+              id: distributorResponse.distributorDetails.id,
+              userId: distributorResponse.distributorDetails.userId,
+              docUrls: distributorResponse.distributorDetails.docUrls || [],
+              companyName: distributorResponse.distributorDetails.companyName,
+              registrationNumber: distributorResponse.distributorDetails.registrationNumber,
+              address: distributorResponse.distributorDetails.address,
+            } : null,
+          };
+        }
+      }
+
+      return enrichedDeal;
+    } catch (error) {
+      this.logger.warn(`Error enriching deal with user details: ${error.message}`);
+      return deal;
+    }
   }
 
   @Post('offer/:offerId')
@@ -66,10 +150,12 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichDeal(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -109,10 +195,12 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichDeal(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -188,10 +276,15 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} deals for landowner ${landownerId}`);
 
+      let enrichedData: any[] = [];
+      if (result.data && Array.isArray(result.data)) {
+        enrichedData = await Promise.all(result.data.map((deal) => this.enrichDeal(deal)));
+      }
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: enrichedData,
         pagination: result.pagination,
       };
     } catch (error: any) {
@@ -235,10 +328,15 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} deals for distributor ${distributorId}`);
 
+      let enrichedData: any[] = [];
+      if (result.data && Array.isArray(result.data)) {
+        enrichedData = await Promise.all(result.data.map((deal) => this.enrichDeal(deal)));
+      }
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: enrichedData,
         pagination: result.pagination,
       };
     } catch (error: any) {
@@ -274,10 +372,12 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(JSON.stringify(result, null, 2));
 
+      const enrichedData = result.data ? await this.enrichDeal(result.data) : null;
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || null,
+        data: enrichedData,
       };
     } catch (error: any) {
       throw error;
@@ -317,10 +417,15 @@ export class DealController {
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} deals`);
 
+      let enrichedData: any[] = [];
+      if (result.data && Array.isArray(result.data)) {
+        enrichedData = await Promise.all(result.data.map((deal) => this.enrichDeal(deal)));
+      }
+
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: enrichedData,
         pagination: result.pagination,
       };
     } catch (error: any) {
