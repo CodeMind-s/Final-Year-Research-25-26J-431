@@ -142,3 +142,14 @@ export class GetModelPerformanceResponseDto {
   data?: any[];
 }
 
+export class GetWeatherForecastDto {
+  lat?: number;
+  lon?: number;
+  cnt?: number;
+}
+
+export class GetWeatherForecastResponseDto {
+  success: boolean;
+  message: string;
+  data?: any;
+}
