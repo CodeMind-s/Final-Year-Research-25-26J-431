@@ -9,6 +9,11 @@ import type {
     ConfidenceReport,
     ProductionForecastResult,
     ProductionHistoryItem,
+    MonthlyProductionForecast,
+    MonthlyForecast,
+    SeasonalProduction,
+    SeasonData,
+    MonthProduction,
 } from './dtos/interfaces';
 
 @Injectable()
@@ -41,11 +46,29 @@ export class ProductionForecastService implements OnModuleInit {
 
     async loadConstants(): Promise<void> {
         try {
+            console.log('Loading constants from:', this.constantsPath);
+            console.log('RESOLVED FILE PATH:', this.constantsPath);
             const raw = await fs.readFile(this.constantsPath, 'utf-8');
-            this.constants = JSON.parse(raw);
+            console.log('Raw JSON length:', raw.length);
+            const parsed = JSON.parse(raw);
+            console.log('PARSED JSON KEYS:', Object.keys(parsed));
+            console.log('PARSED beds_coef:', parsed.beds_coef);
+            this.constants = parsed;
             this.logger.log(`calibration_constants.json loaded from: ${this.constantsPath}`);
+            
+            console.log('Loaded constants:', JSON.stringify({
+                beds_coef:    this.constants.beds_coef,
+                rain_coef:    this.constants.rain_coef,
+                temp_coef:    this.constants.temp_coef,
+                sin_coef:     this.constants.sin_coef,
+                cos_coef:     this.constants.cos_coef,
+                intercept:    this.constants.intercept,
+                pi_half_width: this.constants.pi_half_width,
+                n_historical_weather_months:
+                    Object.keys(this.constants.historical_weather ?? {}).length
+            }));
         } catch (err) {
-            this.logger.error(`Failed to load calibration_constants.json: ${err}`);
+            this.logger.error(`Failed to load calibration_constants.json from ${this.constantsPath}: ${err}`);
             throw err;
         }
     }
@@ -57,13 +80,20 @@ export class ProductionForecastService implements OnModuleInit {
         numSaltBeds: number,
     ): { yieldRatio: number; ratios: number[]; nMonths: number } {
         if (!history || history.length === 0) {
+            this.logger.log('computeYieldRatio: no history, returning yieldRatio=1.0');
             return { yieldRatio: 1.0, ratios: [], nMonths: 0 };
         }
+        
+        this.logger.log(`computeYieldRatio: processing ${history.length} months with numSaltBeds=${numSaltBeds}`);
+        
         const ratios: number[] = [];
         for (const item of history) {
             const monthNum = new Date(item.month).getMonth() + 1;
             const wx = this.constants.historical_weather[monthNum.toString()];
-            if (!wx) continue;
+            if (!wx) {
+                this.logger.warn(`computeYieldRatio: no wx data for month ${monthNum}, skipping`);
+                continue;
+            }
             const mSin = Math.sin(2 * Math.PI * monthNum / 12);
             const mCos = Math.cos(2 * Math.PI * monthNum / 12);
             const formulaPred = Math.max(1,
@@ -74,13 +104,26 @@ export class ProductionForecastService implements OnModuleInit {
                 + this.constants.cos_coef  * mCos
                 + this.constants.intercept,
             );
-            ratios.push(item.production_volume / formulaPred);
+            const ratio = item.production_volume / formulaPred;
+            
+            console.log(`yieldRatio item: month=${item.month} actual=${item.production_volume} formulaPred=${formulaPred.toFixed(2)} ratio=${ratio.toFixed(6)}`);
+            
+            ratios.push(ratio);
         }
+        
+        if (ratios.length === 0) {
+            this.logger.warn('computeYieldRatio: no valid ratios computed, returning yieldRatio=1.0');
+            return { yieldRatio: 1.0, ratios: [], nMonths: 0 };
+        }
+        
         const sorted = [...ratios].sort((a, b) => a - b);
         const mid    = Math.floor(sorted.length / 2);
         const yieldRatio = sorted.length % 2 === 0
             ? (sorted[mid - 1] + sorted[mid]) / 2
             : sorted[mid];
+        
+        this.logger.log(`computeYieldRatio: final yieldRatio=${yieldRatio.toFixed(4)} (median of ${ratios.length} ratios)`);
+        
         return { yieldRatio, ratios, nMonths: history.length };
     }
 
@@ -103,12 +146,49 @@ export class ProductionForecastService implements OnModuleInit {
 
     // ─── Single-month forecast ───────────────────────────────────────────────
 
-    private forecastMonth(
+    public forecastMonth(
         monthNum: number,
         numSaltBeds: number,
         yieldRatio: number,
     ): { expected: number; lower95: number; upper95: number } {
+        console.log('forecastMonth inputs:', {
+            monthNum,
+            numSaltBeds,
+            numSaltBeds_type: typeof numSaltBeds,
+            beds_coef: this.constants?.beds_coef,
+            calculation_check: (this.constants?.beds_coef ?? 0) * numSaltBeds
+        });
+        
+        console.log('COEFFICIENTS CHECK:', {
+            beds_coef:  this.constants?.beds_coef,
+            rain_coef:  this.constants?.rain_coef,
+            temp_coef:  this.constants?.temp_coef,
+            sin_coef:   this.constants?.sin_coef,
+            cos_coef:   this.constants?.cos_coef,
+            intercept:  this.constants?.intercept,
+            constants_defined: !!this.constants,
+            constants_keys: this.constants ? Object.keys(this.constants) : []
+        });
+        
+        // Guard: ensure constants are loaded
+        if (!this.constants) {
+            this.logger.error('forecastMonth called before constants loaded!');
+            throw new Error('CalibrationConstants not loaded. Ensure loadConstants() completed.');
+        }
+        
         const wx = this.constants.historical_weather[monthNum.toString()];
+        
+        if (!wx) {
+            this.logger.error(`forecastMonth: NO historical_weather for monthNum=${monthNum}`);
+            // Return a reasonable default based on average
+            const defaultExpected = 60000 * yieldRatio;
+            return {
+                expected: defaultExpected,
+                lower95: Math.max(0, defaultExpected - this.constants.pi_half_width),
+                upper95: defaultExpected + this.constants.pi_half_width,
+            };
+        }
+        
         const mSin = Math.sin(2 * Math.PI * monthNum / 12);
         const mCos = Math.cos(2 * Math.PI * monthNum / 12);
         const base = Math.max(0,
@@ -120,6 +200,9 @@ export class ProductionForecastService implements OnModuleInit {
             + this.constants.intercept,
         );
         const expected = base * yieldRatio;
+        
+        console.log(`forecastMonth: monthNum=${monthNum} wx=${JSON.stringify(wx)} mSin=${mSin.toFixed(4)} mCos=${mCos.toFixed(4)} base=${base.toFixed(2)} expected=${expected.toFixed(2)}`);
+        
         return {
             expected,
             lower95: Math.max(0, expected - this.constants.pi_half_width),
@@ -127,7 +210,7 @@ export class ProductionForecastService implements OnModuleInit {
         };
     }
 
-    private getSeasonForMonth(monthNum: number): string {
+    public getSeasonForMonth(monthNum: number): string {
         const sm = this.constants.season_months;
         if (sm.Yala.includes(monthNum))  return 'Yala';
         if (sm.Maha.includes(monthNum))  return 'Maha';
@@ -194,6 +277,8 @@ export class ProductionForecastService implements OnModuleInit {
             const histEntry = productionHistory.find(h =>
                 h.month.startsWith(`${year}-${String(mNum).padStart(2, '0')}`),
             );
+
+            console.log(`buildSeason: season=${seasonName} mNum=${mNum} year=${year} monthStr=${monthStr} isPast=${isPast} type=${isPast && histEntry ? 'ACTUAL' : 'PREDICTED'}`);
 
             if (isPast && histEntry) {
                 actualToDate += histEntry.production_volume;
@@ -281,6 +366,13 @@ export class ProductionForecastService implements OnModuleInit {
         numSaltBeds: number;
         productionHistory: ProductionHistoryItem[];
     }): Promise<ProductionForecastResult> {
+        console.log('forecast() params:', {
+            currentDate: params.currentDate,
+            numSaltBeds: params.numSaltBeds,
+            numSaltBeds_type: typeof params.numSaltBeds,
+            historyLength: params.productionHistory?.length ?? 0
+        });
+        
         const date = new Date(params.currentDate);
         const { yieldRatio, ratios, nMonths } =
             this.computeYieldRatio(params.productionHistory, params.numSaltBeds);
@@ -300,13 +392,20 @@ export class ProductionForecastService implements OnModuleInit {
 
         // Next 2 calendar months from currentDate
         const calibratedMonthlyForecast: CalibratedMonthlyForecast[] = [];
+        const baseForecastYear = date.getFullYear();
+        const baseForecastMonth = date.getMonth(); // 0-11
+        
         for (let i = 1; i <= 2; i++) {
-            const target = new Date(date.getFullYear(), date.getMonth() + i, 1);
-            const mNum   = target.getMonth() + 1;
+            const totalMonths = baseForecastMonth + i;
+            const targetYear = baseForecastYear + Math.floor(totalMonths / 12);
+            const targetMonth = totalMonths % 12; // 0-11
+            const mNum = targetMonth + 1; // 1-12
+            const monthStr = `${targetYear}-${String(mNum).padStart(2, '0')}-01`;
+            
             const { expected, lower95, upper95 } =
                 this.forecastMonth(mNum, params.numSaltBeds, yieldRatio);
             calibratedMonthlyForecast.push({
-                month:  target.toISOString().slice(0, 10),
+                month:  monthStr,
                 season: this.getSeasonForMonth(mNum),
                 lower95, expected, upper95,
                 type: 'PREDICTED',
@@ -318,10 +417,114 @@ export class ProductionForecastService implements OnModuleInit {
             nHistoryMonths: nMonths,
         });
 
+        // Generate 6-month and 12-month production forecasts using calibration formula
+        const monthlyProduction6Months = this.generateMonthlyProductionForecast(
+            date, 6, params.numSaltBeds, yieldRatio,
+        );
+        const monthlyProduction12Months = this.generateMonthlyProductionForecast(
+            date, 12, params.numSaltBeds, yieldRatio,
+        );
+
+        // Generate seasonal production aggregation
+        const seasonalProduction = this.generateSeasonalProduction(
+            monthlyProduction12Months,
+        );
+
         return {
             calibratedMonthlyForecast,
             seasonalForecast: [currentSeasonForecast, nextSeasonForecast],
             confidence,
+            monthlyProduction6Months,
+            monthlyProduction12Months,
+            seasonalProduction,
+        };
+    }
+
+    // ─── Generate N-month production forecast using calibration formula ─────
+
+    private generateMonthlyProductionForecast(
+        startDate: Date,
+        months: number,
+        numSaltBeds: number,
+        yieldRatio: number,
+    ): MonthlyProductionForecast {
+        const forecasts: MonthlyForecast[] = [];
+        let totalProduction = 0;
+
+        // Use pure arithmetic to avoid Date mutation bugs
+        const baseYear = startDate.getFullYear();
+        const baseMonth = startDate.getMonth(); // 0-11
+
+        for (let monthOffset = 0; monthOffset < months; monthOffset++) {
+            // Calculate target year and month using arithmetic (no Date mutation)
+            const totalMonths = baseMonth + monthOffset;
+            const targetYear = baseYear + Math.floor(totalMonths / 12);
+            const targetMonth = totalMonths % 12; // 0-11
+            const mNum = targetMonth + 1; // 1-12 for formula lookup
+            const monthStr = `${targetYear}-${String(mNum).padStart(2, '0')}`;
+
+            console.log('month loop:', { monthOffset, targetYear, targetMonth, mNum,
+                wx: this.constants.historical_weather[mNum.toString()] });
+
+            const { expected, lower95, upper95 } =
+                this.forecastMonth(mNum, numSaltBeds, yieldRatio);
+
+            forecasts.push({
+                month: monthStr,
+                month_number: monthOffset + 1,
+                production_forecast: expected,
+                lower_bound: lower95,
+                upper_bound: upper95,
+                season: this.getSeasonForMonth(mNum),
+            });
+
+            totalProduction += expected;
+        }
+
+        // Calculate end month using same arithmetic
+        const totalEndMonths = baseMonth + months - 1;
+        const endYear = baseYear + Math.floor(totalEndMonths / 12);
+        const endMNum = (totalEndMonths % 12) + 1; // 1-12
+
+        return {
+            forecast_type: 'monthly_production',
+            forecast_period: `${months}_months`,
+            forecast_start_month: `${baseYear}-${String(baseMonth + 1).padStart(2, '0')}`,
+            forecast_end_month: `${endYear}-${String(endMNum).padStart(2, '0')}`,
+            total_months: forecasts.length,
+            total_production: totalProduction,
+            forecasts,
+        };
+    }
+
+    // ─── Generate seasonal production aggregation from monthly forecasts ─────
+
+    private generateSeasonalProduction(
+        monthlyForecast: MonthlyProductionForecast,
+    ): SeasonalProduction {
+        const seasons: Record<string, SeasonData> = {};
+
+        for (const forecast of monthlyForecast.forecasts) {
+            const season = forecast.season;
+            if (!seasons[season]) {
+                seasons[season] = {
+                    months_count: 0,
+                    total_production: 0,
+                    months: [],
+                };
+            }
+            seasons[season].months_count += 1;
+            seasons[season].total_production += forecast.production_forecast;
+            seasons[season].months.push({
+                month: forecast.month,
+                production: forecast.production_forecast,
+            });
+        }
+
+        return {
+            forecast_type: 'seasonal_production',
+            forecast_period: '12_months',
+            seasons,
         };
     }
 }
