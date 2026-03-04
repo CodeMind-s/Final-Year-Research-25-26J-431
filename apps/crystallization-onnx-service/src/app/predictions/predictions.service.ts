@@ -228,7 +228,7 @@ export class PredictionsService {
             temperature_mean:     this.randomInRange(25, 28),
             temperature_min:      this.randomInRange(22, 25),
             temperature_max:      this.randomInRange(27, 30),
-            rain_sum:             this.randomInRange(0, 5),
+            rain_sum:             this.randomInRange(0, 0.1),
             wind_speed_max:       this.randomInRange(10, 30),
             wind_gusts_max:       this.randomInRange(20, 50),
             relative_humidity_mean: this.randomInRange(70, 90),
