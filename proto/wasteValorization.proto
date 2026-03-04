@@ -9,6 +9,11 @@ service WasteValorizationJobService {
   rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
 }
 
+service WasteValorizationManagementService {
+  rpc GetWastePredictions(GetWastePredictionsRequest) returns (GetWastePredictionsResponse);
+  rpc QuickPrediction(QuickPredictionRequest) returns (QuickPredictionResponse);
+}
+
 enum JobStatus {
   PENDING = 0;
   PROCESSING = 1;
@@ -98,3 +103,35 @@ message GetJobStatusResponse {
   string resultData = 5;
   string errorMessage = 6;
 }
+
+// Waste Management Dashboard messages
+message GetWastePredictionsRequest {
+  string startDate = 1;  // ISO date string (YYYY-MM-DD)
+  string endDate = 2;    // ISO date string (YYYY-MM-DD)
+  bool includeAverages = 3;
+  string userId = 4;     // Optional user ID for filtering
+}
+
+message GetWastePredictionsResponse {
+  bool success = 1;
+  string data = 2;       // JSON stringified predictions data
+  string timestamp = 3;
+  string message = 4;
+}
+
+// Quick Prediction messages
+message QuickPredictionRequest {
+  double production_volume = 1;
+  double rain_sum = 2;
+  double temperature_mean = 3;
+  double humidity_mean = 4;
+  double wind_speed_mean = 5;
+}
+
+message QuickPredictionResponse {
+  bool success = 1;
+  string data = 2;       // JSON stringified prediction data
+  string timestamp = 3;
+  string message = 4;
+}
+

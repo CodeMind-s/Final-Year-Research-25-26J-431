@@ -23,15 +23,23 @@ import {
   JobType,
   JobStatus,
 } from './dtos/jobs.dto';
+import {
+  GetWastePredictionsQueryDto,
+  GetWastePredictionsResponseDto,
+  QuickPredictionDto,
+  QuickPredictionResponseDto,
+} from './dtos/waste-management.dto';
 
 @ApiTags('Waste Valorization Jobs')
 @Controller('waste-valorization-jobs')
 export class WasteValorizationController {
   private wasteValorizationJobService: any;
+  private wasteValorizationManagementService: any;
   private readonly logger = new Logger(WasteValorizationController.name);
 
   constructor(@Inject('WASTE_VALORIZATION_PACKAGE') private client: ClientGrpcProxy) {
     this.wasteValorizationJobService = this.client.getService('WasteValorizationJobService');
+    this.wasteValorizationManagementService = this.client.getService('WasteValorizationManagementService');
   }
 
   @Post()
@@ -237,6 +245,224 @@ export class WasteValorizationController {
 
       return result;
     } catch (error: any) {
+      throw error;
+    }
+  }
+}
+
+// New controller for waste management dashboard under salt-society prefix
+@ApiTags('Salt Society - Waste Management')
+@Controller('salt-society/waste-management')
+export class WasteManagementDashboardController {
+  private wasteValorizationManagementService: any;
+  private wasteValorizationJobService: any;
+  private readonly logger = new Logger(WasteManagementDashboardController.name);
+
+  constructor(@Inject('WASTE_VALORIZATION_PACKAGE') private client: ClientGrpcProxy) {
+    this.wasteValorizationManagementService = this.client.getService('WasteValorizationManagementService');
+    this.wasteValorizationJobService = this.client.getService('WasteValorizationJobService');
+  }
+
+  @Get('predictions')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Waste Predictions Dashboard Data (Salt Society)' })
+  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD), defaults to 30 days ago' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD), defaults to 14 days in future' })
+  @ApiQuery({ name: 'includeAverages', required: false, type: Boolean, description: 'Include averages, defaults to true' })
+  @ApiResponse({ status: 200, description: 'Predictions retrieved successfully', type: GetWastePredictionsResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid date format or range' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  async getWastePredictions(
+    @Query() query: GetWastePredictionsQueryDto,
+    @Req() req: any
+  ): Promise<GetWastePredictionsResponseDto> {
+    try {
+      const requestData = {
+        startDate: query.startDate || '',
+        endDate: query.endDate || '',
+        includeAverages: query.includeAverages !== undefined ? query.includeAverages : true,
+        userId: req.user?.userId || '',
+      };
+
+      this.logger.debug(`GetWastePredictions request: ${JSON.stringify(requestData)}`);
+
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.GetWastePredictions(requestData).pipe(
+          catchError((error) => {
+            this.logger.error('Get Waste Predictions error', error);
+            const errMsg = error && error.message ? error.message : JSON.stringify(error);
+            throw new HttpException(`Failed to get predictions: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      // Parse the JSON data from the gRPC response
+      const parsedData = JSON.parse(result.data || '{"predictions":[]}');
+
+      return {
+        success: result.success,
+        data: parsedData,
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get waste predictions: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Post('quick-prediction')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Create Quick Waste Prediction Job (Salt Society)',
+    description: 'Creates an async job for waste prediction. Returns jobId to poll for results using /waste-valorization-jobs/:id endpoint.'
+  })
+  @ApiBody({ type: QuickPredictionDto })
+  @ApiResponse({ status: 200, description: 'Prediction job created successfully', type: QuickPredictionResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  async quickPrediction(
+    @Body() body: QuickPredictionDto,
+    @Req() req: any
+  ): Promise<QuickPredictionResponseDto> {
+    try {
+      const requestData = {
+        production_volume: body.production_volume,
+        rain_sum: body.rain_sum,
+        temperature_mean: body.temperature_mean,
+        humidity_mean: body.humidity_mean,
+        wind_speed_mean: body.wind_speed_mean,
+      };
+
+      this.logger.debug(`QuickPrediction request: ${JSON.stringify(requestData)}`);  
+
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.QuickPrediction(requestData).pipe(
+          catchError((error) => {
+            this.logger.error('Quick Prediction error', error);
+            const errMsg = error && error.message ? error.message : JSON.stringify(error);
+            throw new HttpException(`Failed to create prediction job: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      // Parse the JSON data from the gRPC response
+      const parsedData = JSON.parse(result.data || '{"jobId":null,"status":"FAILED"}');
+
+      return {
+        success: result.success,
+        data: parsedData,
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to create quick prediction job: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Get('quick-prediction/:jobId')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Get Quick Prediction Job Status (Salt Society)',
+    description: 'Check the status and results of a quick prediction job. Returns prediction data when job is completed.'
+  })
+  @ApiParam({ name: 'jobId', description: 'Job ID returned from quick prediction submission' })
+  @ApiResponse({ status: 200, description: 'Job status retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Job not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  async getQuickPredictionStatus(
+    @Param('jobId') jobId: string,
+    @Req() req: any
+  ): Promise<any> {
+    try {
+      const result: any = await firstValueFrom(
+        this.wasteValorizationJobService.GetJob({ id: jobId }).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Job error: ${error.message}`);
+            throw new HttpException('Job not found or failed to retrieve', HttpStatus.NOT_FOUND);
+          })
+        )
+      );
+
+      if (!result.success || !result.data) {
+        throw new HttpException('Job not found', HttpStatus.NOT_FOUND);
+      }
+
+      // Parse the job data
+      const jobData = result.data;
+      
+      // Map status number to string
+      const statusMap: Record<number, string> = {
+        0: 'pending',
+        1: 'processing',
+        2: 'completed',
+        3: 'failed',
+      };
+      
+      const status = statusMap[jobData.status] || 'pending';
+
+      // If job is still processing or pending
+      if (status === 'pending' || status === 'processing') {
+        return {
+          success: true,
+          data: {
+            jobId: jobData._id,
+            status: status,
+            message: 'Prediction is being calculated. Please check again in a few seconds.',
+            progress: status === 'processing' ? 65 : 10,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // If job failed
+      if (status === 'failed') {
+        return {
+          success: false,
+          error: {
+            code: 'PREDICTION_FAILED',
+            message: jobData.errorMessage || 'ML model processing failed. Please try again.',
+            details: jobData.errorMessage || 'Model inference timeout or invalid input parameters',
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // If job is completed
+      let predictionData = null;
+      if (jobData.resultData) {
+        try {
+          const parsedResult = typeof jobData.resultData === 'string' 
+            ? JSON.parse(jobData.resultData) 
+            : jobData.resultData;
+          predictionData = parsedResult;
+        } catch (e) {
+          this.logger.error(`Failed to parse result data: ${e}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          jobId: jobData._id,
+          status: 'completed',
+          prediction: predictionData,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get quick prediction status: ${error.message}`);
       throw error;
     }
   }
