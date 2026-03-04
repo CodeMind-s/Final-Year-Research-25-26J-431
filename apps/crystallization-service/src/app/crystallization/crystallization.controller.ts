@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { CrystallizationService } from './crystallization.service';
-import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto, GetModelPerformanceDto, GetModelPerformanceResponseDto } from './dtos/crystallization.dto';
+import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto, GetModelPerformanceDto, GetModelPerformanceResponseDto, GetWeatherForecastDto, GetWeatherForecastResponseDto } from './dtos/crystallization.dto';
 
 @Controller('Crystallization')
 export class CrystallizationController {
@@ -52,6 +52,11 @@ export class CrystallizationController {
   @GrpcMethod('CrystallizationService', 'GetModelPerformance')
   async GetModelPerformance(data: GetModelPerformanceDto): Promise<GetModelPerformanceResponseDto> {
     return this.CrystallizationService.GetModelPerformance(data);
+  }
+
+  @GrpcMethod('CrystallizationService', 'GetWeatherForecast')
+  async GetWeatherForecast(data: GetWeatherForecastDto): Promise<GetWeatherForecastResponseDto> {
+    return this.CrystallizationService.GetWeatherForecast(data);
   }
 }
 
