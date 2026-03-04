@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/guards/subscription.guard';
 import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
-import { WasteValorizationController } from './waste-valorization.controller';
+import { WasteValorizationController, WasteManagementDashboardController } from './waste-valorization.controller';
 
 @Module({
   imports: [
@@ -43,7 +43,7 @@ import { WasteValorizationController } from './waste-valorization.controller';
       },
     ]),
   ],
-  controllers: [WasteValorizationController],
+  controllers: [WasteValorizationController, WasteManagementDashboardController],
   providers: [
     WasteValorizationService,
     {
