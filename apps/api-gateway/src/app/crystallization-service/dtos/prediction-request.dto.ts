@@ -1,6 +1,6 @@
-import { IsString, IsNumber, IsObject, ValidateNested, IsInt, IsNotEmpty, Min } from 'class-validator';
+import { IsString, IsNumber, IsObject, ValidateNested, IsInt, IsNotEmpty, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CurrentValuesDto {
   @ApiProperty({ example: 28.5, description: 'Water temperature in degrees Celsius' })
@@ -52,4 +52,20 @@ export class PredictionRequestDto {
   @Type(() => CurrentValuesDto)
   @IsObject()
   current_values: CurrentValuesDto;
+
+  @ApiPropertyOptional({ example: 10, description: 'Number of salt beds (optional, for production scaling)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  num_salt_beds?: number;
+
+  @ApiPropertyOptional({ example: 8.061542, description: 'Latitude for weather data (optional, defaults to env config)' })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 79.814714, description: 'Longitude for weather data (optional, defaults to env config)' })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
 }
