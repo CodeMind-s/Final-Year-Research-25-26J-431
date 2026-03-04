@@ -13,7 +13,6 @@ import type {
     MonthlyForecast,
     SeasonalProduction,
     SeasonData,
-    MonthProduction,
 } from './dtos/interfaces';
 
 @Injectable()
@@ -86,6 +85,7 @@ export class ProductionForecastService implements OnModuleInit {
         
         this.logger.log(`computeYieldRatio: processing ${history.length} months with numSaltBeds=${numSaltBeds}`);
         
+        const FACILITY_THRESHOLD = 2000;
         const ratios: number[] = [];
         for (const item of history) {
             const monthNum = new Date(item.month).getMonth() + 1;
@@ -96,14 +96,35 @@ export class ProductionForecastService implements OnModuleInit {
             }
             const mSin = Math.sin(2 * Math.PI * monthNum / 12);
             const mCos = Math.cos(2 * Math.PI * monthNum / 12);
-            const formulaPred = Math.max(1,
-                this.constants.beds_coef  * numSaltBeds
-                + this.constants.rain_coef * wx.avg_rain_mm
-                + this.constants.temp_coef * wx.avg_temp_c
-                + this.constants.sin_coef  * mSin
-                + this.constants.cos_coef  * mCos
-                + this.constants.intercept,
-            );
+
+            let formulaPred: number;
+            if (numSaltBeds >= FACILITY_THRESHOLD) {
+                // Tier 1: large facility — use formula directly with provided bed count
+                formulaPred = Math.max(1,
+                    this.constants.beds_coef  * numSaltBeds
+                    + this.constants.rain_coef * wx.avg_rain_mm
+                    + this.constants.temp_coef * wx.avg_temp_c
+                    + this.constants.sin_coef  * mSin
+                    + this.constants.cos_coef  * mCos
+                    + this.constants.intercept,
+                );
+            } else {
+                // Tier 2: individual owner — but production HISTORY is still from the full
+                // facility (MongoDB stores facility-level actuals). We must compare actual
+                // output against the facility-level formula prediction so the yield ratio
+                // reflects saltern efficiency, not an absurd actual/30-bed ratio.
+                // Per-bed scaling only applies in forecastMonth() for forward projections.
+                formulaPred = Math.max(1,
+                    this.constants.beds_coef  * this.constants.historical_avg_beds
+                    + this.constants.rain_coef * wx.avg_rain_mm
+                    + this.constants.temp_coef * wx.avg_temp_c
+                    + this.constants.sin_coef  * mSin
+                    + this.constants.cos_coef  * mCos
+                    + this.constants.intercept,
+                );
+            }
+
+
             const ratio = item.production_volume / formulaPred;
             
             console.log(`yieldRatio item: month=${item.month} actual=${item.production_volume} formulaPred=${formulaPred.toFixed(2)} ratio=${ratio.toFixed(6)}`);
@@ -151,58 +172,62 @@ export class ProductionForecastService implements OnModuleInit {
         numSaltBeds: number,
         yieldRatio: number,
     ): { expected: number; lower95: number; upper95: number } {
-        console.log('forecastMonth inputs:', {
-            monthNum,
-            numSaltBeds,
-            numSaltBeds_type: typeof numSaltBeds,
-            beds_coef: this.constants?.beds_coef,
-            calculation_check: (this.constants?.beds_coef ?? 0) * numSaltBeds
-        });
-        
-        console.log('COEFFICIENTS CHECK:', {
-            beds_coef:  this.constants?.beds_coef,
-            rain_coef:  this.constants?.rain_coef,
-            temp_coef:  this.constants?.temp_coef,
-            sin_coef:   this.constants?.sin_coef,
-            cos_coef:   this.constants?.cos_coef,
-            intercept:  this.constants?.intercept,
-            constants_defined: !!this.constants,
-            constants_keys: this.constants ? Object.keys(this.constants) : []
-        });
-        
         // Guard: ensure constants are loaded
         if (!this.constants) {
             this.logger.error('forecastMonth called before constants loaded!');
             throw new Error('CalibrationConstants not loaded. Ensure loadConstants() completed.');
         }
-        
+
         const wx = this.constants.historical_weather[monthNum.toString()];
-        
+
         if (!wx) {
-            this.logger.error(`forecastMonth: NO historical_weather for monthNum=${monthNum}`);
-            // Return a reasonable default based on average
-            const defaultExpected = 60000 * yieldRatio;
-            return {
-                expected: defaultExpected,
-                lower95: Math.max(0, defaultExpected - this.constants.pi_half_width),
-                upper95: defaultExpected + this.constants.pi_half_width,
-            };
+            this.logger.warn(
+                `No historical weather for monthNum=${monthNum}. ` +
+                `Check calibration_constants.json historical_weather keys (expected "1"–"12").`,
+            );
+            return { expected: 0, lower95: 0, upper95: 0 };
         }
-        
+
+        const FACILITY_THRESHOLD = 2000;
         const mSin = Math.sin(2 * Math.PI * monthNum / 12);
         const mCos = Math.cos(2 * Math.PI * monthNum / 12);
-        const base = Math.max(0,
-            this.constants.beds_coef  * numSaltBeds
-            + this.constants.rain_coef * wx.avg_rain_mm
-            + this.constants.temp_coef * wx.avg_temp_c
-            + this.constants.sin_coef  * mSin
-            + this.constants.cos_coef  * mCos
-            + this.constants.intercept,
-        );
+        let base: number;
+
+        if (numSaltBeds >= FACILITY_THRESHOLD) {
+            // ── Tier 1: Large facility — use formula directly ──────────────────
+            base = Math.max(0,
+                this.constants.beds_coef  * numSaltBeds
+                + this.constants.rain_coef * wx.avg_rain_mm
+                + this.constants.temp_coef * wx.avg_temp_c
+                + this.constants.sin_coef  * mSin
+                + this.constants.cos_coef  * mCos
+                + this.constants.intercept,
+            );
+        } else {
+            // ── Tier 2: Individual owner — per-bed scaling ────────────────────
+            // Formula trained on 7,500-10,000 bed facilities; applying intercept
+            // (-279,846) directly to 30 beds gives negative output.
+            // Solution: compute the per-bed rate at the historical average bed count,
+            // then scale linearly to the owner's actual bed count.
+            const baseAtAvgBeds = Math.max(0,
+                this.constants.beds_coef  * this.constants.historical_avg_beds
+                + this.constants.rain_coef * wx.avg_rain_mm
+                + this.constants.temp_coef * wx.avg_temp_c
+                + this.constants.sin_coef  * mSin
+                + this.constants.cos_coef  * mCos
+                + this.constants.intercept,
+            );
+            const perBedRate = baseAtAvgBeds / this.constants.historical_avg_beds;
+            base = perBedRate * numSaltBeds;
+        }
+
         const expected = base * yieldRatio;
-        
-        console.log(`forecastMonth: monthNum=${monthNum} wx=${JSON.stringify(wx)} mSin=${mSin.toFixed(4)} mCos=${mCos.toFixed(4)} base=${base.toFixed(2)} expected=${expected.toFixed(2)}`);
-        
+        this.logger.debug(
+            `forecastMonth: month=${monthNum} beds=${numSaltBeds} ` +
+            `tier=${numSaltBeds >= FACILITY_THRESHOLD ? 'FACILITY' : 'INDIVIDUAL_OWNER'} ` +
+            `base=${base.toFixed(2)} expected=${expected.toFixed(2)}`,
+        );
+
         return {
             expected,
             lower95: Math.max(0, expected - this.constants.pi_half_width),
@@ -322,6 +347,7 @@ export class ProductionForecastService implements OnModuleInit {
         decliningTrend: boolean;
         improvingTrend: boolean;
         nHistoryMonths: number;
+        numSaltBeds: number;
     }): ConfidenceReport {
         const c = this.constants;
         const scoreFormula = c.r2_score * 100;
@@ -342,6 +368,14 @@ export class ProductionForecastService implements OnModuleInit {
                             : overall >= 40 ? 'LOW-MEDIUM — use as a guide'
                             : 'LOW CONFIDENCE';
 
+        const isFacility = params.numSaltBeds >= 2000;
+        const bedCountTier: ConfidenceReport['bedCountTier'] = isFacility ? 'FACILITY' : 'INDIVIDUAL_OWNER';
+        const bedCountNote = isFacility
+            ? undefined
+            : `Forecast uses per-bed scaling. Owner has ${params.numSaltBeds} beds vs facility average of ` +
+              `${this.constants.historical_avg_beds} beds. Accuracy depends on this owner performing ` +
+              `proportionally to the facility average. Individual owner training data would improve accuracy.`;
+
         return {
             overallScore:    Math.round(overall * 10) / 10,
             overallRating,
@@ -356,6 +390,8 @@ export class ProductionForecastService implements OnModuleInit {
             holdoutScore:    scoreHoldout,
             dataVolumeScore: scoreData,
             yieldScore:      scoreYield,
+            bedCountTier,
+            bedCountNote,
         };
     }
 
@@ -366,12 +402,8 @@ export class ProductionForecastService implements OnModuleInit {
         numSaltBeds: number;
         productionHistory: ProductionHistoryItem[];
     }): Promise<ProductionForecastResult> {
-        console.log('forecast() params:', {
-            currentDate: params.currentDate,
-            numSaltBeds: params.numSaltBeds,
-            numSaltBeds_type: typeof params.numSaltBeds,
-            historyLength: params.productionHistory?.length ?? 0
-        });
+        const tier = params.numSaltBeds >= 2000 ? 'FACILITY' : 'INDIVIDUAL_OWNER';
+        this.logger.log(`forecast numSaltBeds=${params.numSaltBeds} tier=${tier}`);
         
         const date = new Date(params.currentDate);
         const { yieldRatio, ratios, nMonths } =
@@ -415,6 +447,7 @@ export class ProductionForecastService implements OnModuleInit {
         const confidence = this.computeConfidence({
             yieldRatio, yieldStatus, decliningTrend, improvingTrend,
             nHistoryMonths: nMonths,
+            numSaltBeds: params.numSaltBeds,
         });
 
         // Generate 6-month and 12-month production forecasts using calibration formula
