@@ -144,12 +144,15 @@ export class WeatherService implements OnModuleInit {
         }
 
         try {
-            const url = `https://pro.openweathermap.org/data/2.5/forecast/daily`;
+            // Developer plan endpoint (not pro.openweathermap.org)
+            const url = `https://api.openweathermap.org/data/2.5/forecast/daily`;
+            this.logger.log(`Fetching 16-day forecast for lat=${lat}, lon=${lon}`);
             const resp = await axios.get(url, {
                 params: { lat, lon, cnt: 16, units: 'metric', appid: apiKey },
                 timeout: 10_000,
             });
             const list = resp.data.list as any[];
+            this.logger.log(`OpenWeatherMap forecast: received ${list.length} days`);
             return list.map(item => ({
                 temperature_mean:     item.temp?.day    ?? item.main?.temp ?? 27,
                 temperature_max:      item.temp?.max    ?? item.main?.temp_max ?? 27,
@@ -175,7 +178,7 @@ export class WeatherService implements OnModuleInit {
         }
     }
 
-    // ─── OpenWeatherMap historical (hourly, aggregate to daily) ──────────────
+    // ─── OpenWeatherMap historical (day-by-day using One Call timemachine) ──────────────
 
     async fetchHistoricalWeather(
         lat: number,
@@ -190,19 +193,96 @@ export class WeatherService implements OnModuleInit {
         }
 
         try {
-            const startUnix = Math.floor(startDate.getTime() / 1000);
-            const endUnix   = Math.floor(endDate.getTime() / 1000);
-            const url = `https://history.openweathermap.org/data/2.5/history/city`;
-            const resp = await axios.get(url, {
-                params: { lat, lon, type: 'hour', start: startUnix, end: endUnix, units: 'metric', appid: apiKey },
-                timeout: 30_000,
-            });
-            const list = resp.data.list as any[];
-            return this.aggregateHourlyToDaily(list, startDate, endDate);
+            this.logger.log(`Fetching historical weather: ${startDate.toISOString().slice(0,10)} to ${endDate.toISOString().slice(0,10)}`);
+            
+            // Build array of dates needed
+            const days: Date[] = [];
+            const cur = new Date(startDate);
+            while (cur <= endDate) {
+                days.push(new Date(cur));
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            // Fetch each day using History API aggregated daily endpoint (Medium plan)
+            // Base URL for aggregated daily data
+            const results: WeatherDay[] = [];
+            
+            // Batch requests (max 10 concurrent to avoid rate limiting)
+            const batchSize = 10;
+            for (let i = 0; i < days.length; i += batchSize) {
+                const batch = days.slice(i, i + batchSize);
+                const batchResults = await Promise.all(
+                    batch.map(async (day) => {
+                        try {
+                            const dt = Math.floor(day.getTime() / 1000);
+                            // History API per-day endpoint (requires History subscription)
+                            const url = `https://history.openweathermap.org/data/3.0/history/timemachine`;
+                            const resp = await axios.get(url, {
+                                params: { lat, lon, dt, units: 'metric', appid: apiKey },
+                                timeout: 10_000,
+                            });
+                            const data = resp.data.data?.[0] ?? resp.data;
+                            return this.mapHistoricalDayToWeatherDay(data, day);
+                        } catch (err: any) {
+                            // Try alternative endpoint for older History API
+                            try {
+                                const dt = Math.floor(day.getTime() / 1000);
+                                const url = `https://api.openweathermap.org/data/3.0/onecall/timemachine`;
+                                const resp = await axios.get(url, {
+                                    params: { lat, lon, dt, units: 'metric', appid: apiKey },
+                                    timeout: 10_000,
+                                });
+                                const data = resp.data.data?.[0] ?? resp.data;
+                                return this.mapHistoricalDayToWeatherDay(data, day);
+                            } catch {
+                                // Fall back to monthly average for this specific day
+                                return this.fallbackDayForDate(day);
+                            }
+                        }
+                    })
+                );
+                results.push(...batchResults);
+                
+                // Small delay between batches to respect rate limits
+                if (i + batchSize < days.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            this.logger.log(`OpenWeatherMap historical: fetched ${results.length} days`);
+            return results;
         } catch (err) {
             this.logger.warn(`OpenWeatherMap historical API failed — falling back to monthly averages for affected days: ${err}`);
             return this.fallbackDaysInRange(startDate, endDate);
         }
+    }
+
+    private mapHistoricalDayToWeatherDay(data: any, day: Date): WeatherDay {
+        // Handle different response formats from OpenWeatherMap
+        const temp = data.temp ?? data.main?.temp ?? 27;
+        const tempMax = data.temp_max ?? data.main?.temp_max ?? temp;
+        const tempMin = data.temp_min ?? data.main?.temp_min ?? temp;
+        const humidity = data.humidity ?? data.main?.humidity ?? 75;
+        const windSpeed = data.wind_speed ?? data.wind?.speed ?? 5;
+        const windGust = data.wind_gust ?? data.wind?.gust ?? windSpeed;
+        const rain = data.rain?.['1h'] ?? data.rain ?? 0;
+
+        return {
+            temperature_mean: typeof temp === 'object' ? temp.day ?? 27 : temp,
+            temperature_max: typeof tempMax === 'object' ? tempMax.max ?? tempMax : tempMax,
+            temperature_min: typeof tempMin === 'object' ? tempMin.min ?? tempMin : tempMin,
+            rain_sum: typeof rain === 'object' ? Object.values(rain).reduce((a: number, b: any) => a + (b || 0), 0) : rain,
+            wind_speed_max: windSpeed,
+            wind_gusts_max: windGust,
+            wind_gusts_mean: windGust,
+            wind_speed_mean: windSpeed,
+            wind_gusts_min: windGust,
+            wind_speed_min: windSpeed,
+            relative_humidity_mean: humidity,
+            relative_humidity_mean_2: humidity,
+            relative_humidity_max: humidity,
+            relative_humidity_min: humidity,
+        };
     }
 
     private fallbackDaysInRange(startDate: Date, endDate: Date): WeatherDay[] {
