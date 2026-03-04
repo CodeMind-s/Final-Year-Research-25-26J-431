@@ -267,7 +267,7 @@ export class CrystallizationController {
           East_channel: predictionRequest.current_values.eastChannel,
           West_channel: predictionRequest.current_values.westChannel,
         },
-        num_salt_beds: predictionRequest.num_salt_beds ?? 10,
+        num_salt_beds: predictionRequest.num_salt_beds || 7500,
         latitude: predictionRequest.latitude,
         longitude: predictionRequest.longitude,
       };
