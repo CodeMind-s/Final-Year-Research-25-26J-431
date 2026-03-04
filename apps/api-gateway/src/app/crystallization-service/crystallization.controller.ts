@@ -10,6 +10,7 @@ import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
 import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
 import { GetModelPerformanceResponseDto } from './dtos/model-performance.dto';
+import { GetWeatherForecastResponseDto } from './dtos/weather-forecast.dto';
 
 @ApiTags('Crystallization Predictions')
 @Controller('crystallization')
@@ -378,39 +379,84 @@ export class CrystallizationController {
     }
   }
 
-  @Get("/model-performance")
-  @Roles(Role.SALTSOCIETY)
-  @RequirePlan(1)
+  // @Get("/model-performance")
+  // @Roles(Role.SALTSOCIETY)
+  // @RequirePlan(1)
+  // @ApiBearerAuth()
+  // @ApiTags('Crystallization Model Performance')
+  // @ApiOperation({ summary: 'Get model performance records' })
+  // @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
+  // @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
+  // @ApiResponse({ status: 404, description: 'No model performance records found' })
+  // async getModelPerformance(
+  //   @Query('limit') limit?: number
+  // ): Promise<GetModelPerformanceResponseDto> {
+  //   try {
+  //     const requestData = {
+  //       limit: limit ? parseInt(limit.toString(), 10) : 10,
+  //     };
+
+  //     const result = await firstValueFrom(
+  //       this.crystallizationService.GetModelPerformance(requestData).pipe(
+  //         catchError((error) => {
+  //           this.logger.error(`Get Model Performance error: ${error.message}`);
+  //           throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
+  //         })
+  //       )
+  //     ) as { success: boolean; message: string; data?: any[] };
+
+  //     this.logger.log('=== GRPC RESULT ===');
+  //     this.logger.log(JSON.stringify(result, null, 2));
+
+  //     return {
+  //       success: result.success,
+  //       message: result.message,
+  //       data: result.data || [],
+  //     };
+  //   } catch (error: any) {
+  //     throw error;
+  //   }
+  // }
+
+  @Get("/weather-forecast")
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
-  @ApiTags('Crystallization Model Performance')
-  @ApiOperation({ summary: 'Get model performance records' })
-  @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
-  @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
-  @ApiResponse({ status: 404, description: 'No model performance records found' })
-  async getModelPerformance(
-    @Query('limit') limit?: number
-  ): Promise<GetModelPerformanceResponseDto> {
+  @ApiTags('Crystallization Weather')
+  @ApiOperation({ summary: 'Get daily weather forecast. Defaults to Puttalam salt production area (lat=8.061542, lon=79.814714, cnt=16).' })
+  @ApiQuery({ name: 'lat', type: Number, required: false, description: 'Latitude', example: 8.061542 })
+  @ApiQuery({ name: 'lon', type: Number, required: false, description: 'Longitude', example: 79.814714 })
+  @ApiQuery({ name: 'cnt', type: Number, required: false, description: 'Number of forecast days (max 16)', example: 16 })
+  @ApiResponse({ status: 200, description: 'Weather forecast fetched successfully', type: GetWeatherForecastResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to fetch weather forecast' })
+  async getWeatherForecast(
+    @Query('lat') lat?: number,
+    @Query('lon') lon?: number,
+    @Query('cnt') cnt?: number,
+  ): Promise<GetWeatherForecastResponseDto> {
     try {
       const requestData = {
-        limit: limit ? parseInt(limit.toString(), 10) : 10,
+        lat: lat ? parseFloat(lat.toString()) : 8.061542,
+        lon: lon ? parseFloat(lon.toString()) : 79.814714,
+        cnt: cnt ? parseInt(cnt.toString(), 10) : 16,
       };
 
       const result = await firstValueFrom(
-        this.crystallizationService.GetModelPerformance(requestData).pipe(
+        this.crystallizationService.GetWeatherForecast(requestData).pipe(
           catchError((error) => {
-            this.logger.error(`Get Model Performance error: ${error.message}`);
-            throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
+            this.logger.error(`Get Weather Forecast error: ${error.message}`);
+            throw new HttpException('Failed to fetch weather forecast', HttpStatus.BAD_REQUEST);
           })
         )
-      ) as { success: boolean; message: string; data?: any[] };
+      ) as { success: boolean; message: string; data: string };
 
-      this.logger.log('=== GRPC RESULT ===');
-      this.logger.log(JSON.stringify(result, null, 2));
+      this.logger.log('=== GRPC RESULT (weather forecast) ===');
+      this.logger.log(`success: ${result.success}, message: ${result.message}`);
 
       return {
         success: result.success,
         message: result.message,
-        data: result.data || [],
+        data: result.data ? JSON.parse(result.data) : null,
       };
     } catch (error: any) {
       throw error;
