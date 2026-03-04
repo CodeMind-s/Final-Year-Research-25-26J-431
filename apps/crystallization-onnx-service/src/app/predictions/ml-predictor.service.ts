@@ -120,17 +120,24 @@ export class MlPredictorService implements OnModuleInit {
      * @param startDate   ISO date string for the forecast start (used for weather lookup)
      * @param latitude    Latitude for weather fetch (defaults from env)
      * @param longitude   Longitude for weather fetch (defaults from env)
-     * @returns Predicted parameters (8 values)
+     * @returns ALL 60 days of predicted parameters (array of 8-value arrays)
      */
     async predict(
         inputValues: number[],
         startDate?: string,
         latitude?: number,
         longitude?: number,
-    ): Promise<number[]> {
+    ): Promise<number[][]> {
         if (!this.session) {
-            this.logger.warn('Running in MOCK mode - returning simulated predictions');
-            return inputValues.map(v => v * (1 + (Math.random() * 0.1 - 0.05)));
+            this.logger.warn('Running in MOCK mode - returning 60 days of simulated predictions');
+            // Generate 60 days of mock predictions
+            const mockDays: number[][] = [];
+            let currentParams = [...inputValues];
+            for (let day = 0; day < 60; day++) {
+                currentParams = currentParams.map(v => v * (1 + (Math.random() * 0.1 - 0.05)));
+                mockDays.push([...currentParams]);
+            }
+            return mockDays;
         }
 
         if (inputValues.length !== 8) {
@@ -145,9 +152,13 @@ export class MlPredictorService implements OnModuleInit {
         const logTensor = new ort.Tensor('float32', logData, [1, sequenceLength, logFeatures]);
 
         // ── 2. Build weather_input [1, 60, 14] using WeatherService ──────────
-        const lat  = latitude  ?? (parseFloat(process.env.OPENWEATHER_LAT ?? '') || 7.2008);
-        const lon  = longitude ?? (parseFloat(process.env.OPENWEATHER_LON ?? '') || 79.8737);
+        // Use || instead of ?? because protobuf defaults unset numbers to 0
+        const lat  = latitude  || parseFloat(process.env.OPENWEATHER_LAT ?? '') || 7.2008;
+        const lon  = longitude || parseFloat(process.env.OPENWEATHER_LON ?? '') || 79.8737;
         const date = startDate ?? new Date().toISOString().slice(0, 10);
+        
+        this.logger.log(`Weather fetch params: lat=${lat}, lon=${lon}, date=${date}`);
+        this.logger.log(`Source: ${latitude ? 'request' : (process.env.OPENWEATHER_LAT ? 'env' : 'default')}`);
 
         let weatherData: Float32Array;
         try {
@@ -168,10 +179,46 @@ export class MlPredictorService implements OnModuleInit {
 
         const results = await this.session.run(feeds);
 
-        // ── 4. Extract output: first 8 values (day-1 forecast) ───────────────
+        // ── 4. Extract output: ALL 60 days × 8 parameters ────────────────────
+        // Model outputs [1, 480] which reshapes to [60, 8]
         const outputName = this.session.outputNames[0];
         const outputData = results[outputName].data as Float32Array;
-        return Array.from(outputData).slice(0, 8);
+        
+        // Return all 60 days as array of 8-parameter arrays
+        // IMPORTANT: Denormalize using inverse RobustScaler transform
+        // X_original = X_scaled * scale + center
+        const allDays: number[][] = [];
+        for (let day = 0; day < 60; day++) {
+            const startIdx = day * 8;
+            const normalizedParams = Array.from(outputData.slice(startIdx, startIdx + 8));
+            // Denormalize each parameter
+            const denormalizedParams = normalizedParams.map((val, idx) => {
+                const center = this.logScalerCenter[idx] ?? 0;
+                const scale  = this.logScalerScale[idx]  ?? 1;
+                return val * scale + center;
+            });
+            allDays.push(denormalizedParams);
+        }
+        
+        if (allDays.length > 0) {
+            this.logger.log(`ONNX output denormalized: day1=[${allDays[0].map(v => v.toFixed(2)).join(', ')}]`);
+        }
+        
+        return allDays;
+    }
+
+    /**
+     * Backward-compatible predict for single day (legacy usage).
+     * Returns only day 1 predictions.
+     */
+    async predictSingleDay(
+        inputValues: number[],
+        startDate?: string,
+        latitude?: number,
+        longitude?: number,
+    ): Promise<number[]> {
+        const allDays = await this.predict(inputValues, startDate, latitude, longitude);
+        return allDays[0];
     }
 
     /**
