@@ -149,8 +149,8 @@ export class CrystallizationService implements OnModuleInit {
           West_channel: data.current_values.West_channel,
         },
         num_salt_beds: data.num_salt_beds || 7500,
-        latitude:      data.latitude,
-        longitude:     data.longitude,
+        latitude: data.latitude,
+        longitude: data.longitude,
       };
 
       console.log('Crystallization Service: Forwarding prediction request to ONNX service');
@@ -383,7 +383,7 @@ export class CrystallizationService implements OnModuleInit {
       return response;
     } catch (error) {
       console.error('Error creating daily measurement:', error);
-      
+
       // Audit log for failed daily measurement creation
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -595,7 +595,7 @@ export class CrystallizationService implements OnModuleInit {
       return response;
     } catch (error) {
       console.error('Error updating daily measurement:', error);
-      
+
       // Audit log for failed daily measurement update
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -646,7 +646,7 @@ export class CrystallizationService implements OnModuleInit {
       };
     } catch (error) {
       console.error('Error deleting daily measurement:', error);
-      
+
       // Audit log for failed daily measurement deletion
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -768,6 +768,46 @@ export class CrystallizationService implements OnModuleInit {
     } catch (error) {
       console.error('Error fetching model performance records:', error);
       throw new BadRequestException(`Failed to fetch model performance records: ${error.message}`);
+    }
+  }
+
+  async GetWeatherForecast(data: any): Promise<{ success: boolean; message: string; data: string }> {
+    try {
+      const apiKey = this.configService.get<string>('OPENWEATHER_API_KEY');
+
+      if (!apiKey) {
+        console.warn('OpenWeatherMap API key not configured. Cannot fetch weather forecast.');
+        return {
+          success: false,
+          message: 'OpenWeatherMap API key is not configured',
+          data: '',
+        };
+      }
+
+      const lat = data?.lat ?? 8.061542;
+      const lon = data?.lon ?? 79.814714;
+      const cnt = data?.cnt ?? 16;
+
+      const url = `https://api.openweathermap.org/data/2.5/forecast/daily?lat=${lat}&lon=${lon}&cnt=${cnt}&appid=${apiKey}`;
+
+      console.log('Fetching 16-day daily weather forecast from OpenWeatherMap...');
+      const response = await axios.get(url);
+
+      const forecastData = response.data;
+      console.log(`Weather forecast fetched successfully. City: ${forecastData?.city?.name}, Days: ${forecastData?.cnt}`);
+
+      return {
+        success: true,
+        message: 'Weather forecast fetched successfully',
+        data: JSON.stringify(forecastData),
+      };
+    } catch (error) {
+      console.error('Error fetching weather forecast from OpenWeatherMap:', error.message);
+      return {
+        success: false,
+        message: `Failed to fetch weather forecast: ${error.message}`,
+        data: '',
+      };
     }
   }
 }
