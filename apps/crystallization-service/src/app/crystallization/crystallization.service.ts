@@ -32,6 +32,9 @@ interface PredictionRequest {
   start_date: string;
   forecast_days: number;
   current_values: CurrentValues;
+  num_salt_beds?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface PredictionsONNXService {
@@ -145,6 +148,9 @@ export class CrystallizationService implements OnModuleInit {
           East_channel: data.current_values.East_channel,
           West_channel: data.current_values.West_channel,
         },
+        num_salt_beds: data.num_salt_beds || 7500,
+        latitude:      data.latitude,
+        longitude:     data.longitude,
       };
 
       console.log('Crystallization Service: Forwarding prediction request to ONNX service');
