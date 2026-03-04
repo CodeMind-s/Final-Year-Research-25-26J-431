@@ -17,8 +17,10 @@ export class PredictionsController {
     @GrpcMethod('PredictionsService', 'GetPredictions')
     async getPredictions(request: PredictionRequest): Promise<PredictionResponse> {
         this.logger.log(
-            `Received prediction request for ${request.forecast_days} days starting ${request.start_date}`,
+            `Received prediction request for ${request.forecast_days} days starting ${request.start_date} ` +
+            `[num_salt_beds=${request.num_salt_beds ?? 'unset'}, lat=${request.latitude ?? 'default'}, lon=${request.longitude ?? 'default'}]`,
         );
+
         try {
             const response = await this.predictionsService.getPredictions(request);
             this.logger.log('Prediction completed successfully');
