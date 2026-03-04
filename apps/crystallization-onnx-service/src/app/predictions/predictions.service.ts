@@ -87,9 +87,17 @@ export class PredictionsService {
         // This is the SINGLE SOURCE OF TRUTH for all monthly/seasonal production
         const productionHistory = await this.fetchProductionHistory(request.start_date);
         
-        console.log('request.num_salt_beds:', request.num_salt_beds, 'type:', typeof request.num_salt_beds);
-        const numSaltBeds = request.num_salt_beds || 7500;
-        console.log('Using numSaltBeds:', numSaltBeds);
+        // NestJS gRPC converts snake_case proto fields to camelCase at runtime.
+        // The proto field `num_salt_beds` arrives as `numSaltBeds` in the JS object
+        // (not `num_salt_beds`). Reading `request.num_salt_beds` always returns
+        // undefined → coerces to 0 → falls through to the 7500 default.
+        //
+        // Fix: read the camelCase runtime property first, fall back to snake_case
+        // in case a future NestJS version changes the behaviour.
+        const rawBeds = (request as any).numSaltBeds ?? request.num_salt_beds ?? 0;
+        const numSaltBeds: number = rawBeds > 0 ? rawBeds : 7500;
+        // STEP 2 removed — root cause fixed in api-gateway (num_salt_beds || 7500)
+
         
         const calibratedResult = await this.productionForecastService.forecast({
             currentDate:       request.start_date,
