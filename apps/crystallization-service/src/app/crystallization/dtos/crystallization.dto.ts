@@ -95,6 +95,9 @@ export class GetPredictionsDto {
   start_date: string;
   forecast_days: number;
   current_values: CurrentValuesDto;
+  num_salt_beds?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export class GetPredictionsResponseDto {
