@@ -951,4 +951,88 @@ describe('CrystallizationService', () => {
       await expect(service.GetModelPerformance({})).rejects.toThrow(BadRequestException);
     });
   });
+
+  // --- GetWeatherForecast ---
+
+  describe('GetWeatherForecast', () => {
+    const mockForecastResponse = {
+      city: { id: 1229293, name: 'Puttalam', coord: { lon: 79.8147, lat: 8.0615 }, country: 'LK', population: 45661, timezone: 19800 },
+      cod: '200',
+      message: 0.75,
+      cnt: 16,
+      list: [
+        {
+          dt: 1772605800,
+          temp: { day: 300.89, min: 295.72, max: 300.89, night: 298.93, eve: 299.52, morn: 295.87 },
+          weather: [{ id: 501, main: 'Rain', description: 'moderate rain', icon: '10d' }],
+          humidity: 64,
+          speed: 5.14,
+        },
+      ],
+    };
+
+    it('should return weather forecast successfully', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Weather forecast fetched successfully');
+      expect(result.data).toBe(JSON.stringify(mockForecastResponse));
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('forecast/daily?lat=8.061542&lon=79.814714&cnt=16'),
+      );
+    });
+
+    it('should include the API key in the request URL', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({});
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('appid=test-api-key'),
+      );
+    });
+
+    it('should return success false when API key is not configured', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('API key is not configured');
+      expect(result.data).toBe('');
+      expect(mockedAxios.get as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    it('should return success false when the HTTP call fails', async () => {
+      (mockedAxios.get as jest.Mock).mockRejectedValue(new Error('Network timeout'));
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Network timeout');
+      expect(result.data).toBe('');
+    });
+
+    it('should use custom lat/lon/cnt from request data when provided', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({ lat: 6.927079, lon: 79.861244, cnt: 7 });
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('lat=6.927079&lon=79.861244&cnt=7'),
+      );
+    });
+
+    it('should fall back to default lat/lon/cnt when not provided', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({});
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('lat=8.061542&lon=79.814714&cnt=16'),
+      );
+    });
+  });
 });
