@@ -176,6 +176,12 @@ export interface ProductionForecastResult {
     calibratedMonthlyForecast: CalibratedMonthlyForecast[];
     seasonalForecast: SeasonForecast[];
     confidence: ConfidenceReport;
+    /** 6-month production forecast using calibration formula */
+    monthlyProduction6Months: MonthlyProductionForecast;
+    /** 12-month production forecast using calibration formula */
+    monthlyProduction12Months: MonthlyProductionForecast;
+    /** Seasonal production aggregation using calibration formula */
+    seasonalProduction: SeasonalProduction;
 }
 
 export interface ProductionHistoryItem {
