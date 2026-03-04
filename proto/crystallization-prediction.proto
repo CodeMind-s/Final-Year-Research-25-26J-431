@@ -170,6 +170,8 @@ message ConfidenceReport {
   double holdoutScore     = 11;
   double dataVolumeScore  = 12;
   double yieldScore       = 13;
+  string bedCountTier     = 14;
+  string bedCountNote     = 15;
 }
 
 // ─── Retraining ─────────────────────────────────────────────────────────────
