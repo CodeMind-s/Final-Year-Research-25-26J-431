@@ -258,9 +258,22 @@ expected_bags = (beds_coef × num_salt_beds)
 | `cos_coef × cos(2πm/12)` | **6675.845** | 6675.845 | The cosine component, capturing the **phase offset** of the seasonal wave. Together, sin and cos encode a smooth repeating seasonal cycle without needing month dummy variables. |
 | `intercept` | **−279,846.18** | −279,846.18 | A large negative baseline that sets the absolute scale. Without it, the formula would massively overestimate at low bed counts/temperatures. It effectively represents the fixed overhead that must be overcome before any production occurs. |
 
+### The Two-Tier Forecasting System
+
+Because the formula was trained on data from a large facility (typically 7,500+ beds), its coefficients and especially the massive `-279,846` intercept are calibrated for macro-scale production. Applying this formula directly to an individual owner with only 30 beds produces nonsensical negative numbers.
+
+To solve this, the service implements a **two-tier system** based on `num_salt_beds`:
+
+| Tier | Condition | How future production is calculated |
+|---|---|---|
+| **Tier 1 (Facility)** | `beds ≥ 2000` | The linear regression formula is used directly with the provided `num_salt_beds`. |
+| **Tier 2 (Individual Owner)** | `beds < 2000` | The service calculates what the *entire facility* would produce using the `historical_avg_beds` (e.g., 6897.2). It then divides this by `historical_avg_beds` to get a **per-bed rate**. This rate is multiplied by the owner's `num_salt_beds` (e.g., rate × 30). |
+
+This ensures that even a 20-bed farm gets a mathematically sound, seasonally accurate forecast scaled perfectly to their size.
+
 ### After applying yield ratio:
 ```python
-expected = base_formula × yieldRatio
+expected = base_formula_or_scaled_beds × yieldRatio
 lower95  = max(0, expected − pi_half_width)
 upper95  = expected + pi_half_width
 ```
@@ -298,11 +311,14 @@ The production formula was calibrated on **aggregate saltern data** representing
 
 ### How It Is Calculated
 
-For each month in the facility's production history:
-```
-ratio = actual_production / formula_prediction_for_that_month
-```
-The service computes this ratio for every available historical month, then takes the **median** of all ratios.
+The calculation method depends on the tier, but the crucial rule is: **MongoDB stores actual production for the entire facility, not individual owners.**
+
+Therefore, during calibration:
+1. The service ALWAYS computes the *formula baseline* using `historical_avg_beds` (representing the full facility).
+2. For each historical month: `ratio = actual_facility_production / formula_facility_prediction`
+3. The service takes the **median** of all historical ratios.
+
+This ensures the yield ratio measures the *true efficiency* of the salt farming operation against the climate, rather than creating an exploded ratio by comparing 112,000 actual bags against a 30-bed prediction.
 
 ### Why Median Instead of Mean
 
@@ -389,6 +405,13 @@ The confidence report answers: *"How much should I trust this forecast?"* It gen
 overallScore = (97.32 × 0.30) + (92.04 × 0.40) + (60.0 × 0.20) + (yieldScore × 0.10)
              = 29.20 + 36.82 + 12.00 + [yieldScore × 0.10]
 ```
+
+### Bed Count Tier & Transparency
+
+The confidence report also returns exactly how the numbers were generated based on farm size:
+
+- **`bedCountTier`**: Either `"FACILITY"` (≥2000 beds) or `"INDIVIDUAL_OWNER"` (<2000 beds).
+- **`bedCountNote`**: Recommends caution to individual owners: *"Forecast uses per-bed scaling. Owner has 30 beds vs facility average... Accuracy depends on this owner performing proportionally to the facility average."* (Omitted for Tier 1 users).
 
 ### Overall Ratings
 
