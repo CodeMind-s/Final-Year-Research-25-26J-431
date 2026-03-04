@@ -170,6 +170,10 @@ export interface ConfidenceReport {
     holdoutScore: number;
     dataVolumeScore: number;
     yieldScore: number;
+    /** Whether the forecast used the full formula (FACILITY) or per-bed scaling (INDIVIDUAL_OWNER) */
+    bedCountTier: 'FACILITY' | 'INDIVIDUAL_OWNER';
+    /** Explanation note for individual owner tier — undefined for facilities */
+    bedCountNote?: string;
 }
 
 export interface ProductionForecastResult {
