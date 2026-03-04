@@ -8,12 +8,7 @@ import { ActualMonthlyProduction } from './schemas/actual-monthly-production.sch
 import {
     PredictionRequest,
     PredictionResponse,
-    CurrentValues,
     DailyForecast,
-    MonthlyProductionForecast,
-    MonthlyForecast,
-    SeasonalProduction,
-    SeasonData,
     Weather,
     ProductionHistoryItem,
     RetrainingRequest,
@@ -22,7 +17,8 @@ import {
 
 /**
  * Service containing business logic for predictions.
- * Port of Python prediction_service.py and ml_predictor.py logic.
+ * ONNX model outputs 60 days × 8 parameters for daily forecasts.
+ * Monthly/seasonal production uses the calibration formula from ProductionForecastService.
  */
 @Injectable()
 export class PredictionsService {
@@ -37,7 +33,8 @@ export class PredictionsService {
     ) {}
 
     /**
-     * Generate predictions based on current values and forecast days
+     * Generate predictions based on current values and forecast days.
+     * ONNX model is called ONCE and returns ALL 60 days of predictions.
      */
     async getPredictions(request: PredictionRequest): Promise<PredictionResponse> {
         if (!this.mlPredictor.isReady()) {
@@ -45,27 +42,66 @@ export class PredictionsService {
         }
 
         const startDate    = this.parseDate(request.start_date);
-        const forecastDays = request.forecast_days;
+        const forecastDays = Math.min(request.forecast_days, 60); // Model outputs max 60 days
         const currentValues = request.current_values;
 
-        // Generate daily forecasts
-        const dailyForecasts = await this.generateDailyForecasts(
+        const currentParams = [
+            currentValues.water_temperature,
+            currentValues.lagoon,
+            currentValues.OR_brine_level,
+            currentValues.OR_bund_level,
+            currentValues.IR_brine_level,
+            currentValues.IR_bound_level,
+            currentValues.East_channel,
+            currentValues.West_channel,
+        ];
+
+        // Use || instead of ?? because protobuf defaults unset numbers to 0
+        const lat = request.latitude || parseFloat(process.env.OPENWEATHER_LAT ?? '') || 7.2008;
+        const lon = request.longitude || parseFloat(process.env.OPENWEATHER_LON ?? '') || 79.8737;
+
+        this.logger.log(`Running ONNX inference for 60 days starting ${request.start_date}`);
+        this.logger.log(`Location: lat=${lat}, lon=${lon}`);
+
+        // ── SINGLE ONNX inference → 60 days of predictions ────────────────────
+        const allDaysPredictions = await this.mlPredictor.predict(
+            currentParams,
+            this.formatDate(startDate),
+            lat,
+            lon,
+        );
+        this.logger.log(`ONNX model returned ${allDaysPredictions.length} days of predictions`);
+
+        // ── Build daily forecasts from ONNX output ────────────────────────────
+        const dailyForecasts = this.buildDailyForecasts(
             startDate,
             forecastDays,
-            currentValues,
-            request,
+            allDaysPredictions,
         );
-
-        // Generate monthly forecasts
-        const monthly6Months  = this.generateMonthlyForecast(dailyForecasts, startDate, 6);
-        const monthly12Months = this.generateMonthlyForecast(dailyForecasts, startDate, 12);
-
-        // Generate seasonal production
-        const seasonalProduction = this.generateSeasonalProduction(monthly12Months);
 
         // Build response
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + forecastDays - 1);
+
+        // ── Get calibrated forecasts using the calibration formula ────────────
+        // This is the SINGLE SOURCE OF TRUTH for all monthly/seasonal production
+        const productionHistory = await this.fetchProductionHistory(request.start_date);
+        
+        console.log('request.num_salt_beds:', request.num_salt_beds, 'type:', typeof request.num_salt_beds);
+        const numSaltBeds = request.num_salt_beds || 7500;
+        console.log('Using numSaltBeds:', numSaltBeds);
+        
+        const calibratedResult = await this.productionForecastService.forecast({
+            currentDate:       request.start_date,
+            numSaltBeds:       numSaltBeds,
+            productionHistory,
+        });
+
+        // ── Use calibrated results for monthly/seasonal production ────────────
+        // These use the calibration formula (single source of truth)
+        const monthly6Months  = calibratedResult.monthlyProduction6Months;
+        const monthly12Months = calibratedResult.monthlyProduction12Months;
+        const seasonalProduction = calibratedResult.seasonalProduction;
 
         const response: PredictionResponse = {
             status: 'success',
@@ -76,6 +112,7 @@ export class PredictionsService {
                 total_days:          forecastDays,
                 forecasts:           dailyForecasts,
             },
+            // Monthly/seasonal production using calibration formula (single source of truth)
             monthly_production_6months:  monthly6Months,
             monthly_production_12months: monthly12Months,
             seasonal_production:         seasonalProduction,
@@ -91,19 +128,11 @@ export class PredictionsService {
                 maha_season_total:           seasonalProduction.seasons['Maha']?.total_production || 0,
                 yala_season_total:           seasonalProduction.seasons['Yala']?.total_production || 0,
             },
+            // Calibrated forecasts for reference (long-term beyond 60 days)
+            calibratedMonthlyForecast: calibratedResult.calibratedMonthlyForecast,
+            seasonalForecast:          calibratedResult.seasonalForecast,
+            confidence:                calibratedResult.confidence,
         };
-
-        // ── Calibrated production forecast, seasonal forecast & confidence ────
-        const productionHistory = await this.fetchProductionHistory(request.start_date);
-        const productionResult  = await this.productionForecastService.forecast({
-            currentDate:       request.start_date,
-            numSaltBeds:       request.num_salt_beds ?? 7500,
-            productionHistory,
-        });
-
-        response.calibratedMonthlyForecast = productionResult.calibratedMonthlyForecast;
-        response.seasonalForecast          = productionResult.seasonalForecast;
-        response.confidence                = productionResult.confidence;
 
         return response;
     }
@@ -147,78 +176,39 @@ export class PredictionsService {
     }
 
     /**
-     * Generate daily forecasts using the ONNX model - NO FALLBACK
+     * Build daily forecasts from ONNX model output (all 60 days at once).
      */
-    private async generateDailyForecasts(
+    private buildDailyForecasts(
         startDate: Date,
         forecastDays: number,
-        currentValues: CurrentValues,
-        request?: PredictionRequest,
-    ): Promise<DailyForecast[]> {
+        allDaysPredictions: number[][],
+    ): DailyForecast[] {
         const forecasts: DailyForecast[] = [];
+        const daysToUse = Math.min(forecastDays, allDaysPredictions.length);
 
-        let currentParams = [
-            currentValues.water_temperature,
-            currentValues.lagoon,
-            currentValues.OR_brine_level,
-            currentValues.OR_bund_level,
-            currentValues.IR_brine_level,
-            currentValues.IR_bound_level,
-            currentValues.East_channel,
-            currentValues.West_channel,
-        ];
-
-        this.logger.log(`Starting daily forecast generation for ${forecastDays} days`);
-        this.logger.log(`Initial parameters: ${currentParams.join(', ')}`);
-
-        const lat = request?.latitude ?? (parseFloat(process.env.OPENWEATHER_LAT ?? '') || 7.2008);
-        const lon = request?.longitude ?? (parseFloat(process.env.OPENWEATHER_LON ?? '') || 79.8737);
-
-        for (let day = 0; day < forecastDays; day++) {
+        for (let day = 0; day < daysToUse; day++) {
             const forecastDate = new Date(startDate);
             forecastDate.setDate(forecastDate.getDate() + day);
+            const params = allDaysPredictions[day];
 
-            // Get predictions from ONNX model (now passes date + location)
-            const predictedParams = await this.mlPredictor.predict(
-                currentParams,
-                this.formatDate(forecastDate),
-                lat,
-                lon,
-            );
-
-            if (predictedParams.length < 8) {
-                throw new Error(
-                    `Model returned ${predictedParams.length} parameters, expected 8.`,
-                );
-            }
-
-            if (day % 10 === 0) {
-                this.logger.log(`Generated prediction for day ${day + 1}/${forecastDays}`);
-            }
-
-            const weather = this.generateWeatherForecast();
-
-            const forecastItem: DailyForecast = {
+            forecasts.push({
                 date:       this.formatDate(forecastDate),
                 day_number: day + 1,
                 parameters: {
-                    water_temperature: predictedParams[0],
-                    lagoon:            predictedParams[1],
-                    OR_brine_level:    predictedParams[2],
-                    OR_bund_level:     predictedParams[3],
-                    IR_brine_level:    predictedParams[4],
-                    IR_bound_level:    predictedParams[5],
-                    East_channel:      predictedParams[6],
-                    West_channel:      predictedParams[7],
+                    water_temperature: params[0],
+                    lagoon:            params[1],
+                    OR_brine_level:    params[2],
+                    OR_bund_level:     params[3],
+                    IR_brine_level:    params[4],
+                    IR_bound_level:    params[5],
+                    East_channel:      params[6],
+                    West_channel:      params[7],
                 },
-                weather,
-            };
-
-            forecasts.push(forecastItem);
-            currentParams = predictedParams.slice(0, 8);
+                weather: this.generateWeatherForecast(),
+            });
         }
 
-        this.logger.log(`Successfully generated ${forecasts.length} daily forecasts`);
+        this.logger.log(`Built ${forecasts.length} daily forecasts from ONNX output`);
         return forecasts;
     }
 
@@ -234,118 +224,6 @@ export class PredictionsService {
             wind_speed_max:       this.randomInRange(10, 30),
             wind_gusts_max:       this.randomInRange(20, 50),
             relative_humidity_mean: this.randomInRange(70, 90),
-        };
-    }
-
-    /**
-     * Generate monthly production forecast from daily forecasts - CALCULATED FROM MODEL OUTPUT
-     */
-    private generateMonthlyForecast(
-        dailyForecasts: DailyForecast[],
-        startDate: Date,
-        months: number,
-    ): MonthlyProductionForecast {
-        const monthlyForecasts: MonthlyForecast[] = [];
-        let totalProduction = 0;
-
-        const currentMonthStart = new Date(startDate);
-        currentMonthStart.setDate(1);
-
-        this.logger.log(
-            `Calculating monthly production from ${dailyForecasts.length} daily forecasts`,
-        );
-
-        for (let monthNum = 0; monthNum < months; monthNum++) {
-            const monthDate = new Date(currentMonthStart);
-            monthDate.setMonth(monthDate.getMonth() + monthNum);
-            const monthStr = this.formatMonth(monthDate);
-
-            const monthDailyForecasts = dailyForecasts.filter(f =>
-                f.date.startsWith(monthStr),
-            );
-
-            let production = 0;
-            for (const dayForecast of monthDailyForecasts) {
-                const params = dayForecast.parameters;
-                const dailyProduction =
-                    params.OR_brine_level * 50 +
-                    params.IR_brine_level * 50 +
-                    params.East_channel   * 30 +
-                    params.West_channel   * 30 +
-                    params.lagoon         * 20;
-                production += dailyProduction;
-            }
-
-            if (monthDailyForecasts.length === 0) {
-                this.logger.warn(`No daily forecasts available for ${monthStr}, estimating...`);
-                if (monthlyForecasts.length > 0) {
-                    production = monthlyForecasts[monthlyForecasts.length - 1].production_forecast;
-                }
-            }
-
-            const lowerBound = production * 0.85;
-            const upperBound = production * 1.15;
-
-            const month = monthDate.getMonth() + 1;
-            let season: string;
-            if      ([12, 1, 2, 3].includes(month)) season = 'Maha';
-            else if ([4, 5, 6, 7].includes(month))  season = 'Yala';
-            else                                     season = 'Other';
-
-            monthlyForecasts.push({
-                month:              monthStr,
-                month_number:       monthNum + 1,
-                production_forecast: production,
-                lower_bound:        lowerBound,
-                upper_bound:        upperBound,
-                season,
-            });
-
-            totalProduction += production;
-            this.logger.log(
-                `Month ${monthStr}: ${monthDailyForecasts.length} days, production=${production.toFixed(2)}`,
-            );
-        }
-
-        const endMonth = new Date(currentMonthStart);
-        endMonth.setMonth(endMonth.getMonth() + months - 1);
-
-        return {
-            forecast_type:        'monthly_production',
-            forecast_period:      `${months}_months`,
-            forecast_start_month: this.formatMonth(currentMonthStart),
-            forecast_end_month:   this.formatMonth(endMonth),
-            total_months:         monthlyForecasts.length,
-            total_production:     totalProduction,
-            forecasts:            monthlyForecasts,
-        };
-    }
-
-    /**
-     * Generate seasonal production summary
-     */
-    private generateSeasonalProduction(
-        monthlyForecast: MonthlyProductionForecast,
-    ): SeasonalProduction {
-        const seasons: Record<string, SeasonData> = {};
-
-        for (const forecast of monthlyForecast.forecasts) {
-            const season = forecast.season;
-            if (!seasons[season]) {
-                seasons[season] = { months_count: 0, total_production: 0, months: [] };
-            }
-            seasons[season].months_count   += 1;
-            seasons[season].total_production += forecast.production_forecast;
-            seasons[season].months.push({
-                month:      forecast.month,
-                production: forecast.production_forecast,
-            });
-        }
-
-        return {
-            forecast_type:   'seasonal_production',
-            forecast_period: '12_months',
-            seasons,
         };
     }
 
