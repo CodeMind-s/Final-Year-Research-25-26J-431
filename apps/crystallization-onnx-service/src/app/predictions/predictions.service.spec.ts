@@ -212,7 +212,7 @@ describe('PredictionsService', () => {
     });
 
     it('should throw error when predictor returns fewer than 8 parameters', async () => {
-      mockMlPredictor.predict.mockResolvedValue([1.0, 2.0, 3.0]);
+      mockMlPredictor.predict.mockResolvedValue([1.0, 2.0, 3.0] as any);
       await expect(service.getPredictions(request)).rejects.toThrow(
         'Model returned 3 parameters, expected 8.',
       );
@@ -336,7 +336,7 @@ describe('PredictionsService', () => {
     });
 
     it('should handle predictor returning more than 8 values (uses first 8)', async () => {
-      mockMlPredictor.predict.mockResolvedValue([28.6, 3.3, 1.6, 0.9, 1.3, 0.7, 2.2, 2.0, 99, 100]);
+      mockMlPredictor.predict.mockResolvedValue([28.6, 3.3, 1.6, 0.9, 1.3, 0.7, 2.2, 2.0, 99, 100] as any);
       const request = { start_date: '2025-06-15', forecast_days: 2, current_values: mockCurrentValues };
       const result  = await service.getPredictions(request);
       expect(result.daily_parameters_forecast.forecasts).toHaveLength(2);
