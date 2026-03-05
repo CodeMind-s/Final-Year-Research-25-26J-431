@@ -1,5 +1,4 @@
-import { IsString, IsNumber, IsObject, ValidateNested, IsInt, IsNotEmpty, Min, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsNumber, IsInt, IsNotEmpty, Min, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CurrentValuesDto {
@@ -46,12 +45,6 @@ export class PredictionRequestDto {
   @IsInt()
   @Min(1, { message: 'forecast_days must be at least 1' })
   forecast_days: number;
-
-  @ApiProperty({ type: CurrentValuesDto, description: 'Current parameter values' })
-  @ValidateNested()
-  @Type(() => CurrentValuesDto)
-  @IsObject()
-  current_values: CurrentValuesDto;
 
   @ApiPropertyOptional({ example: 10, description: 'Number of salt beds (optional, for production scaling)' })
   @IsOptional()
