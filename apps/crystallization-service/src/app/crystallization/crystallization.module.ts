@@ -9,6 +9,7 @@ import { DailyMeasurement, DailyMeasurementSchema } from './schemas/crystallizat
 import { DailyParameterPrediction, DailyParameterPredictionSchema } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction, MonthlyProductionPredictionSchema } from './schemas/monthly-production-prediction.schema';
 import { CrystallizationModelPerformance, CrystallizationModelPerformanceSchema } from './schemas/crystallization-model-performance.schema';
+import { LandownerMonthlyProductionPrediction, LandownerMonthlyProductionPredictionSchema } from './schemas/landowner-monthly-production-prediction.schema';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { CrystallizationModelPerformance, CrystallizationModelPerformanceSchema 
       { name: DailyMeasurement.name, schema: DailyMeasurementSchema },
       { name: DailyParameterPrediction.name, schema: DailyParameterPredictionSchema },
       { name: MonthlyProductionPrediction.name, schema: MonthlyProductionPredictionSchema },
-      { name: CrystallizationModelPerformance.name, schema: CrystallizationModelPerformanceSchema }
+      { name: CrystallizationModelPerformance.name, schema: CrystallizationModelPerformanceSchema },
+      { name: LandownerMonthlyProductionPrediction.name, schema: LandownerMonthlyProductionPredictionSchema }
     ]),
     ClientsModule.register([
       {
