@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { MlPredictorService } from './ml-predictor.service';
 import { ProductionForecastService } from './production-forecast.service';
 import { RetrainingService } from './retraining.service';
+import { WeatherService } from './weather.service';
 import { ActualMonthlyProduction } from './schemas/actual-monthly-production.schema';
 import {
     PredictionRequest,
@@ -28,6 +29,7 @@ export class PredictionsService {
         private readonly mlPredictor: MlPredictorService,
         private readonly productionForecastService: ProductionForecastService,
         private readonly retrainingService: RetrainingService,
+        private readonly weatherService: WeatherService,
         @InjectModel(ActualMonthlyProduction.name)
         private readonly actualMonthlyProductionModel: Model<ActualMonthlyProduction>,
     ) {}
@@ -71,12 +73,27 @@ export class PredictionsService {
             lon,
         );
         this.logger.log(`ONNX model returned ${allDaysPredictions.length} days of predictions`);
+        this.logger.log(`🔵 [ONNX MODEL OUTPUT] First 3 days of 8-parameter predictions:`);
+        allDaysPredictions.slice(0, 3).forEach((day, idx) => {
+            this.logger.log(`   Day ${idx + 1}: [${day.map(v => v.toFixed(2)).join(', ')}]`);
+        });
+
+        // ── Fetch actual weather data for the forecast period ─────────────────
+        let weatherData: any[];
+        try {
+            weatherData = await this.weatherService.fetchForecastWeather(lat, lon);
+            this.logger.log(`🌤️ [WEATHER API] Fetched ${weatherData.length} days (NOT from ONNX model)`);
+        } catch (err) {
+            this.logger.warn(`🌤️ [WEATHER FALLBACK] Using historical averages: ${err}`);
+            weatherData = [];
+        }
 
         // ── Build daily forecasts from ONNX output ────────────────────────────
         const dailyForecasts = this.buildDailyForecasts(
             startDate,
             forecastDays,
             allDaysPredictions,
+            weatherData,
         );
 
         // Build response
@@ -85,6 +102,7 @@ export class PredictionsService {
 
         // ── Get calibrated forecasts using the calibration formula ────────────
         // This is the SINGLE SOURCE OF TRUTH for all monthly/seasonal production
+        this.logger.log(`📊 [CALIBRATION] Calculating monthly/seasonal production (NOT from ONNX model)`);
         const productionHistory = await this.fetchProductionHistory(request.start_date);
         
         // NestJS gRPC converts snake_case proto fields to camelCase at runtime.
@@ -110,6 +128,12 @@ export class PredictionsService {
         const monthly6Months  = calibratedResult.monthlyProduction6Months;
         const monthly12Months = calibratedResult.monthlyProduction12Months;
         const seasonalProduction = calibratedResult.seasonalProduction;
+
+        this.logger.log(`📊 [CALIBRATION RESULTS]:`);
+        this.logger.log(`   6-month total: ${monthly6Months.total_production.toFixed(0)} kg`);
+        this.logger.log(`   12-month total: ${monthly12Months.total_production.toFixed(0)} kg`);
+        this.logger.log(`   Maha season: ${seasonalProduction.seasons['Maha']?.total_production.toFixed(0) || 0} kg`);
+        this.logger.log(`   Yala season: ${seasonalProduction.seasons['Yala']?.total_production.toFixed(0) || 0} kg`);
 
         const response: PredictionResponse = {
             status: 'success',
@@ -190,14 +214,23 @@ export class PredictionsService {
         startDate: Date,
         forecastDays: number,
         allDaysPredictions: number[][],
+        weatherData: any[],
     ): DailyForecast[] {
         const forecasts: DailyForecast[] = [];
         const daysToUse = Math.min(forecastDays, allDaysPredictions.length);
+
+        let weatherFromAPI = 0;
+        let weatherFromFallback = 0;
 
         for (let day = 0; day < daysToUse; day++) {
             const forecastDate = new Date(startDate);
             forecastDate.setDate(forecastDate.getDate() + day);
             const params = allDaysPredictions[day];
+
+            // Use actual weather data for this day if available
+            const weather = weatherData[day] 
+                ? (weatherFromAPI++, this.mapWeatherDayToWeatherInterface(weatherData[day]))
+                : (weatherFromFallback++, this.generateWeatherFallback(forecastDate));
 
             forecasts.push({
                 date:       this.formatDate(forecastDate),
@@ -212,27 +245,56 @@ export class PredictionsService {
                     East_channel:      params[6],
                     West_channel:      params[7],
                 },
-                weather: this.generateWeatherForecast(),
+                weather,
             });
         }
 
-        this.logger.log(`Built ${forecasts.length} daily forecasts from ONNX output`);
+        this.logger.log(`✅ Built ${forecasts.length} daily forecasts from ONNX output with actual weather data`);
+        this.logger.log(`   - Parameters (8 values): FROM ONNX MODEL ✅`);
+        this.logger.log(`   - Weather: ${weatherFromAPI} days from API, ${weatherFromFallback} days from fallback ⚠️`);
         return forecasts;
     }
 
     /**
-     * Generate weather forecast (placeholder - replace with actual weather API)
+     * Map WeatherDay from WeatherService to Weather interface for response
      */
-    private generateWeatherForecast(): Weather {
+    private mapWeatherDayToWeatherInterface(weatherDay: any): Weather {
         return {
-            temperature_mean:     this.randomInRange(25, 28),
-            temperature_min:      this.randomInRange(22, 25),
-            temperature_max:      this.randomInRange(27, 30),
-            rain_sum:             this.randomInRange(0, 0.1),
-            wind_speed_max:       this.randomInRange(10, 30),
-            wind_gusts_max:       this.randomInRange(20, 50),
-            relative_humidity_mean: this.randomInRange(70, 90),
+            temperature_mean:     weatherDay.temperature_mean ?? 27,
+            temperature_min:      weatherDay.temperature_min ?? 22,
+            temperature_max:      weatherDay.temperature_max ?? 30,
+            rain_sum:             weatherDay.rain_sum ?? 0,
+            wind_speed_max:       weatherDay.wind_speed_max ?? 15,
+            wind_gusts_max:       weatherDay.wind_gusts_max ?? 30,
+            relative_humidity_mean: weatherDay.relative_humidity_mean ?? 75,
         };
+    }
+
+    /**
+     * Generate fallback weather based on historical monthly averages
+     */
+    private generateWeatherFallback(date: Date): Weather {
+        // Fallback values based on typical Sri Lankan coastal weather
+        const monthlyDefaults: Record<number, Weather> = {
+            0:  { temperature_mean: 26.5, temperature_min: 23, temperature_max: 30, rain_sum: 2.5, wind_speed_max: 15, wind_gusts_max: 25, relative_humidity_mean: 78 }, // Jan
+            1:  { temperature_mean: 27.0, temperature_min: 23, temperature_max: 30, rain_sum: 1.8, wind_speed_max: 16, wind_gusts_max: 26, relative_humidity_mean: 76 }, // Feb
+            2:  { temperature_mean: 27.5, temperature_min: 24, temperature_max: 31, rain_sum: 3.0, wind_speed_max: 14, wind_gusts_max: 24, relative_humidity_mean: 77 }, // Mar
+            3:  { temperature_mean: 28.0, temperature_min: 25, temperature_max: 31, rain_sum: 8.5, wind_speed_max: 12, wind_gusts_max: 22, relative_humidity_mean: 80 }, // Apr
+            4:  { temperature_mean: 28.0, temperature_min: 26, temperature_max: 31, rain_sum: 12.0, wind_speed_max: 13, wind_gusts_max: 23, relative_humidity_mean: 82 }, // May
+            5:  { temperature_mean: 27.5, temperature_min: 26, temperature_max: 30, rain_sum: 6.0, wind_speed_max: 18, wind_gusts_max: 28, relative_humidity_mean: 81 }, // Jun
+            6:  { temperature_mean: 27.0, temperature_min: 25, temperature_max: 30, rain_sum: 4.0, wind_speed_max: 20, wind_gusts_max: 30, relative_humidity_mean: 79 }, // Jul
+            7:  { temperature_mean: 27.0, temperature_min: 25, temperature_max: 30, rain_sum: 4.5, wind_speed_max: 18, wind_gusts_max: 28, relative_humidity_mean: 79 }, // Aug
+            8:  { temperature_mean: 27.0, temperature_min: 25, temperature_max: 30, rain_sum: 6.5, wind_speed_max: 16, wind_gusts_max: 26, relative_humidity_mean: 80 }, // Sep
+            9:  { temperature_mean: 26.5, temperature_min: 24, temperature_max: 29, rain_sum: 11.0, wind_speed_max: 14, wind_gusts_max: 24, relative_humidity_mean: 82 }, // Oct
+            10: { temperature_mean: 26.0, temperature_min: 23, temperature_max: 29, rain_sum: 12.5, wind_speed_max: 13, wind_gusts_max: 23, relative_humidity_mean: 83 }, // Nov
+            11: { temperature_mean: 26.0, temperature_min: 23, temperature_max: 29, rain_sum: 5.5, wind_speed_max: 14, wind_gusts_max: 24, relative_humidity_mean: 80 }, // Dec
+        };
+        
+        const month = date.getMonth();
+        const defaults = monthlyDefaults[month] ?? monthlyDefaults[0];
+        
+        this.logger.debug(`Using fallback weather for ${this.formatDate(date)} (month ${month + 1})`);
+        return defaults;
     }
 
     // ─── Utility helpers ──────────────────────────────────────────────────────
@@ -257,9 +319,5 @@ export class PredictionsService {
 
     private formatDateTime(date: Date): string {
         return date.toISOString().replace('T', ' ').split('.')[0];
-    }
-
-    private randomInRange(min: number, max: number): number {
-        return Math.random() * (max - min) + min;
     }
 }
