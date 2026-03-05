@@ -10,10 +10,12 @@ service PredictionsService {
 message PredictionRequest {
   string start_date    = 1;
   int32  forecast_days = 2;
-  CurrentValues current_values = 3;
-  int32  num_salt_beds = 4;
-  double latitude      = 5;
-  double longitude     = 6;
+  int32  num_salt_beds = 3;
+  double latitude      = 4;
+  double longitude     = 5;
+  string role          = 6;  // "SALTSOCIETY" or "LANDOWNER"
+  string landowner_id  = 7;  // Required if role is "LANDOWNER"
+  CurrentValues current_values = 8;  // Current parameters for prediction
 }
 
 message CurrentValues {
