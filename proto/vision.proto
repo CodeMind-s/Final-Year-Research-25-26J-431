@@ -295,6 +295,7 @@ message GetStatsSummaryRequest {
   string startDate = 1;
   string endDate = 2;
   string user_id = 3;
+  string source = 4;
 }
 
 message StatsSummaryResponse {
@@ -307,11 +308,15 @@ message StatsSummaryResponse {
   double detectionsPerHour = 7;
   string periodStart = 8;
   string periodEnd = 9;
+  int32 totalBatches = 10;
+  double averageWhiteness = 11;
+  double averageQualityScore = 12;
 }
 
 message GetStatsHourlyRequest {
   string date = 1;
   string user_id = 2;
+  string source = 3;
 }
 
 message HourlyStatPoint {
@@ -332,6 +337,7 @@ message GetStatsDailyRequest {
   string endDate = 2;
   int32 limit = 3;
   string user_id = 4;
+  string source = 5;
 }
 
 message DailyStatPoint {
