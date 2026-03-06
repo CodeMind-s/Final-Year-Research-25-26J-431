@@ -7,6 +7,7 @@ service HarvestPlanService {
   rpc GetPlans(GetPlansRequest) returns (GetPlansResponse);
   rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
   rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
+  rpc GetDemandPriceForecast(DemandPriceForecastRequest) returns (DemandPriceForecastResponse);
 }
 
 service DistributorOfferService {
@@ -309,4 +310,54 @@ message DeleteDealRequest {
 message DeleteDealResponse {
   bool success = 1;
   string message = 2;
+}
+
+// ============= Demand & Price Forecast Messages (compass-ml-service) =============
+
+message DemandPriceForecastRequest {
+  string forecast_date = 1;         // Optional: YYYY-MM-DD. Defaults to today if empty.
+  double production_forecast_m1 = 2; // Required: Production forecast (bags) for month+1 from crystallization-onnx-service
+  double production_forecast_m2 = 3; // Required: Production forecast (bags) for month+2 from crystallization-onnx-service
+  string production_month_m1 = 4;    // Required: Month+1 in YYYY-MM format
+  string production_month_m2 = 5;    // Required: Month+2 in YYYY-MM format
+  string season_m1 = 6;              // Optional: Season for month+1 ("Maha", "Yala", or "Transition")
+  string season_m2 = 7;              // Optional: Season for month+2 ("Maha", "Yala", or "Transition")
+}
+
+message DemandForecastData {
+  optional int32  predicted_bags            = 1;
+  string method                    = 2;
+  string production_source         = 3;
+  optional double production_forecast_bags  = 4;
+  optional double yield_ratio_used          = 5;
+  string yield_ratio_season        = 6;
+  optional int32  yield_ratio_sample_months = 7;
+  string yield_ratio_source        = 8;  // "live_mongodb" | "regional_historical_fallback" | "none"
+}
+
+message PriceForecastData {
+  optional double predicted_lkr_per_bag = 1;
+  optional double lower_95              = 2;
+  optional double upper_95              = 3;
+  string model                 = 4;
+  optional double expected_mape_pct     = 5;
+}
+
+message MonthForecastData {
+  string           month          = 1;
+  int32            horizon_months = 2;
+  DemandForecastData demand       = 3;
+  PriceForecastData  price        = 4;
+}
+
+message DemandPriceForecastResponse {
+  bool   success              = 1;
+  string message              = 2;
+  string model_version        = 3;
+  string requested_at         = 4;
+  string forecast_date        = 5;
+  string last_price_data_date = 6;
+  int32  data_gap_months      = 7;
+  repeated MonthForecastData forecasts = 8;
+  repeated string warnings             = 9;
 }
