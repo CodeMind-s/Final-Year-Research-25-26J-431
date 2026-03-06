@@ -15,6 +15,7 @@ import { DailyMeasurement } from './schemas/crystallization.schema';
 import { DailyParameterPrediction } from './schemas/daily-parameter-prediction.schema';
 import { MonthlyProductionPrediction } from './schemas/monthly-production-prediction.schema';
 import { CrystallizationModelPerformance } from './schemas/crystallization-model-performance.schema';
+import { LandownerMonthlyProductionPrediction } from './schemas/landowner-monthly-production-prediction.schema';
 import type { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyMeasurementByDateDto, GetDailyMeasurementByDateResponseDto, GetDailyMeasurementsByDateRangeDto, GetDailyMeasurementsByDateRangeResponseDto, UpdateDailyMeasurementByIdDto, UpdateDailyMeasurementByIdResponseDto, DeleteDailyMeasurementByIdDto, DeleteDailyMeasurementByIdResponseDto, GetPredictionsDto, GetPredictionsResponseDto, GetPredictedDailyMeasurementDto, GetPredictedDailyMeasurementResponseDto, GetPredictedMonthlyProductionDto, GetPredictedMonthlyProductionResponseDto, GetModelPerformanceDto, GetModelPerformanceResponseDto } from './dtos/crystallization.dto';
 
 interface CurrentValues {
@@ -32,6 +33,11 @@ interface PredictionRequest {
   start_date: string;
   forecast_days: number;
   current_values: CurrentValues;
+  num_salt_beds?: number;
+  latitude?: number;
+  longitude?: number;
+  role?: string;
+  landowner_id?: string;
 }
 
 interface PredictionsONNXService {
@@ -47,6 +53,7 @@ export class CrystallizationService implements OnModuleInit {
     @InjectModel(DailyParameterPrediction.name) private dailyParameterPredictionModel: Model<DailyParameterPrediction>,
     @InjectModel(MonthlyProductionPrediction.name) private monthlyProductionPredictionModel: Model<MonthlyProductionPrediction>,
     @InjectModel(CrystallizationModelPerformance.name) private crystallizationModelPerformanceModel: Model<CrystallizationModelPerformance>,
+    @InjectModel(LandownerMonthlyProductionPrediction.name) private landownerMonthlyProductionPredictionModel: Model<LandownerMonthlyProductionPrediction>,
     @Inject('PREDICTIONS_PACKAGE') private onnxClient: ClientGrpc,
     @Inject('AUDIT_LOG_SERVICE') private auditLogClient: ClientKafka,
     private configService: ConfigService,
@@ -132,150 +139,204 @@ export class CrystallizationService implements OnModuleInit {
   async GetPredictions(data: GetPredictionsDto): Promise<GetPredictionsResponseDto> {
     try {
       console.log('GetPredictions called with data:', JSON.stringify(data, null, 2));
+      
+      // Determine user role
+      const userRole = data.role?.toUpperCase() || 'SALTSOCIETY';
+      console.log(`User role: ${userRole}`);
+
+      // ALWAYS fetch current_values from latest DailyMeasurement for ALL roles
+      // API Gateway should NOT send current_values
+      let currentValues: CurrentValues;
+
+      console.log('🔍 Fetching latest parameters from DailyMeasurement database...');
+      try {
+        const latestMeasurement = await this.dailyMeasurementModel
+          .findOne()
+          .sort({ date: -1 }) // Get the most recent date
+          .lean()
+          .exec();
+
+        if (latestMeasurement && latestMeasurement.parameters) {
+          console.log(`✅ Using parameters from latest measurement date: ${latestMeasurement.date}`);
+          currentValues = {
+            water_temperature: latestMeasurement.parameters.water_temperature,
+            lagoon: latestMeasurement.parameters.lagoon,
+            OR_brine_level: latestMeasurement.parameters.OR_brine_level,
+            OR_bund_level: latestMeasurement.parameters.OR_bund_level,
+            IR_brine_level: latestMeasurement.parameters.IR_brine_level,
+            IR_bound_level: latestMeasurement.parameters.IR_bound_level,
+            East_channel: latestMeasurement.parameters.East_channel,
+            West_channel: latestMeasurement.parameters.West_channel,
+          };
+        } else {
+          console.warn('⚠️ No measurements found in database, cannot proceed without current_values');
+          throw new Error('No DailyMeasurement records found in database');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching latest measurement:', error.message);
+        throw new Error(`Failed to fetch current values from database: ${error.message}`);
+      }
+
       const payload: PredictionRequest = {
         start_date: data.start_date,
         forecast_days: data.forecast_days,
-        current_values: {
-          water_temperature: data.current_values.water_temperature,
-          lagoon: data.current_values.lagoon,
-          OR_brine_level: data.current_values.OR_brine_level,
-          OR_bund_level: data.current_values.OR_bund_level,
-          IR_brine_level: data.current_values.IR_brine_level,
-          IR_bound_level: data.current_values.IR_bound_level,
-          East_channel: data.current_values.East_channel,
-          West_channel: data.current_values.West_channel,
-        },
+        current_values: currentValues,
+        num_salt_beds: data.num_salt_beds || 7500,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        role: data.role || 'SALTSOCIETY',
+        landowner_id: data.landowner_id || '',
       };
 
       console.log('Crystallization Service: Forwarding prediction request to ONNX service');
+      console.log('Payload:', JSON.stringify(payload, null, 2));
       const result = await firstValueFrom(
         this.predictionsONNXService.GetPredictions(payload)
       );
       console.log('Crystallization Service: Received predictions from ONNX service');
       console.log('Response keys:', Object.keys(result));
 
-      // Save model performance metrics to database
-      if (result.model_info && result.model_info.performance_metrics) {
-        try {
-          console.log('Saving model performance metrics to database...');
+      // Role-based data saving
+      if (userRole === 'SALTSOCIETY') {
+        console.log('🏛️ SALTSOCIETY role - saving to common prediction tables');
+        
+        // Save daily parameter predictions to database
+        console.log('Checking for daily_parameters_forecast...');
+        const dailyForecast = result.daily_parameters_forecast?.forecasts;
 
-          const performanceData = {
-            model_type: result.model_info.model_type,
-            forecast_generated: new Date(result.model_info.forecast_generated),
-            performance_metrics: {
-              test_mae: result.model_info.performance_metrics.test_mae,
-              test_rmse: result.model_info.performance_metrics.test_rmse,
-              test_r2_score: result.model_info.performance_metrics.test_r2_score,
-              test_accuracy: result.model_info.performance_metrics.test_accuracy,
-              validation_r2_score: result.model_info.performance_metrics.validation_r2_score,
-              validation_accuracy: result.model_info.performance_metrics.validation_accuracy,
-            },
-          };
+        if (dailyForecast && Array.isArray(dailyForecast)) {
+          console.log(`Saving ${dailyForecast.length} daily parameter predictions to database`);
 
-          await this.crystallizationModelPerformanceModel.create(performanceData);
-          console.log('Model performance metrics saved successfully');
-        } catch (error) {
-          console.error('Error saving model performance metrics:', error);
-          // Don't throw error - we still want to return predictions even if performance save fails
+          for (const dailyPrediction of dailyForecast) {
+            try {
+              await this.dailyParameterPredictionModel.findOneAndUpdate(
+                { date: dailyPrediction.date }, // Filter by date
+                {
+                  date: dailyPrediction.date,
+                  dayNumber: dailyPrediction.day_number,
+                  parameters: {
+                    water_temperature: dailyPrediction.parameters.water_temperature,
+                    lagoon: dailyPrediction.parameters.lagoon,
+                    OR_brine_level: dailyPrediction.parameters.OR_brine_level,
+                    OR_bund_level: dailyPrediction.parameters.OR_bund_level,
+                    IR_brine_level: dailyPrediction.parameters.IR_brine_level,
+                    IR_bound_level: dailyPrediction.parameters.IR_bound_level,
+                    East_channel: dailyPrediction.parameters.East_channel,
+                    West_channel: dailyPrediction.parameters.West_channel,
+                  },
+                  weather: {
+                    temperature_mean: dailyPrediction.weather.temperature_mean,
+                    temperature_min: dailyPrediction.weather.temperature_min,
+                    temperature_max: dailyPrediction.weather.temperature_max,
+                    rain_sum: dailyPrediction.weather.rain_sum,
+                    wind_speed_max: dailyPrediction.weather.wind_speed_max,
+                    wind_gusts_max: dailyPrediction.weather.wind_gusts_max,
+                    relative_humidity_mean: dailyPrediction.weather.relative_humidity_mean,
+                  },
+                },
+                { upsert: true, new: true } // Create if not exists, return new document
+              );
+            } catch (error) {
+              console.error(`Error saving daily prediction for date ${dailyPrediction.date}:`, error);
+            }
+          }
+
+          console.log('Daily parameter predictions saved successfully');
+        } else {
+          console.log('Skipping daily predictions save - condition not met');
         }
-      } else {
-        console.log('No model_info found in response, skipping performance metrics save');
-      }
 
+        // Save monthly production predictions to database (using 12 months forecast)
+        console.log('Checking for monthly_production_12months...');
+        const monthlyForecast = result.monthly_production_12months?.forecasts;
 
-      // Save daily parameter predictions to database
-      console.log('Checking for daily_parameters_forecast...');
-      console.log('daily_parameters_forecast keys:', result.daily_parameters_forecast ? Object.keys(result.daily_parameters_forecast) : 'N/A');
+        if (monthlyForecast && Array.isArray(monthlyForecast)) {
+          console.log(`Saving ${monthlyForecast.length} monthly production predictions to database`);
 
-      const dailyForecast = result.daily_parameters_forecast?.forecasts;
-      console.log('dailyForecast exists:', !!dailyForecast);
-      console.log('dailyForecast is Array:', Array.isArray(dailyForecast));
-
-      if (dailyForecast && Array.isArray(dailyForecast)) {
-        console.log(`Saving ${dailyForecast.length} daily parameter predictions to database`);
-
-        for (const dailyPrediction of dailyForecast) {
-          try {
-            await this.dailyParameterPredictionModel.findOneAndUpdate(
-              { date: dailyPrediction.date }, // Filter by date
-              {
-                date: dailyPrediction.date,
-                dayNumber: dailyPrediction.day_number,
-                parameters: {
-                  water_temperature: dailyPrediction.parameters.water_temperature,
-                  lagoon: dailyPrediction.parameters.lagoon,
-                  OR_brine_level: dailyPrediction.parameters.OR_brine_level,
-                  OR_bund_level: dailyPrediction.parameters.OR_bund_level,
-                  IR_brine_level: dailyPrediction.parameters.IR_brine_level,
-                  IR_bound_level: dailyPrediction.parameters.IR_bound_level,
-                  East_channel: dailyPrediction.parameters.East_channel,
-                  West_channel: dailyPrediction.parameters.West_channel,
+          for (const monthlyPrediction of monthlyForecast) {
+            try {
+              await this.monthlyProductionPredictionModel.findOneAndUpdate(
+                { month: monthlyPrediction.month }, // Filter by month
+                {
+                  month: monthlyPrediction.month,
+                  monthNumber: monthlyPrediction.month_number,
+                  productionForecast: monthlyPrediction.production_forecast,
+                  lowerBound: monthlyPrediction.lower_bound,
+                  upperBound: monthlyPrediction.upper_bound,
+                  season: monthlyPrediction.season,
+                  metadata: {
+                    water_temperature: currentValues.water_temperature,
+                    lagoon: currentValues.lagoon,
+                    OR_brine_level: currentValues.OR_brine_level,
+                    OR_bund_level: currentValues.OR_bund_level,
+                    IR_brine_level: currentValues.IR_brine_level,
+                    IR_bound_level: currentValues.IR_bound_level,
+                    East_channel: currentValues.East_channel,
+                    West_channel: currentValues.West_channel,
+                  }
                 },
-                weather: {
-                  temperature_mean: dailyPrediction.weather.temperature_mean,
-                  temperature_min: dailyPrediction.weather.temperature_min,
-                  temperature_max: dailyPrediction.weather.temperature_max,
-                  rain_sum: dailyPrediction.weather.rain_sum,
-                  wind_speed_max: dailyPrediction.weather.wind_speed_max,
-                  wind_gusts_max: dailyPrediction.weather.wind_gusts_max,
-                  relative_humidity_mean: dailyPrediction.weather.relative_humidity_mean,
-                },
-              },
-              { upsert: true, new: true } // Create if not exists, return new document
-            );
-          } catch (error) {
-            console.error(`Error saving daily prediction for date ${dailyPrediction.date}:`, error);
+                { upsert: true, new: true } // Create if not exists, return new document
+              );
+            } catch (error) {
+              console.error(`Error saving monthly prediction for month ${monthlyPrediction.month}:`, error);
+            }
+          }
+
+          console.log('Monthly production predictions saved successfully');
+        } else {
+          console.log('Skipping monthly predictions save - condition not met');
+        }
+
+      } else if (userRole === 'LANDOWNER') {
+        console.log('👨‍🌾 LANDOWNER role - saving to landowner-specific table');
+        
+        if (!data.landowner_id) {
+          console.warn('landowner_id not provided - skipping landowner predictions save');
+        } else {
+          // Save to landowner-specific monthly production prediction table
+          const monthlyForecast = result.monthly_production_12months?.forecasts;
+
+          if (monthlyForecast && Array.isArray(monthlyForecast)) {
+            console.log(`Saving ${monthlyForecast.length} landowner monthly production predictions`);
+
+            for (const monthlyPrediction of monthlyForecast) {
+              try {
+                await this.landownerMonthlyProductionPredictionModel.findOneAndUpdate(
+                  { 
+                    landowner_id: data.landowner_id,
+                    month: monthlyPrediction.month 
+                  },
+                  {
+                    landowner_id: data.landowner_id,
+                    month: monthlyPrediction.month,
+                    no_of_beds: data.num_salt_beds || 0,
+                    productionForecast: monthlyPrediction.production_forecast,
+                    lowerBound: monthlyPrediction.lower_bound,
+                    upperBound: monthlyPrediction.upper_bound,
+                    season: monthlyPrediction.season,
+                    metadata: {
+                      water_temperature: currentValues.water_temperature,
+                      lagoon: currentValues.lagoon,
+                      OR_brine_level: currentValues.OR_brine_level,
+                      OR_bund_level: currentValues.OR_bund_level,
+                      IR_brine_level: currentValues.IR_brine_level,
+                      IR_bound_level: currentValues.IR_bound_level,
+                      East_channel: currentValues.East_channel,
+                      West_channel: currentValues.West_channel,
+                    }
+                  },
+                  { upsert: true, new: true }
+                );
+              } catch (error) {
+                console.error(`Error saving landowner monthly prediction for month ${monthlyPrediction.month}:`, error);
+              }
+            }
+
+            console.log('Landowner monthly production predictions saved successfully');
+          } else {
+            console.log('Skipping landowner predictions save - condition not met');
           }
         }
-
-        console.log('Daily parameter predictions saved successfully');
-      } else {
-        console.log('Skipping daily predictions save - condition not met');
-      }
-
-      // Save monthly production predictions to database (using 12 months forecast)
-      console.log('Checking for monthly_production_12months...');
-      console.log('monthly_production_12months keys:', result.monthly_production_12months ? Object.keys(result.monthly_production_12months) : 'N/A');
-
-      const monthlyForecast = result.monthly_production_12months?.forecasts;
-      console.log('monthlyForecast exists:', !!monthlyForecast);
-      console.log('monthlyForecast is Array:', Array.isArray(monthlyForecast));
-
-      if (monthlyForecast && Array.isArray(monthlyForecast)) {
-        console.log(`Saving ${monthlyForecast.length} monthly production predictions to database`);
-
-        for (const monthlyPrediction of monthlyForecast) {
-          try {
-            await this.monthlyProductionPredictionModel.findOneAndUpdate(
-              { month: monthlyPrediction.month }, // Filter by month
-              {
-                month: monthlyPrediction.month,
-                monthNumber: monthlyPrediction.month_number,
-                productionForecast: monthlyPrediction.production_forecast,
-                lowerBound: monthlyPrediction.lower_bound,
-                upperBound: monthlyPrediction.upper_bound,
-                season: monthlyPrediction.season,
-                metadata: {
-                  water_temperature: data.current_values.water_temperature,
-                  lagoon: data.current_values.lagoon,
-                  OR_brine_level: data.current_values.OR_brine_level,
-                  OR_bund_level: data.current_values.OR_bund_level,
-                  IR_brine_level: data.current_values.IR_brine_level,
-                  IR_bound_level: data.current_values.IR_bound_level,
-                  East_channel: data.current_values.East_channel,
-                  West_channel: data.current_values.West_channel,
-                }
-              },
-              { upsert: true, new: true } // Create if not exists, return new document
-            );
-          } catch (error) {
-            console.error(`Error saving monthly prediction for month ${monthlyPrediction.month}:`, error);
-          }
-        }
-
-        console.log('Monthly production predictions saved successfully');
-      } else {
-        console.log('Skipping monthly predictions save - condition not met');
       }
 
       return result;
@@ -371,13 +432,37 @@ export class CrystallizationService implements OnModuleInit {
         path: '/crystallization/daily-measurements',
       });
 
+      // Automatically trigger predictions after successful daily measurement creation
+      console.log('📊 Automatically triggering GetPredictions after daily measurement creation...');
+      try {
+        // Calculate start date as tomorrow (for future predictions)
+        const measurementDate = new Date(data.date);
+        const startDate = new Date(measurementDate);
+        startDate.setDate(startDate.getDate() + 1);
+        const startDateStr = startDate.toISOString().split('T')[0];
+
+        const predictionRequest: GetPredictionsDto = {
+          start_date: startDateStr,
+          forecast_days: 60, // Get full 60-day forecast
+          // current_values: result.parameters,
+          num_salt_beds: 7500, // Default salt society beds
+          role: 'SALTSOCIETY', // Assume salt society for daily measurements
+        };
+
+        await this.GetPredictions(predictionRequest);
+        console.log('✅ Predictions generated successfully after daily measurement');
+      } catch (predError) {
+        console.error('⚠️ Failed to generate predictions after daily measurement:', predError.message);
+        // Don't throw - we still want to return the measurement creation success
+      }
+
       console.log('=== SERVICE RETURNING ===');
       console.log(JSON.stringify(response, null, 2));
 
       return response;
     } catch (error) {
       console.error('Error creating daily measurement:', error);
-      
+
       // Audit log for failed daily measurement creation
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -589,7 +674,7 @@ export class CrystallizationService implements OnModuleInit {
       return response;
     } catch (error) {
       console.error('Error updating daily measurement:', error);
-      
+
       // Audit log for failed daily measurement update
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -640,7 +725,7 @@ export class CrystallizationService implements OnModuleInit {
       };
     } catch (error) {
       console.error('Error deleting daily measurement:', error);
-      
+
       // Audit log for failed daily measurement deletion
       await this.emitAuditLog({
         serviceName: 'crystallization-service',
@@ -762,6 +847,46 @@ export class CrystallizationService implements OnModuleInit {
     } catch (error) {
       console.error('Error fetching model performance records:', error);
       throw new BadRequestException(`Failed to fetch model performance records: ${error.message}`);
+    }
+  }
+
+  async GetWeatherForecast(data: any): Promise<{ success: boolean; message: string; data: string }> {
+    try {
+      const apiKey = this.configService.get<string>('OPENWEATHER_API_KEY');
+
+      if (!apiKey) {
+        console.warn('OpenWeatherMap API key not configured. Cannot fetch weather forecast.');
+        return {
+          success: false,
+          message: 'OpenWeatherMap API key is not configured',
+          data: '',
+        };
+      }
+
+      const lat = data?.lat ?? 8.061542;
+      const lon = data?.lon ?? 79.814714;
+      const cnt = data?.cnt ?? 16;
+
+      const url = `https://api.openweathermap.org/data/2.5/forecast/daily?lat=${lat}&lon=${lon}&cnt=${cnt}&appid=${apiKey}`;
+
+      console.log('Fetching 16-day daily weather forecast from OpenWeatherMap...');
+      const response = await axios.get(url);
+
+      const forecastData = response.data;
+      console.log(`Weather forecast fetched successfully. City: ${forecastData?.city?.name}, Days: ${forecastData?.cnt}`);
+
+      return {
+        success: true,
+        message: 'Weather forecast fetched successfully',
+        data: JSON.stringify(forecastData),
+      };
+    } catch (error) {
+      console.error('Error fetching weather forecast from OpenWeatherMap:', error.message);
+      return {
+        success: false,
+        message: `Failed to fetch weather forecast: ${error.message}`,
+        data: '',
+      };
     }
   }
 }

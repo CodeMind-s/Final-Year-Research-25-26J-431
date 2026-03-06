@@ -94,7 +94,11 @@ export class CurrentValuesDto {
 export class GetPredictionsDto {
   start_date: string;
   forecast_days: number;
-  current_values: CurrentValuesDto;
+  num_salt_beds?: number;
+  latitude?: number;
+  longitude?: number;
+  role?: string; // SALTSOCIETY or LANDOWNER
+  landowner_id?: string; // Required if role is LANDOWNER
 }
 
 export class GetPredictionsResponseDto {
@@ -139,3 +143,14 @@ export class GetModelPerformanceResponseDto {
   data?: any[];
 }
 
+export class GetWeatherForecastDto {
+  lat?: number;
+  lon?: number;
+  cnt?: number;
+}
+
+export class GetWeatherForecastResponseDto {
+  success: boolean;
+  message: string;
+  data?: any;
+}

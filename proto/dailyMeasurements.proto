@@ -14,6 +14,7 @@ service CrystallizationService {
   rpc GetPredictedDailyMeasurement(GetPredictedDailyMeasurementRequest) returns (GetPredictedDailyMeasurementResponse);
   rpc GetPredictedMonthlyProduction(GetPredictedMonthlyProductionRequest) returns (GetPredictedMonthlyProductionResponse);
   rpc GetModelPerformance(GetModelPerformanceRequest) returns (GetModelPerformanceResponse);
+  rpc GetWeatherForecast(GetWeatherForecastRequest) returns (GetWeatherForecastResponse);
 }
 
 message CreateDailyMeasurementRequest {
@@ -206,3 +207,14 @@ message GetModelPerformanceResponse {
   repeated ModelPerformance data = 3;
 }
 
+message GetWeatherForecastRequest {
+  double lat = 1;
+  double lon = 2;
+  int32  cnt = 3;
+}
+
+message GetWeatherForecastResponse {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+}
