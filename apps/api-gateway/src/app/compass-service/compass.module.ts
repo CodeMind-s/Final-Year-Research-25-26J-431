@@ -35,6 +35,22 @@ import { DealController } from './deal.controller';
         },
       },
       {
+        name: 'CRYSTALLIZATION_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'crystallization',
+          protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
+          url: process.env.CRYSTALLIZATION_SERVICE_URL || 'localhost:50054',
+          loader: {
+            keepCase: true,
+            longs: String,
+            enums: String,
+            defaults: true,
+            oneofs: true,
+          },
+        },
+      },
+      {
         name: 'AUTH_PACKAGE',
         transport: Transport.GRPC,
         options: {
