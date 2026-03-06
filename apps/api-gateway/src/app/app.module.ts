@@ -14,6 +14,7 @@ import { CompassModule } from './compass-service/compass.module';
 import { VisionModule } from './vision-service/vision.module';
 import { PaymentModule } from './payment/payment.module';
 import { WasteValorizationModule } from './waste-valorization-service/waste-valorization.module';
+import { AiModule } from './ai-service/ai.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WasteValorizationModule } from './waste-valorization-service/waste-valo
     VisionModule,
     PaymentModule,
     WasteValorizationModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [
