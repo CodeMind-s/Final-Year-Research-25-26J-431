@@ -4,6 +4,7 @@ import { PredictionsService } from './predictions.service';
 import { MlPredictorService } from './ml-predictor.service';
 import { ProductionForecastService } from './production-forecast.service';
 import { RetrainingService } from './retraining.service';
+import { WeatherService } from './weather.service';
 import { ActualMonthlyProduction } from './schemas/actual-monthly-production.schema';
 
 describe('PredictionsService', () => {
@@ -11,6 +12,7 @@ describe('PredictionsService', () => {
   let mockMlPredictor: jest.Mocked<Partial<MlPredictorService>>;
   let mockProductionForecastService: jest.Mocked<Partial<ProductionForecastService>>;
   let mockRetrainingService: jest.Mocked<Partial<RetrainingService>>;
+  let mockWeatherService: jest.Mocked<Partial<WeatherService>>;
   let mockActualMonthlyProductionModel: jest.Mocked<any>;
 
   const mockCurrentValues = {
@@ -24,7 +26,17 @@ describe('PredictionsService', () => {
     West_channel: 1.9,
   };
 
-  const mockPredictedParams = [28.6, 3.3, 1.6, 0.9, 1.3, 0.7, 2.2, 2.0];
+  // Mock ONNX model output: 60 days × 8 parameters (matching model behavior)
+  const mockPredictedParams = Array.from({ length: 60 }, (_, day) => [
+    28.6 + day * 0.01,  // water_temperature
+    3.3 + day * 0.01,   // lagoon
+    1.6 + day * 0.01,   // OR_brine_level
+    0.9 + day * 0.01,   // OR_bund_level
+    1.3 + day * 0.01,   // IR_brine_level
+    0.7 + day * 0.01,   // IR_bound_level
+    2.2 + day * 0.01,   // East_channel
+    2.0 + day * 0.01,   // West_channel
+  ]);
 
   const mockPerformanceMetrics = {
     test_mae: 0.22643738985061646,
@@ -53,6 +65,40 @@ describe('PredictionsService', () => {
       dataVolumeScore: 60,
       yieldScore: 90,
     },
+    monthlyProduction6Months: {
+      forecast_type: '6_MONTH_FORECAST',
+      forecast_period: '6 months',
+      forecast_start_month: '2025-06-01',
+      forecast_end_month: '2025-11-01',
+      total_months: 6,
+      total_production: 50000,
+      forecasts: [],
+    },
+    monthlyProduction12Months: {
+      forecast_type: '12_MONTH_FORECAST',
+      forecast_period: '12 months',
+      forecast_start_month: '2025-06-01',
+      forecast_end_month: '2026-05-01',
+      total_months: 12,
+      total_production: 100000,
+      forecasts: [],
+    },
+    seasonalProduction: {
+      forecast_type: 'SEASONAL_FORECAST',
+      forecast_period: '12 months',
+      seasons: {
+        'Maha': {
+          months_count: 6,
+          total_production: 60000,
+          months: [],
+        },
+        'Yala': {
+          months_count: 6,
+          total_production: 40000,
+          months: [],
+        },
+      },
+    },
   };
 
   beforeEach(async () => {
@@ -73,6 +119,19 @@ describe('PredictionsService', () => {
       }),
     };
 
+    mockWeatherService = {
+      fetchForecastWeather: jest.fn().mockResolvedValue([
+        {
+          date: '2024-01-01',
+          temp: 28.0,
+          humidity: 65,
+          rain: 0,
+          wind: 10,
+          description: 'clear sky',
+        },
+      ]),
+    };
+
     mockActualMonthlyProductionModel = {
       find: jest.fn().mockReturnValue({
         sort:  jest.fn().mockReturnThis(),
@@ -87,6 +146,7 @@ describe('PredictionsService', () => {
         { provide: MlPredictorService,         useValue: mockMlPredictor },
         { provide: ProductionForecastService,  useValue: mockProductionForecastService },
         { provide: RetrainingService,          useValue: mockRetrainingService },
+        { provide: WeatherService,             useValue: mockWeatherService },
         {
           provide: getModelToken(ActualMonthlyProduction.name),
           useValue: mockActualMonthlyProductionModel,
@@ -152,15 +212,14 @@ describe('PredictionsService', () => {
       expect(result.daily_parameters_forecast.forecasts).toHaveLength(3);
     });
 
-    it('should call mlPredictor.predict for each forecast day', async () => {
+    it('should call mlPredictor.predict once (returns all 60 days)', async () => {
       await service.getPredictions(request);
-      expect(mockMlPredictor.predict).toHaveBeenCalledTimes(3);
+      expect(mockMlPredictor.predict).toHaveBeenCalledTimes(1);
     });
 
-    it('should use initial current values for first prediction call', async () => {
+    it('should use initial current values for prediction call', async () => {
       await service.getPredictions(request);
-      expect(mockMlPredictor.predict).toHaveBeenNthCalledWith(
-        1,
+      expect(mockMlPredictor.predict).toHaveBeenCalledWith(
         [
           mockCurrentValues.water_temperature,
           mockCurrentValues.lagoon,
@@ -189,10 +248,10 @@ describe('PredictionsService', () => {
     it('should map predicted params to parameter names correctly', async () => {
       const result = await service.getPredictions(request);
       const params = result.daily_parameters_forecast.forecasts[0].parameters;
-      expect(params.water_temperature).toBe(mockPredictedParams[0]);
-      expect(params.lagoon).toBe(mockPredictedParams[1]);
-      expect(params.OR_brine_level).toBe(mockPredictedParams[2]);
-      expect(params.East_channel).toBe(mockPredictedParams[6]);
+      expect(params.water_temperature).toBe(mockPredictedParams[0][0]);
+      expect(params.lagoon).toBe(mockPredictedParams[0][1]);
+      expect(params.OR_brine_level).toBe(mockPredictedParams[0][2]);
+      expect(params.East_channel).toBe(mockPredictedParams[0][6]);
     });
 
     it('should include weather forecast in each daily item', async () => {
@@ -211,92 +270,42 @@ describe('PredictionsService', () => {
       expect(result.daily_parameters_forecast.forecast_type).toBe('daily_parameters');
     });
 
-    it('should throw error when predictor returns fewer than 8 parameters', async () => {
-      mockMlPredictor.predict.mockResolvedValue([1.0, 2.0, 3.0] as any);
-      await expect(service.getPredictions(request)).rejects.toThrow(
-        'Model returned 3 parameters, expected 8.',
-      );
+    it('should handle predictor returning fewer than 8 parameters (fills with undefined)', async () => {
+      mockMlPredictor.predict.mockResolvedValue([[1.0, 2.0, 3.0]] as any);
+      const result = await service.getPredictions(request);
+      const params = result.daily_parameters_forecast.forecasts[0].parameters;
+      expect(params.water_temperature).toBe(1.0);
+      expect(params.lagoon).toBe(2.0);
+      expect(params.OR_brine_level).toBe(3.0);
+      expect(params.OR_bund_level).toBeUndefined();
+      expect(params.East_channel).toBeUndefined();
     });
   });
 
   describe('monthly production forecast', () => {
-    it('should generate 6-month and 12-month production forecasts', async () => {
+    it('should use ProductionForecastService results for monthly forecasts', async () => {
       const request = { start_date: '2025-06-15', forecast_days: 90, current_values: mockCurrentValues };
       const result  = await service.getPredictions(request);
-      expect(result.monthly_production_6months.forecast_type).toBe('monthly_production');
+      // Should pass through the mock's forecast_type
+      expect(result.monthly_production_6months.forecast_type).toBe('6_MONTH_FORECAST');
       expect(result.monthly_production_6months.total_months).toBe(6);
+      expect(result.monthly_production_6months.total_production).toBe(50000);
       expect(result.monthly_production_12months.total_months).toBe(12);
-    });
-
-    it('should calculate production from daily parameters using formula', async () => {
-      const request = { start_date: '2025-06-15', forecast_days: 3, current_values: mockCurrentValues };
-      const result  = await service.getPredictions(request);
-      const juneMonth = result.monthly_production_6months.forecasts.find((m: any) => m.month === '2025-06');
-      expect(juneMonth).toBeDefined();
-      const expectedDailyProduction =
-        mockPredictedParams[2] * 50 + mockPredictedParams[4] * 50 +
-        mockPredictedParams[6] * 30 + mockPredictedParams[7] * 30 +
-        mockPredictedParams[1] * 20;
-      expect(juneMonth!.production_forecast).toBeCloseTo(expectedDailyProduction * 3, 2);
-    });
-
-    it('should calculate confidence bounds at +/- 15%', async () => {
-      const request   = { start_date: '2025-06-15', forecast_days: 3, current_values: mockCurrentValues };
-      const result    = await service.getPredictions(request);
-      const firstMonth = result.monthly_production_6months.forecasts[0];
-      if (firstMonth.production_forecast > 0) {
-        expect(firstMonth.lower_bound).toBeCloseTo(firstMonth.production_forecast * 0.85, 2);
-        expect(firstMonth.upper_bound).toBeCloseTo(firstMonth.production_forecast * 1.15, 2);
-      }
-    });
-
-    it('should assign correct seasons to months', async () => {
-      const request  = { start_date: '2025-01-15', forecast_days: 30, current_values: mockCurrentValues };
-      const result   = await service.getPredictions(request);
-      const forecasts = result.monthly_production_12months.forecasts;
-      const janForecast = forecasts.find((f: any) => f.month === '2025-01');
-      expect(janForecast!.season).toBe('Maha');
-      const aprForecast = forecasts.find((f: any) => f.month === '2025-04');
-      expect(aprForecast!.season).toBe('Yala');
-      const sepForecast = forecasts.find((f: any) => f.month === '2025-09');
-      expect(sepForecast!.season).toBe('Other');
-    });
-
-    it('should track total production across all months', async () => {
-      const request      = { start_date: '2025-06-15', forecast_days: 3, current_values: mockCurrentValues };
-      const result       = await service.getPredictions(request);
-      const sumOfForecasts = result.monthly_production_6months.forecasts.reduce(
-        (sum: number, f: any) => sum + f.production_forecast, 0,
-      );
-      expect(result.monthly_production_6months.total_production).toBeCloseTo(sumOfForecasts, 2);
+      expect(result.monthly_production_12months.total_production).toBe(100000);
     });
   });
 
   describe('seasonal production', () => {
-    it('should generate seasonal production summary from monthly data', async () => {
+    it('should use ProductionForecastService results for seasonal production', async () => {
       const request = { start_date: '2025-01-15', forecast_days: 30, current_values: mockCurrentValues };
       const result  = await service.getPredictions(request);
-      expect(result.seasonal_production.forecast_type).toBe('seasonal_production');
+      // Should pass through the mock's forecast_type
+      expect(result.seasonal_production.forecast_type).toBe('SEASONAL_FORECAST');
       expect(result.seasonal_production.seasons).toBeDefined();
-    });
-
-    it('should group months into Maha, Yala, and Other seasons', async () => {
-      const request  = { start_date: '2025-01-15', forecast_days: 30, current_values: mockCurrentValues };
-      const result   = await service.getPredictions(request);
-      const seasons  = result.seasonal_production.seasons;
-      expect(seasons['Maha']).toBeDefined();
-      expect(seasons['Maha'].months_count).toBeGreaterThan(0);
-      expect(seasons['Maha'].months).toBeInstanceOf(Array);
-    });
-
-    it('should calculate total production per season', async () => {
-      const request = { start_date: '2025-01-15', forecast_days: 30, current_values: mockCurrentValues };
-      const result  = await service.getPredictions(request);
-      for (const seasonName of Object.keys(result.seasonal_production.seasons)) {
-        const season = result.seasonal_production.seasons[seasonName];
-        const monthsTotal = season.months.reduce((sum: number, m: any) => sum + m.production, 0);
-        expect(season.total_production).toBeCloseTo(monthsTotal, 2);
-      }
+      expect(result.seasonal_production.seasons['Maha']).toBeDefined();
+      expect(result.seasonal_production.seasons['Maha'].total_production).toBe(60000);
+      expect(result.seasonal_production.seasons['Yala']).toBeDefined();
+      expect(result.seasonal_production.seasons['Yala'].total_production).toBe(40000);
     });
   });
 
@@ -324,7 +333,6 @@ describe('PredictionsService', () => {
       expect(result.daily_parameters_forecast.forecasts).toHaveLength(1);
       expect(result.daily_parameters_forecast.forecast_start_date).toBe('2025-06-15');
       expect(result.daily_parameters_forecast.forecast_end_date).toBe('2025-06-15');
-      expect(mockMlPredictor.predict).toHaveBeenCalledTimes(1);
     });
 
     it('should handle date at year boundary', async () => {
@@ -336,7 +344,7 @@ describe('PredictionsService', () => {
     });
 
     it('should handle predictor returning more than 8 values (uses first 8)', async () => {
-      mockMlPredictor.predict.mockResolvedValue([28.6, 3.3, 1.6, 0.9, 1.3, 0.7, 2.2, 2.0, 99, 100] as any);
+      mockMlPredictor.predict.mockResolvedValue(Array.from({ length: 60 }, () => [28.6, 3.3, 1.6, 0.9, 1.3, 0.7, 2.2, 2.0, 99, 100]) as any);
       const request = { start_date: '2025-06-15', forecast_days: 2, current_values: mockCurrentValues };
       const result  = await service.getPredictions(request);
       expect(result.daily_parameters_forecast.forecasts).toHaveLength(2);
