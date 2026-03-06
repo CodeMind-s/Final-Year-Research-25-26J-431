@@ -56,6 +56,7 @@ describe('StatisticsController', () => {
         '2025-06-01',
         '2025-06-30',
         TEST_USER_ID,
+        undefined,
       );
       expect(result).toEqual(mockSummary);
     });
@@ -71,6 +72,7 @@ describe('StatisticsController', () => {
       expect(statisticsService.getHourlyStats).toHaveBeenCalledWith(
         '2025-06-15',
         TEST_USER_ID,
+        undefined,
       );
       expect(result).toHaveProperty('stats');
       expect(result.stats).toHaveLength(1);
@@ -89,6 +91,7 @@ describe('StatisticsController', () => {
         '2025-06-30',
         30,
         undefined,
+        undefined,
       );
       expect(result).toHaveProperty('stats');
     });
@@ -100,6 +103,7 @@ describe('StatisticsController', () => {
         undefined,
         undefined,
         7,
+        undefined,
         undefined,
       );
     });

@@ -2,20 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { StatisticsService } from '../../../src/app/statistics/statistics.service';
 import { Detection } from '../../../src/app/detection/schemas/detection.schema';
+import { Batch } from '../../../src/app/detection/schemas/batch.schema';
 import { createMockModel } from '../helpers/mock-model.helper';
 import { TEST_USER_ID } from '../helpers/test-data.helper';
 
 describe('StatisticsService', () => {
   let service: StatisticsService;
   let detectionModel: any;
+  let batchModel: any;
 
   beforeEach(async () => {
     detectionModel = createMockModel();
+    batchModel = createMockModel();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StatisticsService,
         { provide: getModelToken(Detection.name), useValue: detectionModel },
+        { provide: getModelToken(Batch.name), useValue: batchModel },
       ],
     }).compile();
 
