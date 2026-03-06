@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package ai;
+
+service AiService {
+  rpc GetWeatherNotification (GetWeatherNotificationRequest) returns (GetWeatherNotificationResponse);
+}
+
+message GetWeatherNotificationRequest {
+  // Empty for now, but can be extended with user preferences
+}
+
+message LocalizedText {
+  string si = 1; // Sinhala
+  string ta = 2; // Tamil
+  string en = 3; // English
+}
+
+message GetWeatherNotificationResponse {
+  bool success = 1;
+  string message = 2;
+  LocalizedText notification = 3;
+  LocalizedText description = 4;
+  int32 plandays = 5;
+  string startdate = 6;
+}

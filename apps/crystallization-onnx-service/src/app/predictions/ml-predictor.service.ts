@@ -129,15 +129,7 @@ export class MlPredictorService implements OnModuleInit {
         longitude?: number,
     ): Promise<number[][]> {
         if (!this.session) {
-            this.logger.warn('Running in MOCK mode - returning 60 days of simulated predictions');
-            // Generate 60 days of mock predictions
-            const mockDays: number[][] = [];
-            let currentParams = [...inputValues];
-            for (let day = 0; day < 60; day++) {
-                currentParams = currentParams.map(v => v * (1 + (Math.random() * 0.1 - 0.05)));
-                mockDays.push([...currentParams]);
-            }
-            return mockDays;
+            throw new Error('ONNX model not loaded - cannot make predictions');
         }
 
         if (inputValues.length !== 8) {
