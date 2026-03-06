@@ -227,11 +227,14 @@ services:
       - GRPC_URL=0.0.0.0:50052
       - KAFKA_BROKER=kafka:9092
       - MONGO_URI=${MONGO_URI}
+      - COMPASS_ML_SERVICE_URL=http://compass-ml-service:8002
     networks:
       - app-network
     depends_on:
       kafka:
         condition: service_healthy
+      compass-ml-service:
+        condition: service_started
     restart: unless-stopped
 
   waste-valorization-service:
@@ -286,7 +289,7 @@ services:
       - auth-service
       - user-service
       - crystallization-service
-      # - vision-service
+      - vision-service
       - payment-service
       - compass-service
       - waste-valorization-service
@@ -306,6 +309,30 @@ services:
       - app-network
     depends_on:
       - api-gateway
+    restart: unless-stopped
+
+  compass-ml-service:
+    build:
+      context: .
+      dockerfile: apps/compass-ml-service/Dockerfile
+    container_name: compass-ml-service
+    environment:
+      - MODEL_DIR=/app/models
+      - MONGO_URI=${MONGO_URI}
+      - CRYSTALLIZATION_SERVICE_URL=crystallization-onnx-service:50055
+    networks:
+      - app-network
+    volumes:
+      - ./apps/compass-ml-service/models:/app/models:ro
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8002/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      crystallization-onnx-service:
+        condition: service_started
     restart: unless-stopped
 
 networks:
