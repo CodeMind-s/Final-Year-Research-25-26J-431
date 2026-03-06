@@ -76,6 +76,11 @@ export class StatsSummaryQueryDto {
   @IsOptional()
   @IsString()
   endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Data source: "detections" or "batches"', default: 'detections' })
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
 
 export class StatsHourlyQueryDto {
@@ -83,6 +88,11 @@ export class StatsHourlyQueryDto {
   @IsOptional()
   @IsString()
   date?: string;
+
+  @ApiPropertyOptional({ description: 'Data source: "detections" or "batches"', default: 'detections' })
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
 
 export class StatsDailyQueryDto {
@@ -101,6 +111,11 @@ export class StatsDailyQueryDto {
   @Type(() => Number)
   @IsNumber()
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Data source: "detections" or "batches"', default: 'detections' })
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
 
 export class StatsTrendsQueryDto {
