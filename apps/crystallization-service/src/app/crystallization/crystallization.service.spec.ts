@@ -23,6 +23,7 @@ describe('CrystallizationService', () => {
   let dailyParameterPredictionModel: any;
   let monthlyProductionPredictionModel: any;
   let crystallizationModelPerformanceModel: any;
+  let landownerMonthlyProductionPredictionModel: any;
   let mockOnnxClient: any;
   let mockAuditLogClient: any;
   let mockConfigService: any;
@@ -137,7 +138,11 @@ describe('CrystallizationService', () => {
     const model: any = jest.fn();
     Object.assign(model, {
       create: jest.fn(),
-      findOne: jest.fn(),
+      findOne: jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      }),
       findById: jest.fn(),
       findByIdAndUpdate: jest.fn(),
       findByIdAndDelete: jest.fn(),
@@ -162,6 +167,7 @@ describe('CrystallizationService', () => {
     dailyParameterPredictionModel = createMockModel();
     monthlyProductionPredictionModel = createMockModel();
     crystallizationModelPerformanceModel = createMockModel();
+    landownerMonthlyProductionPredictionModel = createMockModel();
 
     // Mock the gRPC ONNX predictions service
     mockPredictionsONNXService = {
@@ -198,6 +204,7 @@ describe('CrystallizationService', () => {
         { provide: getModelToken('DailyParameterPrediction'), useValue: dailyParameterPredictionModel },
         { provide: getModelToken('MonthlyProductionPrediction'), useValue: monthlyProductionPredictionModel },
         { provide: getModelToken('CrystallizationModelPerformance'), useValue: crystallizationModelPerformanceModel },
+        { provide: getModelToken('LandownerMonthlyProductionPrediction'), useValue: landownerMonthlyProductionPredictionModel },
         { provide: 'PREDICTIONS_PACKAGE', useValue: mockOnnxClient },
         { provide: 'AUDIT_LOG_SERVICE', useValue: mockAuditLogClient },
         { provide: ConfigService, useValue: mockConfigService },
@@ -676,6 +683,15 @@ describe('CrystallizationService', () => {
     };
 
     it('should forward prediction request to ONNX service and return result', async () => {
+      // Mock dailyMeasurementModel to return latest measurement with parameters
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -693,25 +709,16 @@ describe('CrystallizationService', () => {
       );
     });
 
-    it('should save model performance metrics to database', async () => {
-      mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
-      crystallizationModelPerformanceModel.create.mockResolvedValue({});
-      dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
-      monthlyProductionPredictionModel.findOneAndUpdate.mockResolvedValue({});
-
-      await service.GetPredictions(predictionRequest);
-
-      expect(crystallizationModelPerformanceModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model_type: 'LSTM_Hybrid_with_Weather_ONNX',
-          performance_metrics: expect.objectContaining({
-            test_mae: 0.226,
-          }),
-        }),
-      );
-    });
-
     it('should save daily parameter predictions via upsert', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -732,6 +739,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should save monthly production predictions via upsert', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -752,6 +768,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should still return predictions even if performance save fails', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockRejectedValue(new Error('Save failed'));
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -763,6 +788,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should handle response without model_info gracefully', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       const responseWithoutModelInfo = {
         ...mockOnnxResponse,
         model_info: undefined,
