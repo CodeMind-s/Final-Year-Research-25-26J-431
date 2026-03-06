@@ -125,6 +125,7 @@ export class GetPredictedDailyMeasurementResponseDto {
 export class GetPredictedMonthlyProductionDto {
   startMonth: string;
   endMonth: string;
+  landowner_id?: string; // Optional - if provided, queries landowner-specific predictions
 }
 
 export class GetPredictedMonthlyProductionResponseDto {
