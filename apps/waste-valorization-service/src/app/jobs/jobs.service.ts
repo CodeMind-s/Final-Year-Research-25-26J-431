@@ -173,8 +173,6 @@ export class JobsService {
       const limit = data.limit || 10;
       const skip = (page - 1) * limit;
 
-      console.log(`Received GetJobs request with filters: userId=${data.userId}, status=${data.status}, jobType=${data.jobType}, page=${page}, limit=${limit}`);
-
       // Build query
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const query: any = {};

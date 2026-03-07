@@ -105,9 +105,6 @@ export class SqsService {
         timestamp: new Date().toISOString(),
       });
 
-      console.log('Prepared SQS message body:', messageBody);
-      console.log('Sending message to SQS queue:', this.queueUrl);
-
       const command = new SendMessageCommand({
         QueueUrl: this.queueUrl,
         MessageBody: messageBody,
