@@ -22,6 +22,7 @@ module.exports = {
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
+    '<rootDir>/tests/performance/k6/',
     process.env.CI === 'true' && !process.env.MONGO_URI ? '<rootDir>/tests/e2e/' : null,
   ].filter(Boolean),
   transform: {

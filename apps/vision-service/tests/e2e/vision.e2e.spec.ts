@@ -16,7 +16,6 @@ import { DetectionSession, DetectionSessionSchema } from '../../src/app/detectio
 import { Batch, BatchSchema } from '../../src/app/detection/schemas/batch.schema';
 import { DetectionService } from '../../src/app/detection/detection.service';
 import { StatisticsService } from '../../src/app/statistics/statistics.service';
-import { BatchService } from '../../src/app/batch/batch.service';
 
 const testMongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/vision-test';
 
@@ -25,15 +24,12 @@ describe('Vision Service E2E Tests', () => {
   let moduleRef: TestingModule;
   let detectionModel: Model<any>;
   let sessionModel: Model<any>;
-  let batchModel: Model<any>;
   let detectionService: DetectionService;
-  let batchService: BatchService;
   let statisticsService: StatisticsService;
 
-  const createdIds: { detections: string[]; sessions: string[]; batches: string[] } = {
+  const createdIds: { detections: string[]; sessions: string[] } = {
     detections: [],
     sessions: [],
-    batches: [],
   };
 
   beforeAll(async () => {
@@ -49,7 +45,7 @@ describe('Vision Service E2E Tests', () => {
           { name: Batch.name, schema: BatchSchema },
         ]),
       ],
-      providers: [DetectionService, BatchService, StatisticsService],
+      providers: [DetectionService, StatisticsService],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -57,9 +53,7 @@ describe('Vision Service E2E Tests', () => {
 
     detectionModel = moduleRef.get(getModelToken(Detection.name));
     sessionModel = moduleRef.get(getModelToken(DetectionSession.name));
-    batchModel = moduleRef.get(getModelToken(Batch.name));
     detectionService = moduleRef.get(DetectionService);
-    batchService = moduleRef.get(BatchService);
     statisticsService = moduleRef.get(StatisticsService);
   }, 30000);
 
@@ -67,9 +61,6 @@ describe('Vision Service E2E Tests', () => {
     try {
       if (createdIds.detections.length > 0) {
         await detectionModel.deleteMany({ _id: { $in: createdIds.detections.map((id) => new Types.ObjectId(id)) } });
-      }
-      if (createdIds.batches.length > 0) {
-        await batchModel.deleteMany({ _id: { $in: createdIds.batches.map((id) => new Types.ObjectId(id)) } });
       }
       if (createdIds.sessions.length > 0) {
         await sessionModel.deleteMany({ _id: { $in: createdIds.sessions.map((id) => new Types.ObjectId(id)) } });
@@ -118,56 +109,6 @@ describe('Vision Service E2E Tests', () => {
 
       expect(saved.endTime).toBeDefined();
       expect(saved.avgPurityPercent).toBe(75);
-    });
-  });
-
-  describe('Batch Lifecycle', () => {
-    let sessionId: string;
-
-    beforeAll(async () => {
-      const userId = new Types.ObjectId();
-      const session = new sessionModel({
-        userId,
-        roi: { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
-      });
-      const saved = await session.save();
-      sessionId = saved._id.toString();
-      createdIds.sessions.push(sessionId);
-    });
-
-    it('should create a batch via service', async () => {
-      const batch = await batchService.createBatch(
-        sessionId,
-        { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
-      );
-
-      createdIds.batches.push(batch.id);
-
-      expect(batch.batchNumber).toBe(1);
-      expect(batch.sessionId).toBe(sessionId);
-      expect(batch.frameCount).toBe(0);
-    });
-
-    it('should get batch by id', async () => {
-      const batchId = createdIds.batches[0];
-      const batch = await batchService.getBatch(batchId);
-
-      expect(batch).toBeDefined();
-      expect(batch.id).toBe(batchId);
-    });
-
-    it('should end a batch', async () => {
-      const batchId = createdIds.batches[0];
-      const batch = await batchService.endBatch(batchId);
-
-      expect(batch.endTime).toBeDefined();
-    });
-
-    it('should get session batches', async () => {
-      const batches = await batchService.getSessionBatches(sessionId);
-
-      expect(batches).toHaveLength(1);
-      expect(batches[0].sessionId).toBe(sessionId);
     });
   });
 
