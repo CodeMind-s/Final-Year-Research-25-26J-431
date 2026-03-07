@@ -53,13 +53,16 @@ export class WasteManagementService {
             $gte: startDateStr,
             $lte: endDateStr,
           },
-          'metadata.event_type': 'WASTE/FORCAST',
+          'metadata.event_type': 'WASTE/FORECAST',
         })
         .sort({ prediction_date: 1 })
         .lean();
 
+      console.log(`Queried waste predictions from ${startDateStr} to ${endDateStr}`);
+      console.log(predictions);
+
       this.logger.log(
-        `Found ${predictions.length} predictions between ${startDateStr} and ${endDateStr} with event_type WASTE/FORCAST`
+        `Found ${predictions.length} predictions between ${startDateStr} and ${endDateStr} with event_type WASTE/FORECAST`
       );
 
       // Group by date and fill missing dates with defaults
@@ -131,9 +134,10 @@ export class WasteManagementService {
 
       if (records && records.length > 0) {
         // Use actual data from database - average if multiple records
+        // Support both prediction_result and forecast_result fields
         const avgPredictedWaste =
           records.reduce(
-            (sum, r) => sum + (r.prediction_result?.Total_Waste_kg || 0),
+            (sum, r) => sum + ((r.prediction_result?.Total_Waste_kg || r.forecast_result?.Total_Waste_kg) || 0),
             0
           ) / records.length;
         const avgProductionVolume =
@@ -179,11 +183,17 @@ export class WasteManagementService {
         });
       } else {
         // Use default values for missing dates
-        const defaultProductionVolume = 50000; // kg
-        const defaultRainSum = 150 + Math.random() * 100; // 150-250 mm
-        const defaultTemperature = 26 + Math.random() * 4; // 26-30°C
-        const defaultHumidity = 75 + Math.random() * 15; // 75-90%
-        const defaultWindSpeed = 10 + Math.random() * 8; // 10-18 km/h
+        // const defaultProductionVolume = 50000; // kg
+        // const defaultRainSum = 150 + Math.random() * 100; // 150-250 mm
+        // const defaultTemperature = 26 + Math.random() * 4; // 26-30°C
+        // const defaultHumidity = 75 + Math.random() * 15; // 75-90%
+        // const defaultWindSpeed = 10 + Math.random() * 8; // 10-18 km/h
+
+        const defaultProductionVolume = 0; // kg
+        const defaultRainSum = 0; // 150-250 mm
+        const defaultTemperature = 0; // 26-30°C
+        const defaultHumidity = 0; // 75-90%
+        const defaultWindSpeed = 0; // 10-18 km/h
 
         
         // Calculate waste as ~4-5% of production volume (typical ratio)

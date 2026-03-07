@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ collection: 'waste_prediction', timestamps: false })
+@Schema({ collection: 'waste_predictions', timestamps: false })
 export class WastePrediction extends Document {
-  @Prop({ required: true, type: Date })
-  timestamp: Date;
+  @Prop({ required: false, type: Date })
+  timestamp?: Date;
 
   @Prop({ required: true, type: String })
   prediction_date: string;
@@ -30,7 +30,7 @@ export class WastePrediction extends Document {
   };
 
   @Prop({
-    required: true,
+    required: false,
     type: {
       Total_Waste_kg: Number,
       Solid_Waste_Limestone_kg: Number,
@@ -42,7 +42,7 @@ export class WastePrediction extends Document {
       Potential_Magnesium_Oil_Liters: Number,
     },
   })
-  prediction_result: {
+  prediction_result?: {
     Total_Waste_kg: number;
     Solid_Waste_Limestone_kg: number;
     Solid_Waste_Gypsum_kg: number;
@@ -51,6 +51,54 @@ export class WastePrediction extends Document {
     Potential_Epsom_Salt_kg: number;
     Potential_Potash_kg: number;
     Potential_Magnesium_Oil_Liters: number;
+  };
+
+  @Prop({
+    required: false,
+    type: {
+      total_waste_kg: Number,
+      solid_waste_limestone_kg: Number,
+      solid_waste_gypsum_kg: Number,
+      solid_waste_industrial_salt_kg: Number,
+      liquid_waste_bittern_liters: Number,
+      potential_epsom_salt_kg: Number,
+      potential_potash_kg: Number,
+      potential_magnesium_oil_liters: Number,
+      model_version: String,
+      confidence: Number,
+      Total_Waste_kg: Number,
+      _fetched_parameters: {
+        production_volume: Number,
+        rain_sum: Number,
+        temperature_mean: Number,
+        humidity_mean: Number,
+        wind_speed_mean: Number,
+        month: Number,
+        source_date: String,
+      },
+    },
+  })
+  forecast_result?: {
+    total_waste_kg: number;
+    solid_waste_limestone_kg: number;
+    solid_waste_gypsum_kg: number;
+    solid_waste_industrial_salt_kg: number;
+    liquid_waste_bittern_liters: number;
+    potential_epsom_salt_kg: number;
+    potential_potash_kg: number;
+    potential_magnesium_oil_liters: number;
+    model_version: string;
+    confidence: number | null;
+    Total_Waste_kg: number;
+    _fetched_parameters?: {
+      production_volume: number;
+      rain_sum: number;
+      temperature_mean: number;
+      humidity_mean: number;
+      wind_speed_mean: number;
+      month: number;
+      source_date: string;
+    };
   };
 
   @Prop({
