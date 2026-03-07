@@ -58,9 +58,6 @@ export class WasteManagementService {
         .sort({ prediction_date: 1 })
         .lean();
 
-      console.log(`Queried waste predictions from ${startDateStr} to ${endDateStr}`);
-      console.log(predictions);
-
       this.logger.log(
         `Found ${predictions.length} predictions between ${startDateStr} and ${endDateStr} with event_type WASTE/FORECAST`
       );
