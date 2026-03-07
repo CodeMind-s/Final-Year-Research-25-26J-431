@@ -192,13 +192,33 @@ message PerformanceMetrics {
   double validation_accuracy = 6;
 }
 
+message ConfidenceData {
+  double overallScore = 1;
+  string overallRating = 2;
+  double yieldRatio = 3;
+  string yieldStatus = 4;
+  bool decliningTrend = 5;
+  bool improvingTrend = 6;
+  double formulaR2 = 7;
+  double holdoutMae = 8;
+  int32 nHistoryMonths = 9;
+  double formulaFitScore = 10;
+  double holdoutScore = 11;
+  double dataVolumeScore = 12;
+  double yieldScore = 13;
+  string bedCountTier = 14;
+  string bedCountNote = 15;
+  string date = 16;
+}
+
 message ModelPerformance {
   string _id = 1;
   string model_type = 2;
   string forecast_generated = 3;
   PerformanceMetrics performance_metrics = 4;
-  string createdAt = 5;
-  string updatedAt = 6;
+  ConfidenceData confidence = 5;
+  string createdAt = 6;
+  string updatedAt = 7;
 }
 
 message GetModelPerformanceResponse {

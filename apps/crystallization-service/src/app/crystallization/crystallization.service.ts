@@ -287,6 +287,47 @@ export class CrystallizationService implements OnModuleInit {
           console.log('Skipping monthly predictions save - condition not met');
         }
 
+        // Save model performance and confidence data
+        if (result.model_info && result.confidence) {
+          try {
+            console.log('Saving model performance and confidence data...');
+            await this.crystallizationModelPerformanceModel.create({
+              model_type: result.model_info.model_type,
+              forecast_generated: new Date(result.model_info.forecast_generated),
+              performance_metrics: {
+                test_mae: result.model_info.performance_metrics.test_mae,
+                test_rmse: result.model_info.performance_metrics.test_rmse,
+                test_r2_score: result.model_info.performance_metrics.test_r2_score,
+                test_accuracy: result.model_info.performance_metrics.test_accuracy,
+                validation_r2_score: result.model_info.performance_metrics.validation_r2_score,
+                validation_accuracy: result.model_info.performance_metrics.validation_accuracy,
+              },
+              confidence: {
+                overallScore: result.confidence.overallScore,
+                overallRating: result.confidence.overallRating,
+                yieldRatio: result.confidence.yieldRatio,
+                yieldStatus: result.confidence.yieldStatus,
+                decliningTrend: result.confidence.decliningTrend,
+                improvingTrend: result.confidence.improvingTrend,
+                formulaR2: result.confidence.formulaR2,
+                holdoutMae: result.confidence.holdoutMae,
+                nHistoryMonths: result.confidence.nHistoryMonths,
+                formulaFitScore: result.confidence.formulaFitScore,
+                holdoutScore: result.confidence.holdoutScore,
+                dataVolumeScore: result.confidence.dataVolumeScore,
+                yieldScore: result.confidence.yieldScore,
+                bedCountTier: result.confidence.bedCountTier,
+                bedCountNote: result.confidence.bedCountNote,
+                date: new Date(),
+              },
+            });
+            console.log('Model performance and confidence data saved successfully');
+          } catch (error) {
+            console.error('Error saving model performance:', error);
+            // Don't throw - prediction was successful, just log the error
+          }
+        }
+
       } else if (userRole === 'LANDOWNER') {
         console.log('👨‍🌾 LANDOWNER role - saving to landowner-specific table');
         
