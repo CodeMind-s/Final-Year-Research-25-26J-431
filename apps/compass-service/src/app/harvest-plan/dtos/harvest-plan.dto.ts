@@ -48,6 +48,24 @@ export interface DeletePlanDto {
   id: string;
 }
 
+// Get Demand Price DTOs
+export interface GetDemandPriceDto {
+  startMonth: string; // Format: YYYY-MM
+  endMonth: string;   // Format: YYYY-MM
+}
+
+export interface MonthlyDemandPrice {
+  month: string;
+  totalDemand: number;
+  pricePerBag: number;
+}
+
+export interface GetDemandPriceResponseDto {
+  success: boolean;
+  message: string;
+  data?: MonthlyDemandPrice[];
+}
+
 // Response DTOs
 export interface CreatePlanResponseDto {
   success: boolean;
