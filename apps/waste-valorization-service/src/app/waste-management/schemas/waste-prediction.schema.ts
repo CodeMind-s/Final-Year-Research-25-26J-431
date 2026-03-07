@@ -6,6 +6,9 @@ export class WastePrediction extends Document {
   @Prop({ required: true, type: Date })
   timestamp: Date;
 
+  @Prop({ required: true, type: String })
+  prediction_date: string;
+
   @Prop({
     required: true,
     type: {
