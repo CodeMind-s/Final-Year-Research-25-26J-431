@@ -5,6 +5,9 @@ dist
 tmp
 out-tsc
 
+# k6 binary (downloaded locally)
+k6.exe
+
 # dependencies
 node_modules
 
