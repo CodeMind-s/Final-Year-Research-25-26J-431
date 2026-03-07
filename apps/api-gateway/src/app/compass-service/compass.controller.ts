@@ -25,6 +25,9 @@ import {
   DemandPriceForecastRequestDto,
   DemandPriceForecastResponseDto,
 } from './dtos/demand-price-forecast.dto';
+import {
+  GetDemandPriceResponseDto,
+} from './dtos/demand-price.dto';
 
 
 @ApiTags('Harvest Plans')
@@ -143,6 +146,48 @@ export class CompassController {
 
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} plans for user ${userId}`);
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get('demand-price')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.LANDOWNER, Role.SALTSOCIETY)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get monthly demand and price aggregates from distributor offers (landowner, saltsociety)',
+    description: 'Retrieves monthly aggregated demand (total target quantity) and average price per bag from distributor offers within the specified date range.',
+  })
+  @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-10' })
+  @ApiQuery({ name: 'endMonth', type: String, description: 'End month in YYYY-MM format', example: '2026-02' })
+  @ApiResponse({ status: 200, description: 'Demand and price data retrieved successfully', type: GetDemandPriceResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to retrieve demand and price data' })
+  async getDemandPrice(
+    @Query('startMonth') startMonth: string,
+    @Query('endMonth') endMonth: string,
+  ): Promise<GetDemandPriceResponseDto> {
+    try {
+      const requestData = { startMonth, endMonth };
+
+      const result = await firstValueFrom(
+        this.harvestPlanService.GetDemandPrice(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Demand Price error: ${error.message}`);
+            throw new HttpException('Failed to retrieve demand and price data', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT (demand-price) ===');
+      this.logger.log(`success: ${result.success}, months: ${result.data?.length || 0}`);
 
       return {
         success: result.success,
