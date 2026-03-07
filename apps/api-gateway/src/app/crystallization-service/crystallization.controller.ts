@@ -10,6 +10,7 @@ import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
 import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
 import { GetWeatherForecastResponseDto } from './dtos/weather-forecast.dto';
+import { GetModelPerformanceResponseDto } from './dtos/model-performance.dto';
 
 @ApiTags('Crystallization Predictions')
 @Controller('crystallization')
@@ -432,6 +433,43 @@ export class CrystallizationController {
         success: result.success,
         message: result.message,
         data: result.data ? JSON.parse(result.data) : null,
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get("/model-performance")
+  @Roles(Role.SALTSOCIETY)
+  @RequirePlan(0, 1)
+  @ApiBearerAuth()
+  @ApiTags('Crystallization Model Performance')
+  @ApiOperation({ summary: 'Get model performance and confidence metrics (saltsociety)' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: 'Number of records to retrieve (max 100)', example: 10 })
+  @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to fetch model performance' })
+  async getModelPerformance(@Query('limit') limit?: number): Promise<GetModelPerformanceResponseDto> {
+    try {
+      const requestData = {
+        limit: limit ? parseInt(limit.toString(), 10) : 10,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetModelPerformance(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Model Performance error: ${error.message}`);
+            throw new HttpException('Failed to fetch model performance', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT (model performance) ===');
+      this.logger.log(`success: ${result.success}, message: ${result.message}, records: ${result.data?.length || 0}`);
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
       };
     } catch (error: any) {
       throw error;
