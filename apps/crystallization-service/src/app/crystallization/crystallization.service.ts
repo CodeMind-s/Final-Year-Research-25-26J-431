@@ -781,8 +781,40 @@ export class CrystallizationService implements OnModuleInit {
   async GetPredictedMonthlyProduction(data: GetPredictedMonthlyProductionDto): Promise<GetPredictedMonthlyProductionResponseDto> {
     try {
       console.log('Getting predicted monthly productions from', data.startMonth, 'to', data.endMonth);
+      
+      // If landowner_id is provided, query landowner-specific predictions
+      if (data.landowner_id) {
+        console.log(`Querying landowner-specific predictions for landowner_id: ${data.landowner_id}`);
+        
+        const predictions = await this.landownerMonthlyProductionPredictionModel.find({
+          landowner_id: data.landowner_id,
+          month: {
+            $gte: data.startMonth,
+            $lte: data.endMonth,
+          },
+        }).sort({ month: 1 }); // Sort by month ascending
 
-      // Query the database for predictions between the months (inclusive)
+        if (!predictions || predictions.length === 0) {
+          return {
+            success: false,
+            message: `No predicted monthly productions found for landowner ${data.landowner_id} between ${data.startMonth} and ${data.endMonth}`,
+            data: [],
+          };
+        }
+
+        // Convert to plain objects
+        const result = predictions.map((prediction) => prediction.toObject());
+
+        console.log(`Found ${result.length} landowner-specific predicted monthly productions`);
+
+        return {
+          success: true,
+          message: 'Predicted monthly productions fetched successfully',
+          data: result,
+        };
+      }
+      
+      // Otherwise, query facility-level predictions (existing behavior)
       const predictions = await this.monthlyProductionPredictionModel.find({
         month: {
           $gte: data.startMonth,
@@ -801,7 +833,7 @@ export class CrystallizationService implements OnModuleInit {
       // Convert to plain objects
       const result = predictions.map((prediction) => prediction.toObject());
 
-      console.log(`Found ${result.length} predicted monthly productions`);
+      console.log(`Found ${result.length} facility-level predicted monthly productions`);
 
       return {
         success: true,
