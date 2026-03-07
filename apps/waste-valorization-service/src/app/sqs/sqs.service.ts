@@ -40,6 +40,7 @@ export class SqsService {
     jobId: string;
     userId: string;
     jobType: string;
+    predictionDate: string;
     requestData: Record<string, unknown> | string;
   }): Promise<boolean> {
     try {
@@ -89,6 +90,11 @@ export class SqsService {
             unknown
           >;
         }
+      }
+
+      // Ensure predictionDate is included in the event data for downstream processing
+      if (jobData.predictionDate) {
+        eventData.prediction_date = jobData.predictionDate;
       }
 
       const messageBody = JSON.stringify({

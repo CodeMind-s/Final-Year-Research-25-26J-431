@@ -32,17 +32,19 @@ message Job {
   string userId = 2;
   JobType jobType = 3;
   JobStatus status = 4;
-  string requestData = 5;    // JSON string of input data
-  string resultData = 6;     // JSON string of result data
-  string errorMessage = 7;
-  string createdAt = 8;
-  string updatedAt = 9;
+  string predictionDate = 5; // ISO date string (YYYY-MM-DD)
+  string requestData = 6;    // JSON string of input data
+  string resultData = 7;     // JSON string of result data
+  string errorMessage = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
 }
 
 message CreateJobRequest {
   string userId = 1;
   JobType jobType = 2;
-  string requestData = 3;
+  string predictionDate = 3; // ISO date string (YYYY-MM-DD)
+  string requestData = 4;
 }
 
 message CreateJobResponse {
@@ -81,8 +83,9 @@ message GetJobsResponse {
 message UpdateJobRequest {
   string id = 1;
   JobStatus status = 2;
-  string resultData = 3;
-  string errorMessage = 4;
+  string predictionDate = 3; // ISO date string (YYYY-MM-DD)
+  string resultData = 4;
+  string errorMessage = 5;
 }
 
 message UpdateJobResponse {

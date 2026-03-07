@@ -67,6 +67,7 @@ export class WasteValorizationController {
       const requestData = {
         userId: payloadUserId,
         jobType: jobTypeNumber,
+        predictionDate: body.predictionDate,
         requestData: typeof body.requestData === 'string' ? body.requestData : JSON.stringify(body.requestData),
       };
 
@@ -224,6 +225,10 @@ export class WasteValorizationController {
 
       if (body.status) {
         requestData.status = statusMap[body.status];
+      }
+
+      if (body.predictionDate) {
+        requestData.predictionDate = body.predictionDate;
       }
 
       if (body.resultData) {
