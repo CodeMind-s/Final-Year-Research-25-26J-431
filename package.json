@@ -2,7 +2,11 @@
   "name": "@brinex-server/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "test:unit": "jest --config=jest.unit.config.cjs --runInBand",
+    "test:integration": "jest --config=jest.integration.config.cjs",
+    "test:waste:all": "npm run test:unit && npm run test:integration"
+  },
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -50,6 +54,7 @@
   ],
   "dependencies": {
     "@aws-sdk/client-s3": "^3.908.0",
+    "@aws-sdk/client-sqs": "^3.1004.0",
     "@google-cloud/translate": "^9.2.1",
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "@googlemaps/routing": "^2.1.1",

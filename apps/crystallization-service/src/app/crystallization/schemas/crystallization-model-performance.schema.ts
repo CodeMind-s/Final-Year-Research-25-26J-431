@@ -21,6 +21,56 @@ class PerformanceMetrics {
     validation_accuracy: number;
 }
 
+class ConfidenceData {
+    @Prop({ required: true })
+    overallScore: number;
+
+    @Prop({ required: true })
+    overallRating: string;
+
+    @Prop({ required: true })
+    yieldRatio: number;
+
+    @Prop({ required: true })
+    yieldStatus: string;
+
+    @Prop({ required: true })
+    decliningTrend: boolean;
+
+    @Prop({ required: true })
+    improvingTrend: boolean;
+
+    @Prop({ required: true })
+    formulaR2: number;
+
+    @Prop({ required: true })
+    holdoutMae: number;
+
+    @Prop({ required: true })
+    nHistoryMonths: number;
+
+    @Prop({ required: true })
+    formulaFitScore: number;
+
+    @Prop({ required: true })
+    holdoutScore: number;
+
+    @Prop({ required: true })
+    dataVolumeScore: number;
+
+    @Prop({ required: true })
+    yieldScore: number;
+
+    @Prop()
+    bedCountTier?: string;
+
+    @Prop()
+    bedCountNote?: string;
+
+    @Prop({ required: true })
+    date: Date;
+}
+
 @Schema({ timestamps: true })
 export class CrystallizationModelPerformance extends Document {
     @Prop({ required: true })
@@ -31,6 +81,9 @@ export class CrystallizationModelPerformance extends Document {
 
     @Prop({ required: true, type: PerformanceMetrics })
     performance_metrics: PerformanceMetrics;
+
+    @Prop({ required: true, type: ConfidenceData })
+    confidence: ConfidenceData;
 
     // Mongoose timestamps - automatically managed by Mongoose
     createdAt?: Date;

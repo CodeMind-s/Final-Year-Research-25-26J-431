@@ -74,6 +74,7 @@ export class JobsService {
       userId: job.userId,
       jobType: this.mapJobTypeToNumber(job.jobType),
       status: this.mapJobStatusToNumber(job.status),
+      predictionDate: job.predictionDate,
       requestData: JSON.stringify(job.requestData),
       resultData: job.resultData ? JSON.stringify(job.resultData) : undefined,
       errorMessage: job.errorMessage || undefined,
@@ -101,6 +102,7 @@ export class JobsService {
         userId: data.userId,
         jobType: this.mapJobTypeToEnum(data.jobType),
         status: JobStatus.PENDING,
+        predictionDate: data.predictionDate,
         requestData: requestData,
         metadata: null,
         resultData: null,
@@ -118,6 +120,7 @@ export class JobsService {
         jobId: job._id.toString(),
         userId: job.userId,
         jobType: this.mapJobTypeToEnum(data.jobType),
+        predictionDate: job.predictionDate,
         requestData: job.requestData,
       }).catch((error) => {
         // Log error but don't fail the request
@@ -176,12 +179,6 @@ export class JobsService {
       if (data.userId) {
         query.userId = data.userId;
       }
-      if (data.status !== undefined && data.status !== null) {
-        query.status = this.mapJobStatusToEnum(data.status);
-      }
-      if (data.jobType !== undefined && data.jobType !== null) {
-        query.jobType = this.mapJobTypeToEnum(data.jobType);
-      }
 
       // Execute query
       const [jobs, total] = await Promise.all([
@@ -220,6 +217,9 @@ export class JobsService {
       // Update fields
       if (data.status !== undefined && data.status !== null) {
         job.status = this.mapJobStatusToEnum(data.status);
+      }
+      if (data.predictionDate) {
+        job.predictionDate = data.predictionDate;
       }
       if (data.resultData) {
         if (typeof data.resultData === 'string') {

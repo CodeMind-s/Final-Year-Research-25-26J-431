@@ -12,6 +12,8 @@ import type {
   UpdatePlanResponseDto,
   DeletePlanDto,
   DeletePlanResponseDto,
+  GetDemandPriceDto,
+  GetDemandPriceResponseDto,
 } from './dtos/harvest-plan.dto';
 
 @Controller('HarvestPlan')
@@ -41,5 +43,10 @@ export class HarvestPlanController {
   @GrpcMethod('HarvestPlanService', 'DeletePlan')
   async DeletePlan(data: DeletePlanDto): Promise<DeletePlanResponseDto> {
     return this.harvestPlanService.DeletePlan(data);
+  }
+
+  @GrpcMethod('HarvestPlanService', 'GetDemandPrice')
+  async GetDemandPrice(data: GetDemandPriceDto): Promise<GetDemandPriceResponseDto> {
+    return this.harvestPlanService.GetDemandPrice(data);
   }
 }

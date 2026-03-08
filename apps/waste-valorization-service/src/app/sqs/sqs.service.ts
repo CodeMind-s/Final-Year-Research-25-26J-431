@@ -40,6 +40,7 @@ export class SqsService {
     jobId: string;
     userId: string;
     jobType: string;
+    predictionDate: string;
     requestData: Record<string, unknown> | string;
   }): Promise<boolean> {
     try {
@@ -91,6 +92,11 @@ export class SqsService {
         }
       }
 
+      // Ensure predictionDate is included in the event data for downstream processing
+      if (jobData.predictionDate) {
+        eventData.prediction_date = jobData.predictionDate;
+      }
+
       const messageBody = JSON.stringify({
         eventName,
         eventData,
@@ -98,9 +104,6 @@ export class SqsService {
         jobId: jobData.jobId,
         timestamp: new Date().toISOString(),
       });
-
-      console.log('Prepared SQS message body:', messageBody);
-      console.log('Sending message to SQS queue:', this.queueUrl);
 
       const command = new SendMessageCommand({
         QueueUrl: this.queueUrl,

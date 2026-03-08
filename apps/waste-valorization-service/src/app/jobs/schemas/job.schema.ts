@@ -25,6 +25,9 @@ export class Job extends Document {
   @Prop({ required: true, enum: JobStatus, default: JobStatus.PENDING })
   status: JobStatus;
 
+  @Prop({ required: true, type: String })
+  predictionDate: string;
+
   @Prop({ required: true, type: Object })
   requestData: Record<string, unknown>;
 

@@ -1,0 +1,85 @@
+{
+  "description": "RobustScaler params. Apply: X_scaled = (X - center) / scale before passing to ONNX.",
+  "log_scaler": {
+    "features": [
+      "water_temperature",
+      "lagoon",
+      "OR_brine_level",
+      "OR_bund_level",
+      "IR_brine_level",
+      "IR_bound_level",
+      "East_channel",
+      "West_channel"
+    ],
+    "center": [
+      31.0,
+      2.0,
+      4.0,
+      1.5,
+      5.0,
+      1.0,
+      6.0,
+      7.0
+    ],
+    "scale": [
+      2.0,
+      2.0,
+      3.0,
+      0.5,
+      2.0,
+      0.5,
+      4.0,
+      4.0
+    ]
+  },
+  "weather_scaler": {
+    "features": [
+      "temperature_mean",
+      "temperature_max",
+      "temperature_min",
+      "rain_sum",
+      "wind_speed_max",
+      "wind_gusts_max",
+      "wind_gusts_mean",
+      "wind_speed_mean",
+      "wind_gusts_min",
+      "wind_speed_min",
+      "relative_humidity_mean",
+      "relative_humidity_mean_2",
+      "relative_humidity_max",
+      "relative_humidity_min"
+    ],
+    "center": [
+      27.9,
+      30.7,
+      26.0,
+      0.0,
+      16.0,
+      34.6,
+      29.4,
+      14.8,
+      18.7,
+      9.7,
+      81.0,
+      80.0,
+      92.0,
+      65.0
+    ],
+    "scale": [
+      1.5500000000000007,
+      2.900000000000002,
+      2.3000000000000007,
+      1.0,
+      5.399999999999999,
+      9.8,
+      18.099999999999998,
+      10.899999999999999,
+      15.400000000000002,
+      11.100000000000001,
+      7.0,
+      8.0,
+      7.0,
+      12.0
+    ]
+  }
+}

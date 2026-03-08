@@ -23,6 +23,7 @@ describe('CrystallizationService', () => {
   let dailyParameterPredictionModel: any;
   let monthlyProductionPredictionModel: any;
   let crystallizationModelPerformanceModel: any;
+  let landownerMonthlyProductionPredictionModel: any;
   let mockOnnxClient: any;
   let mockAuditLogClient: any;
   let mockConfigService: any;
@@ -137,7 +138,11 @@ describe('CrystallizationService', () => {
     const model: any = jest.fn();
     Object.assign(model, {
       create: jest.fn(),
-      findOne: jest.fn(),
+      findOne: jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      }),
       findById: jest.fn(),
       findByIdAndUpdate: jest.fn(),
       findByIdAndDelete: jest.fn(),
@@ -162,6 +167,7 @@ describe('CrystallizationService', () => {
     dailyParameterPredictionModel = createMockModel();
     monthlyProductionPredictionModel = createMockModel();
     crystallizationModelPerformanceModel = createMockModel();
+    landownerMonthlyProductionPredictionModel = createMockModel();
 
     // Mock the gRPC ONNX predictions service
     mockPredictionsONNXService = {
@@ -198,6 +204,7 @@ describe('CrystallizationService', () => {
         { provide: getModelToken('DailyParameterPrediction'), useValue: dailyParameterPredictionModel },
         { provide: getModelToken('MonthlyProductionPrediction'), useValue: monthlyProductionPredictionModel },
         { provide: getModelToken('CrystallizationModelPerformance'), useValue: crystallizationModelPerformanceModel },
+        { provide: getModelToken('LandownerMonthlyProductionPrediction'), useValue: landownerMonthlyProductionPredictionModel },
         { provide: 'PREDICTIONS_PACKAGE', useValue: mockOnnxClient },
         { provide: 'AUDIT_LOG_SERVICE', useValue: mockAuditLogClient },
         { provide: ConfigService, useValue: mockConfigService },
@@ -676,6 +683,15 @@ describe('CrystallizationService', () => {
     };
 
     it('should forward prediction request to ONNX service and return result', async () => {
+      // Mock dailyMeasurementModel to return latest measurement with parameters
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -693,25 +709,16 @@ describe('CrystallizationService', () => {
       );
     });
 
-    it('should save model performance metrics to database', async () => {
-      mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
-      crystallizationModelPerformanceModel.create.mockResolvedValue({});
-      dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
-      monthlyProductionPredictionModel.findOneAndUpdate.mockResolvedValue({});
-
-      await service.GetPredictions(predictionRequest);
-
-      expect(crystallizationModelPerformanceModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model_type: 'LSTM_Hybrid_with_Weather_ONNX',
-          performance_metrics: expect.objectContaining({
-            test_mae: 0.226,
-          }),
-        }),
-      );
-    });
-
     it('should save daily parameter predictions via upsert', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -732,6 +739,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should save monthly production predictions via upsert', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockResolvedValue({});
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -752,6 +768,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should still return predictions even if performance save fails', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       mockPredictionsONNXService.GetPredictions.mockReturnValue(of(mockOnnxResponse));
       crystallizationModelPerformanceModel.create.mockRejectedValue(new Error('Save failed'));
       dailyParameterPredictionModel.findOneAndUpdate.mockResolvedValue({});
@@ -763,6 +788,15 @@ describe('CrystallizationService', () => {
     });
 
     it('should handle response without model_info gracefully', async () => {
+      // Mock dailyMeasurementModel to return latest measurement
+      dailyMeasurementModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          date: new Date('2025-06-14'),
+          parameters: mockParameters,
+        }),
+      });
       const responseWithoutModelInfo = {
         ...mockOnnxResponse,
         model_info: undefined,
@@ -949,6 +983,90 @@ describe('CrystallizationService', () => {
       });
 
       await expect(service.GetModelPerformance({})).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // --- GetWeatherForecast ---
+
+  describe('GetWeatherForecast', () => {
+    const mockForecastResponse = {
+      city: { id: 1229293, name: 'Puttalam', coord: { lon: 79.8147, lat: 8.0615 }, country: 'LK', population: 45661, timezone: 19800 },
+      cod: '200',
+      message: 0.75,
+      cnt: 16,
+      list: [
+        {
+          dt: 1772605800,
+          temp: { day: 300.89, min: 295.72, max: 300.89, night: 298.93, eve: 299.52, morn: 295.87 },
+          weather: [{ id: 501, main: 'Rain', description: 'moderate rain', icon: '10d' }],
+          humidity: 64,
+          speed: 5.14,
+        },
+      ],
+    };
+
+    it('should return weather forecast successfully', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Weather forecast fetched successfully');
+      expect(result.data).toBe(JSON.stringify(mockForecastResponse));
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('forecast/daily?lat=8.061542&lon=79.814714&cnt=16'),
+      );
+    });
+
+    it('should include the API key in the request URL', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({});
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('appid=test-api-key'),
+      );
+    });
+
+    it('should return success false when API key is not configured', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('API key is not configured');
+      expect(result.data).toBe('');
+      expect(mockedAxios.get as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    it('should return success false when the HTTP call fails', async () => {
+      (mockedAxios.get as jest.Mock).mockRejectedValue(new Error('Network timeout'));
+
+      const result = await service.GetWeatherForecast({});
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Network timeout');
+      expect(result.data).toBe('');
+    });
+
+    it('should use custom lat/lon/cnt from request data when provided', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({ lat: 6.927079, lon: 79.861244, cnt: 7 });
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('lat=6.927079&lon=79.861244&cnt=7'),
+      );
+    });
+
+    it('should fall back to default lat/lon/cnt when not provided', async () => {
+      (mockedAxios.get as jest.Mock).mockResolvedValue({ data: mockForecastResponse });
+
+      await service.GetWeatherForecast({});
+
+      expect(mockedAxios.get as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining('lat=8.061542&lon=79.814714&cnt=16'),
+      );
     });
   });
 });

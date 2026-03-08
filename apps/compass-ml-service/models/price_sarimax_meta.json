@@ -1,0 +1,46 @@
+{
+  "version": "price_sarimax_v1.0",
+  "model_order": [
+    1,
+    1,
+    1
+  ],
+  "seasonal_order": [
+    0,
+    1,
+    1,
+    12
+  ],
+  "exog_cols": [
+    "is_maha_season",
+    "price_lag_12m",
+    "price_lag_1m",
+    "total_production_bags"
+  ],
+  "exog_col_order": "MUST match this exact order when building numpy array for inference",
+  "last_data_date": "2025-12-01",
+  "total_train_months": 168,
+  "training_date": "2026-03-04 20:19:43",
+  "performance": {
+    "month_plus_1_mape": 1.164,
+    "month_plus_2_mape": 1.353,
+    "month_plus_1_rmse": 21.8,
+    "month_plus_2_rmse": 25.18,
+    "directional_accuracy_pct": 46.3,
+    "evaluation_windows": 34,
+    "evaluation_period": "2023-01 to 2025-12",
+    "evaluation_method": "rolling origin, leakage-free (month+2 uses predicted lag)"
+  },
+  "inference_notes": {
+    "price_lag_1m_month_plus_1": "use last known actual price from MongoDB",
+    "price_lag_1m_month_plus_2": "use month+1 PREDICTION \u2014 service handles this automatically",
+    "price_lag_12m": "look up price from 12 months ago in MongoDB history",
+    "total_production_bags": "use latest available from MongoDB ActualMonthlyProduction",
+    "is_maha_season": "derived from forecast month: 1 if month in [10,11,12,1,2,3]"
+  },
+  "artifacts": {
+    "model": "price_sarimax.pkl",
+    "history": "price_sarimax_history.pkl",
+    "meta": "price_sarimax_meta.json"
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "description": "Production formula: production = beds_coef*num_salt_beds + rain_coef*monthly_rain_mm + temp_coef*monthly_temp_mean + sin_coef*sin + cos_coef*cos + intercept",
+  "r2_score": 0.973216,
+  "holdout_mae": 7956.0,
+  "n_months": 36,
+  "beds_coef": 35.215324,
+  "rain_coef": -33.925709,
+  "temp_coef": 3763.359218,
+  "sin_coef": 4703.36901,
+  "cos_coef": 6675.845277,
+  "intercept": -279846.1821,
+  "pi_half_width": 15739.14,
+  "resid_std": 7706.68,
+  "historical_avg_beds": 6897.2,
+  "historical_weather": {
+    "1": {
+      "avg_rain_mm": 144.67,
+      "avg_temp_c": 25.4
+    },
+    "2": {
+      "avg_rain_mm": 44.93,
+      "avg_temp_c": 26.59
+    },
+    "3": {
+      "avg_rain_mm": 91.17,
+      "avg_temp_c": 27.53
+    },
+    "4": {
+      "avg_rain_mm": 143.7,
+      "avg_temp_c": 28.11
+    },
+    "5": {
+      "avg_rain_mm": 225.53,
+      "avg_temp_c": 28.63
+    },
+    "6": {
+      "avg_rain_mm": 98.93,
+      "avg_temp_c": 28.25
+    },
+    "7": {
+      "avg_rain_mm": 50.43,
+      "avg_temp_c": 28.17
+    },
+    "8": {
+      "avg_rain_mm": 78.3,
+      "avg_temp_c": 28.06
+    },
+    "9": {
+      "avg_rain_mm": 168.25,
+      "avg_temp_c": 27.6
+    },
+    "10": {
+      "avg_rain_mm": 262.2,
+      "avg_temp_c": 26.58
+    },
+    "11": {
+      "avg_rain_mm": 459.8,
+      "avg_temp_c": 25.78
+    },
+    "12": {
+      "avg_rain_mm": 188.25,
+      "avg_temp_c": 26.14
+    }
+  },
+  "base_monthly_avg_bags": {
+    "1": 40406.1,
+    "2": 27196.1,
+    "3": 72587.3,
+    "4": 94803.8,
+    "5": 48133.0,
+    "6": 52499.3,
+    "7": 101874.3,
+    "8": 129260.8,
+    "9": 68907.5,
+    "10": 30159.1,
+    "11": 20288.2,
+    "12": 34056.9
+  },
+  "season_months": {
+    "Yala": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "Maha": [
+      11,
+      12,
+      1,
+      2
+    ],
+    "Transition": [
+      3,
+      4,
+      9,
+      10
+    ]
+  },
+  "onnx_input_shapes": {
+    "log_input": [
+      1,
+      60,
+      8
+    ],
+    "weather_input": [
+      1,
+      60,
+      14
+    ]
+  },
+  "onnx_output_shape": [
+    1,
+    480
+  ],
+  "onnx_output_reshape_to": [
+    60,
+    8
+  ],
+  "log_feature_order": [
+    "water_temperature",
+    "lagoon",
+    "OR_brine_level",
+    "OR_bund_level",
+    "IR_brine_level",
+    "IR_bound_level",
+    "East_channel",
+    "West_channel"
+  ],
+  "weather_feature_order": [
+    "temperature_mean",
+    "temperature_max",
+    "temperature_min",
+    "rain_sum",
+    "wind_speed_max",
+    "wind_gusts_max",
+    "wind_gusts_mean",
+    "wind_speed_mean",
+    "wind_gusts_min",
+    "wind_speed_min",
+    "relative_humidity_mean",
+    "relative_humidity_mean_2",
+    "relative_humidity_max",
+    "relative_humidity_min"
+  ]
+}

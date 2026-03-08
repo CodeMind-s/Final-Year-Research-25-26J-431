@@ -120,10 +120,18 @@ services:
       - "50055:50055"
     environment:
       - GRPC_URL=0.0.0.0:50055
+      - MONGO_URI=${MONGO_URI}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - OPENWEATHER_LAT=${OPENWEATHER_LAT}
+      - OPENWEATHER_LON=${OPENWEATHER_LON}
+      - KAFKA_BROKER=kafka:9092
     networks:
       - app-network
     volumes:
       - ./apps/crystallization-onnx-service/models:/app/models
+    depends_on:
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
   audit-log-service:
@@ -219,11 +227,14 @@ services:
       - GRPC_URL=0.0.0.0:50052
       - KAFKA_BROKER=kafka:9092
       - MONGO_URI=${MONGO_URI}
+      - COMPASS_ML_SERVICE_URL=http://compass-ml-service:8002
     networks:
       - app-network
     depends_on:
       kafka:
         condition: service_healthy
+      compass-ml-service:
+        condition: service_started
     restart: unless-stopped
 
   waste-valorization-service:
@@ -252,6 +263,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  gemini-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: gemini-service
+    container_name: gemini-service
+    ports:
+      - "50059:50059"
+    environment:
+      - GRPC_URL=0.0.0.0:50059
+      - CRYSTALLIZATION_SERVICE_URL=crystallization-service:50054
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    networks:
+      - app-network
+    depends_on:
+      - crystallization-service
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -272,6 +302,7 @@ services:
       - PAYMENT_SERVICE_URL=payment-service:50056
       - COMPASS_SERVICE_URL=compass-service:50052
       - WASTE_VALORIZATION_SERVICE_URL=waste-valorization-service:50058
+      - AI_SERVICE_URL=gemini-service:50059
     networks:
       - app-network
     depends_on:
@@ -283,6 +314,7 @@ services:
       - compass-service
       - waste-valorization-service
       - audit-log-service
+      - gemini-service
       - email-service
     restart: unless-stopped
 
@@ -298,6 +330,30 @@ services:
       - app-network
     depends_on:
       - api-gateway
+    restart: unless-stopped
+
+  compass-ml-service:
+    build:
+      context: .
+      dockerfile: apps/compass-ml-service/Dockerfile
+    container_name: compass-ml-service
+    environment:
+      - MODEL_DIR=/app/models
+      - MONGO_URI=${MONGO_URI}
+      - CRYSTALLIZATION_SERVICE_URL=crystallization-onnx-service:50055
+    networks:
+      - app-network
+    volumes:
+      - ./apps/compass-ml-service/models:/app/models:ro
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8002/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      crystallization-onnx-service:
+        condition: service_started
     restart: unless-stopped
 
 networks:

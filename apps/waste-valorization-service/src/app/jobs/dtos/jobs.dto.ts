@@ -2,6 +2,7 @@
 export interface CreateJobDto {
   userId: string;
   jobType: number; // 0=WASTE_PREDICTION, 1=VALORIZATION_ANALYSIS, 2=OPTIMIZATION
+  predictionDate: string; // ISO date string (YYYY-MM-DD)
   requestData: string | Record<string, unknown>; // JSON string or object
 }
 
@@ -20,6 +21,7 @@ export interface GetJobsDto {
 export interface UpdateJobDto {
   id: string;
   status?: number;
+  predictionDate?: string; // ISO date string (YYYY-MM-DD)
   resultData?: string | Record<string, unknown>; // JSON string or object
   errorMessage?: string;
 }
@@ -34,6 +36,7 @@ export interface JobResponseData {
   userId: string;
   jobType: number;
   status: number;
+  predictionDate: string;
   requestData: string | Record<string, unknown>;
   resultData?: string | Record<string, unknown>;
   errorMessage?: string;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HarvestPlan, HarvestStatus } from './schemas/harvest-plan.schema';
+import { DistributorOffer } from '../distributor-offers/schemas/distributor-offer.schema';
 import {
   CreatePlanDto,
   CreatePlanResponseDto,
@@ -13,13 +14,17 @@ import {
   UpdatePlanResponseDto,
   DeletePlanDto,
   DeletePlanResponseDto,
+  GetDemandPriceDto,
+  GetDemandPriceResponseDto,
 } from './dtos/harvest-plan.dto';
 
 @Injectable()
 export class HarvestPlanService {
   constructor(
     @InjectModel(HarvestPlan.name)
-    private harvestPlanModel: Model<HarvestPlan>
+    private harvestPlanModel: Model<HarvestPlan>,
+    @InjectModel(DistributorOffer.name)
+    private distributorOfferModel: Model<DistributorOffer>,
   ) {}
 
   async CreatePlan(data: CreatePlanDto): Promise<CreatePlanResponseDto> {
@@ -226,6 +231,66 @@ export class HarvestPlanService {
       return {
         success: false,
         message: `Failed to delete harvest plan: ${error.message}`,
+      };
+    }
+  }
+
+  async GetDemandPrice(data: GetDemandPriceDto): Promise<GetDemandPriceResponseDto> {
+    try {
+      // Parse start and end months
+      const startDate = new Date(data.startMonth + '-01');
+      const endDate = new Date(data.endMonth + '-01');
+      endDate.setMonth(endDate.getMonth() + 1); // Include the end month
+
+      // Fetch all distributor offers within the date range
+      const offers = await this.distributorOfferModel
+        .find({
+          createdAt: {
+            $gte: startDate,
+            $lt: endDate,
+          },
+        })
+        .exec();
+
+      // Group by month and calculate aggregates
+      const monthlyData = new Map<string, { totalDemand: number; totalPrice: number; count: number }>();
+
+      for (const offer of offers) {
+        const month = offer.createdAt
+          ? `${offer.createdAt.getFullYear()}-${String(offer.createdAt.getMonth() + 1).padStart(2, '0')}`
+          : null;
+
+        if (!month) continue;
+
+        if (!monthlyData.has(month)) {
+          monthlyData.set(month, { totalDemand: 0, totalPrice: 0, count: 0 });
+        }
+
+        const monthData = monthlyData.get(month)!;
+        monthData.totalDemand += offer.targetQuantity;
+        monthData.totalPrice += offer.pricePerKilo;
+        monthData.count += 1;
+      }
+
+      // Convert to response format and calculate averages
+      const result = Array.from(monthlyData.entries())
+        .map(([month, data]) => ({
+          month,
+          totalDemand: Math.round(data.totalDemand),
+          pricePerBag: data.count > 0 ? Math.round(data.totalPrice / data.count) : 0,
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+
+      return {
+        success: true,
+        message: 'Demand and price data retrieved successfully',
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to retrieve demand and price data: ${error.message}`,
+        data: [],
       };
     }
   }

@@ -41,19 +41,25 @@ export class WasteManagementService {
         : defaultStartDate;
       const endDate = data.endDate ? new Date(data.endDate) : defaultEndDate;
 
+      // Convert dates to YYYY-MM-DD format for string comparison
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
       // Query waste predictions within date range
+      // Filter by prediction_date (YYYY-MM-DD string) and event_type
       const predictions = await this.wastePredictionModel
         .find({
-          timestamp: {
-            $gte: startDate,
-            $lte: endDate,
+          prediction_date: {
+            $gte: startDateStr,
+            $lte: endDateStr,
           },
+          'metadata.event_type': 'WASTE/FORECAST',
         })
-        .sort({ timestamp: 1 })
+        .sort({ prediction_date: 1 })
         .lean();
 
       this.logger.log(
-        `Found ${predictions.length} predictions between ${startDate.toISOString()} and ${endDate.toISOString()}`
+        `Found ${predictions.length} predictions between ${startDateStr} and ${endDateStr} with event_type WASTE/FORECAST`
       );
 
       // Group by date and fill missing dates with defaults
@@ -100,10 +106,9 @@ export class WasteManagementService {
   ): WastePredictionEntry[] {
     const grouped = new Map<string, WastePrediction[]>();
 
-    // Group existing predictions by date (YYYY-MM-DD)
+    // Group existing predictions by prediction_date (already in YYYY-MM-DD format)
     predictions.forEach((pred) => {
-      const date = new Date(pred.timestamp);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = pred.prediction_date || pred.timestamp?.toISOString().split('T')[0];
 
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
@@ -126,9 +131,10 @@ export class WasteManagementService {
 
       if (records && records.length > 0) {
         // Use actual data from database - average if multiple records
+        // Support both prediction_result and forecast_result fields
         const avgPredictedWaste =
           records.reduce(
-            (sum, r) => sum + (r.prediction_result?.Total_Waste_kg || 0),
+            (sum, r) => sum + ((r.prediction_result?.Total_Waste_kg || r.forecast_result?.Total_Waste_kg) || 0),
             0
           ) / records.length;
         const avgProductionVolume =
@@ -174,11 +180,18 @@ export class WasteManagementService {
         });
       } else {
         // Use default values for missing dates
-        const defaultProductionVolume = 50000; // kg
-        const defaultRainSum = 150 + Math.random() * 100; // 150-250 mm
-        const defaultTemperature = 26 + Math.random() * 4; // 26-30°C
-        const defaultHumidity = 75 + Math.random() * 15; // 75-90%
-        const defaultWindSpeed = 10 + Math.random() * 8; // 10-18 km/h
+        // const defaultProductionVolume = 50000; // kg
+        // const defaultRainSum = 150 + Math.random() * 100; // 150-250 mm
+        // const defaultTemperature = 26 + Math.random() * 4; // 26-30°C
+        // const defaultHumidity = 75 + Math.random() * 15; // 75-90%
+        // const defaultWindSpeed = 10 + Math.random() * 8; // 10-18 km/h
+
+        const defaultProductionVolume = 0; // kg
+        const defaultRainSum = 0; // 150-250 mm
+        const defaultTemperature = 0; // 26-30°C
+        const defaultHumidity = 0; // 75-90%
+        const defaultWindSpeed = 0; // 10-18 km/h
+
         
         // Calculate waste as ~4-5% of production volume (typical ratio)
         // Influenced by rainfall (more rain = more waste)
@@ -269,7 +282,7 @@ export class WasteManagementService {
       }
     );
 
-    const count = predictions.length;
+    const count = predictions.filter((p) => p.production_volume).length || 1;
 
     return {
       production_volume: Math.round(sum.production_volume / count),
@@ -355,6 +368,7 @@ export class WasteManagementService {
       const jobResult = await this.jobsService.createJob({
         userId: 'system', // Can be passed from request if user context is available
         jobType: 0, // JobType.WASTE_PREDICTION
+        predictionDate: new Date().toISOString().split('T')[0], // Use current date for quick predictions
         requestData: {
           production_volume,
           rain_sum,

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsObject, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsObject, IsNumber, Min, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum JobType {
   WASTE_PREDICTION = 'WASTE_PREDICTION',
@@ -20,12 +21,17 @@ export class CreateJobDto {
   @IsNotEmpty()
   jobType: JobType;
 
+  @ApiProperty({ description: 'Prediction date in ISO format (YYYY-MM-DD)', example: '2026-02-01' })
+  @IsDateString()
+  @IsNotEmpty()
+  predictionDate: string;
+
   @ApiPropertyOptional({ description: 'Optional: user id (server will use authenticated user if present)' })
   @IsString()
   @IsOptional()
   userId?: string;
 
-  @ApiProperty({ description: 'Request data object', example: { param1: 'value1' } })
+  @ApiProperty({ description: 'Request data object', example: { production_volume: 50000, rain_sum: 200, temperature_mean: 28, humidity_mean: 85, wind_speed_mean: 15, month: 6 } })
   @IsObject()
   @IsNotEmpty()
   requestData: Record<string, unknown>;
@@ -36,6 +42,11 @@ export class UpdateJobDto {
   @IsEnum(JobStatus)
   @IsOptional()
   status?: JobStatus;
+
+  @ApiPropertyOptional({ description: 'Prediction date in ISO format (YYYY-MM-DD)', example: '2026-02-01' })
+  @IsDateString()
+  @IsOptional()
+  predictionDate?: string;
 
   @ApiPropertyOptional({ description: 'Result data object', example: { result: 'value' } })
   @IsObject()
@@ -54,19 +65,20 @@ export class GetJobsQueryDto {
   @IsOptional()
   status?: JobStatus;
 
-  @ApiPropertyOptional({ description: 'Filter by job type (numeric)', example: 0 })
   @ApiPropertyOptional({ description: 'Filter by job type', enum: JobType })
   @IsEnum(JobType)
   @IsOptional()
   jobType?: JobType;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ description: 'Results per page', default: 10 })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   @Min(1)
@@ -78,6 +90,7 @@ export interface JobResponseData {
   userId: string;
   jobType: number;
   status: number;
+  predictionDate: string;
   requestData: string;
   resultData?: string;
   errorMessage?: string;

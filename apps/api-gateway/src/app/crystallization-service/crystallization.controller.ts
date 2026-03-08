@@ -1,4 +1,4 @@
-import { Controller, Inject, Post, Body, Get, Patch, Param, Delete, Query, Logger, HttpStatus, HttpException } from '@nestjs/common';
+import { Controller, Inject, Post, Body, Get, Patch, Param, Delete, Query, Logger, HttpStatus, HttpException, Req } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
@@ -9,6 +9,7 @@ import { CreateDailyMeasurementDto, CreateDailyMeasurementResponseDto, GetDailyM
 import { PredictionRequestDto } from './dtos/prediction-request.dto';
 import { GetPredictedDailyMeasurementResponseDto } from './dtos/predicted-daily-measurement.dto';
 import { GetPredictedMonthlyProductionResponseDto } from './dtos/predicted-monthly-production.dto';
+import { GetWeatherForecastResponseDto } from './dtos/weather-forecast.dto';
 import { GetModelPerformanceResponseDto } from './dtos/model-performance.dto';
 
 @ApiTags('Crystallization Predictions')
@@ -245,28 +246,46 @@ export class CrystallizationController {
   }
 
   @Post("/predictions")
-  @Roles(Role.SALTSOCIETY)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
   @RequirePlan(1)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get ML predictions for crystallization parameters (saltsociety)' })
+  @ApiOperation({ summary: 'Get ML predictions for crystallization parameters (saltsociety & landowner)' })
   @ApiBody({ type: PredictionRequestDto })
   @ApiResponse({ status: 200, description: 'Predictions generated successfully' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async getPredictions(@Body() predictionRequest: PredictionRequestDto) {
+  async getPredictions(@Body() predictionRequest: PredictionRequestDto, @Req() req: any) {
     try {
+      // Validate start_date is not in the past
+      const startDate = new Date(predictionRequest.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset to start of day for fair comparison
+      
+      if (startDate < today) {
+        throw new HttpException(
+          {
+            status: 'error',
+            message: `Start date cannot be in the past. Please provide today's date or a future date.`,
+            providedDate: predictionRequest.start_date,
+            todayDate: today.toISOString().split('T')[0],
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Extract role and userId from JWT token (more secure than request body)
+      const role = req.user?.role?.toUpperCase() || 'SALTSOCIETY';
+      const landownerId = req.user?.userId || null;
+
+      this.logger.log(`Prediction request from user: ${landownerId}, role: ${role}`);
+
       const payload = {
         start_date: predictionRequest.start_date,
         forecast_days: predictionRequest.forecast_days,
-        current_values: {
-          water_temperature: predictionRequest.current_values.waterTemperature,
-          lagoon: predictionRequest.current_values.lagoon,
-          OR_brine_level: predictionRequest.current_values.orBrineLevel,
-          OR_bund_level: predictionRequest.current_values.orBoundLevel,
-          IR_brine_level: predictionRequest.current_values.irBrineLevel,
-          IR_bound_level: predictionRequest.current_values.irBoundLevel,
-          East_channel: predictionRequest.current_values.eastChannel,
-          West_channel: predictionRequest.current_values.westChannel,
-        },
+        num_salt_beds: predictionRequest.num_salt_beds || 7500,
+        latitude: predictionRequest.latitude,
+        longitude: predictionRequest.longitude,
+        role: role,
+        landowner_id: landownerId,
       };
 
       const result = await firstValueFrom(
@@ -375,18 +394,61 @@ export class CrystallizationController {
     }
   }
 
+  @Get("/weather-forecast")
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @RequirePlan(0, 1)
+  @ApiBearerAuth()
+  @ApiTags('Crystallization Weather')
+  @ApiOperation({ summary: 'Get daily weather forecast. Defaults to Puttalam salt production area (lat=8.061542, lon=79.814714, cnt=16).' })
+  @ApiQuery({ name: 'lat', type: Number, required: false, description: 'Latitude', example: 8.061542 })
+  @ApiQuery({ name: 'lon', type: Number, required: false, description: 'Longitude', example: 79.814714 })
+  @ApiQuery({ name: 'cnt', type: Number, required: false, description: 'Number of forecast days (max 16)', example: 16 })
+  @ApiResponse({ status: 200, description: 'Weather forecast fetched successfully', type: GetWeatherForecastResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to fetch weather forecast' })
+  async getWeatherForecast(
+    @Query('lat') lat?: number,
+    @Query('lon') lon?: number,
+    @Query('cnt') cnt?: number,
+  ): Promise<GetWeatherForecastResponseDto> {
+    try {
+      const requestData = {
+        lat: lat ? parseFloat(lat.toString()) : 8.061542,
+        lon: lon ? parseFloat(lon.toString()) : 79.814714,
+        cnt: cnt ? parseInt(cnt.toString(), 10) : 16,
+      };
+
+      const result = await firstValueFrom(
+        this.crystallizationService.GetWeatherForecast(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Weather Forecast error: ${error.message}`);
+            throw new HttpException('Failed to fetch weather forecast', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data: string };
+
+      this.logger.log('=== GRPC RESULT (weather forecast) ===');
+      this.logger.log(`success: ${result.success}, message: ${result.message}`);
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data ? JSON.parse(result.data) : null,
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
   @Get("/model-performance")
   @Roles(Role.SALTSOCIETY)
-  @RequirePlan(1)
+  @RequirePlan(0, 1)
   @ApiBearerAuth()
   @ApiTags('Crystallization Model Performance')
-  @ApiOperation({ summary: 'Get model performance records' })
-  @ApiQuery({ name: 'limit', type: Number, description: 'Maximum number of records to return (default: 10, max: 100)', required: false, example: 10 })
+  @ApiOperation({ summary: 'Get model performance and confidence metrics (saltsociety)' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: 'Number of records to retrieve (max 100)', example: 10 })
   @ApiResponse({ status: 200, description: 'Model performance records fetched successfully', type: GetModelPerformanceResponseDto })
-  @ApiResponse({ status: 404, description: 'No model performance records found' })
-  async getModelPerformance(
-    @Query('limit') limit?: number
-  ): Promise<GetModelPerformanceResponseDto> {
+  @ApiResponse({ status: 400, description: 'Failed to fetch model performance' })
+  async getModelPerformance(@Query('limit') limit?: number): Promise<GetModelPerformanceResponseDto> {
     try {
       const requestData = {
         limit: limit ? parseInt(limit.toString(), 10) : 10,
@@ -396,13 +458,13 @@ export class CrystallizationController {
         this.crystallizationService.GetModelPerformance(requestData).pipe(
           catchError((error) => {
             this.logger.error(`Get Model Performance error: ${error.message}`);
-            throw new HttpException('Failed to fetch model performance records', HttpStatus.BAD_REQUEST);
+            throw new HttpException('Failed to fetch model performance', HttpStatus.BAD_REQUEST);
           })
         )
       ) as { success: boolean; message: string; data?: any[] };
 
-      this.logger.log('=== GRPC RESULT ===');
-      this.logger.log(JSON.stringify(result, null, 2));
+      this.logger.log('=== GRPC RESULT (model performance) ===');
+      this.logger.log(`success: ${result.success}, message: ${result.message}, records: ${result.data?.length || 0}`);
 
       return {
         success: result.success,

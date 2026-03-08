@@ -21,15 +21,28 @@ import {
   DeletePlanResponseDto,
   HarvestStatus,
 } from './dtos/harvest-plan.dto';
+import {
+  DemandPriceForecastRequestDto,
+  DemandPriceForecastResponseDto,
+} from './dtos/demand-price-forecast.dto';
+import {
+  GetDemandPriceResponseDto,
+} from './dtos/demand-price.dto';
+
 
 @ApiTags('Harvest Plans')
 @Controller('harvest-plans')
 export class CompassController {
   private harvestPlanService: any;
+  private crystallizationService: any;
   private readonly logger = new Logger(CompassController.name);
 
-  constructor(@Inject('COMPASS_PACKAGE') private client: ClientGrpcProxy) {
-    this.harvestPlanService = this.client.getService('HarvestPlanService');
+  constructor(
+    @Inject('COMPASS_PACKAGE') private compassClient: ClientGrpcProxy,
+    @Inject('CRYSTALLIZATION_PACKAGE') private crystallizationClient: ClientGrpcProxy,
+  ) {
+    this.harvestPlanService = this.compassClient.getService('HarvestPlanService');
+    this.crystallizationService = this.crystallizationClient.getService('CrystallizationService');
   }
 
   @Post()
@@ -133,6 +146,48 @@ export class CompassController {
 
       this.logger.log('=== GRPC RESULT ===');
       this.logger.log(`Fetched ${result.data?.length || 0} plans for user ${userId}`);
+
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.data || [],
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Get('demand-price')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.LANDOWNER, Role.SALTSOCIETY)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get monthly demand and price aggregates from distributor offers (landowner, saltsociety)',
+    description: 'Retrieves monthly aggregated demand (total target quantity) and average price per bag from distributor offers within the specified date range.',
+  })
+  @ApiQuery({ name: 'startMonth', type: String, description: 'Start month in YYYY-MM format', example: '2025-10' })
+  @ApiQuery({ name: 'endMonth', type: String, description: 'End month in YYYY-MM format', example: '2026-02' })
+  @ApiResponse({ status: 200, description: 'Demand and price data retrieved successfully', type: GetDemandPriceResponseDto })
+  @ApiResponse({ status: 400, description: 'Failed to retrieve demand and price data' })
+  async getDemandPrice(
+    @Query('startMonth') startMonth: string,
+    @Query('endMonth') endMonth: string,
+  ): Promise<GetDemandPriceResponseDto> {
+    try {
+      const requestData = { startMonth, endMonth };
+
+      const result = await firstValueFrom(
+        this.harvestPlanService.GetDemandPrice(requestData).pipe(
+          catchError((error) => {
+            this.logger.error(`Get Demand Price error: ${error.message}`);
+            throw new HttpException('Failed to retrieve demand and price data', HttpStatus.BAD_REQUEST);
+          })
+        )
+      ) as { success: boolean; message: string; data?: any[] };
+
+      this.logger.log('=== GRPC RESULT (demand-price) ===');
+      this.logger.log(`success: ${result.success}, months: ${result.data?.length || 0}`);
 
       return {
         success: result.success,
@@ -326,6 +381,131 @@ export class CompassController {
         success: result.success,
         message: result.message,
       };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Post('demand-price-forecast')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get demand & price forecast for next 2 months (landowner)',
+    description:
+      'Orchestrates crystallization-onnx-service and compass-ml-service to deliver ' +
+      'the next 2-month salt demand forecast (production × season yield ratio) ' +
+      'and salt price forecast (SARIMAX model). ' +
+      'Pass an optional forecast_date (YYYY-MM-DD); defaults to today.\n\n' +
+      'This endpoint uses the logged-in landowner\'s JWT to fetch personalized ' +
+      'production forecasts based on their specific number of salt beds.',
+  })
+  @ApiBody({ type: DemandPriceForecastRequestDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Demand and price forecast for next 2 months',
+    type: DemandPriceForecastResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Failed to fetch demand/price forecast' })
+  @ApiResponse({ status: 422, description: 'Production forecast not available for this landowner' })
+  @ApiResponse({ status: 503, description: 'ML service or crystallization service unavailable' })
+  async getDemandPriceForecast(
+    @Body() body: DemandPriceForecastRequestDto,
+    @Req() req: any,
+  ): Promise<DemandPriceForecastResponseDto> {
+    try {
+      const forecastDate = body.forecast_date ?? '';
+      const landownerId = req.user.userId; // Extract landowner ID from JWT
+
+      this.logger.log(`Landowner ${landownerId} requesting demand-price forecast`);
+
+      // Calculate month+1 and month+2 from forecast_date
+      const baseDate = forecastDate ? new Date(forecastDate) : new Date();
+      const firstDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+      const m1Date = new Date(firstDay);
+      m1Date.setMonth(m1Date.getMonth() + 1);
+      const m2Date = new Date(m1Date);
+      m2Date.setMonth(m2Date.getMonth() + 1);
+
+      const productionMonth_m1 = `${m1Date.getFullYear()}-${String(m1Date.getMonth() + 1).padStart(2, '0')}`;
+      const productionMonth_m2 = `${m2Date.getFullYear()}-${String(m2Date.getMonth() + 1).padStart(2, '0')}`;
+
+      this.logger.log(`Requesting landowner-specific production forecasts for ${productionMonth_m1} and ${productionMonth_m2}`);
+
+      // Step 1: Call crystallization service to get landowner-specific production forecasts
+      const crystallizationRequest = {
+        startMonth: productionMonth_m1,
+        endMonth: productionMonth_m2,
+        landowner_id: landownerId, // Pass landowner ID to get personalized predictions
+      };
+
+      const crystallizationResult = await firstValueFrom(
+        this.crystallizationService.GetPredictedMonthlyProduction(crystallizationRequest).pipe(
+          catchError((error) => {
+            this.logger.error(`GetPredictedMonthlyProduction error: ${error.message}`);
+            throw new HttpException(
+              `Failed to fetch crystallization production forecast: ${error.message}`,
+              HttpStatus.BAD_REQUEST,
+            );
+          }),
+        ),
+      ) as { success: boolean; message: string; data?: any[] };
+
+      // Validate crystallization response
+      if (!crystallizationResult.success || !crystallizationResult.data || crystallizationResult.data.length < 2) {
+        this.logger.warn(`Landowner ${landownerId}: insufficient production predictions (need 2, got ${crystallizationResult.data?.length || 0})`);
+        throw new HttpException(
+          `Production forecast not available for this landowner. ` +
+          `Please ensure crystallization predictions have been generated for at least 2 upcoming months.`,
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
+
+      const production_m1 = crystallizationResult.data[0].productionForecast ?? 0;
+      const production_m2 = crystallizationResult.data[1].productionForecast ?? 0;
+      const season_m1 = crystallizationResult.data[0].season || null;
+      const season_m2 = crystallizationResult.data[1].season || null;
+
+      // Validate production values
+      if (production_m1 <= 0 || production_m2 <= 0) {
+        this.logger.warn(`Landowner ${landownerId}: invalid production values (m1=${production_m1}, m2=${production_m2})`);
+        throw new HttpException(
+          `Production forecast values are invalid. Please regenerate crystallization predictions.`,
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
+
+      this.logger.log(
+        `Landowner ${landownerId} production forecasts: m1=${production_m1} bags (${season_m1}), m2=${production_m2} bags (${season_m2})`,
+      );
+
+      // Step 2: Call compass-ml-service with production values and season info
+      const mlRequestData = {
+        forecast_date: forecastDate,
+        production_forecast_m1: production_m1,
+        production_forecast_m2: production_m2,
+        production_month_m1: productionMonth_m1,
+        production_month_m2: productionMonth_m2,
+        season_m1: season_m1,
+        season_m2: season_m2,
+      };
+
+      const result = await firstValueFrom(
+        this.harvestPlanService.GetDemandPriceForecast(mlRequestData).pipe(
+          catchError((error) => {
+            this.logger.error(`GetDemandPriceForecast error: ${error.message}`);
+            throw new HttpException(
+              `Failed to fetch demand/price forecast: ${error.message}`,
+              HttpStatus.BAD_REQUEST,
+            );
+          }),
+        ),
+      ) as DemandPriceForecastResponseDto;
+
+      this.logger.log(`Landowner ${landownerId} forecast completed: ${result.forecasts?.length} months forecasted`);
+
+      return result;
     } catch (error: any) {
       throw error;
     }
