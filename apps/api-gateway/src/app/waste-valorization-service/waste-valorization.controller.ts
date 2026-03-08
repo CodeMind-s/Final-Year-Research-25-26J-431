@@ -29,6 +29,12 @@ import {
   QuickPredictionDto,
   QuickPredictionResponseDto,
 } from './dtos/waste-management.dto';
+import {
+  toGrpcJobType,
+  toGrpcJobStatus,
+  parseGrpcJson,
+  buildQuickPredictionStatus,
+} from './waste-valorization.utils';
 
 @ApiTags('Waste Valorization Jobs')
 @Controller('waste-valorization-jobs')
@@ -54,14 +60,7 @@ export class WasteValorizationController {
   async createJob(@Body() body: CreateJobDto, @Req() req: any): Promise<CreateJobResponseDto> {
     try {
       // Map enum string to number for gRPC
-      const jobTypeMap: Record<JobType, number> = {
-        [JobType.WASTE_PREDICTION]: 0,
-        [JobType.VALORIZATION_ANALYSIS]: 1,
-        [JobType.OPTIMIZATION]: 2,
-      };
-
-      // Expect string enum in client; map to numeric for gRPC
-      const jobTypeNumber = jobTypeMap[body.jobType as JobType];
+      const jobTypeNumber = toGrpcJobType(body.jobType as any);
 
       const payloadUserId = req.user?.userId || body.userId || null;
       const requestData = {
@@ -106,20 +105,6 @@ export class WasteValorizationController {
     const userId = req.user.userId;
 
     try {
-      // Map enum strings to numbers for gRPC
-      const statusMap: Record<JobStatus, number> = {
-        [JobStatus.PENDING]: 0,
-        [JobStatus.PROCESSING]: 1,
-        [JobStatus.COMPLETED]: 2,
-        [JobStatus.FAILED]: 3,
-      };
-
-      const jobTypeMap: Record<JobType, number> = {
-        [JobType.WASTE_PREDICTION]: 0,
-        [JobType.VALORIZATION_ANALYSIS]: 1,
-        [JobType.OPTIMIZATION]: 2,
-      };
-
       const requestData: any = {
         userId,
         page: query.page || 1,
@@ -127,11 +112,11 @@ export class WasteValorizationController {
       };
 
       if (query.status) {
-        requestData.status = statusMap[query.status];
+        requestData.status = toGrpcJobStatus(query.status as any);
       }
 
       if (query.jobType) {
-        requestData.jobType = jobTypeMap[query.jobType as JobType];
+        requestData.jobType = toGrpcJobType(query.jobType as any);
       }
 
       const result = await firstValueFrom(
@@ -306,7 +291,7 @@ export class WasteManagementDashboardController {
       );
 
       // Parse the JSON data from the gRPC response
-      const parsedData = JSON.parse(result.data || '{"predictions":[]}');
+      const parsedData = parseGrpcJson(result.data, '{"predictions":[]}');
 
       return {
         success: result.success,
@@ -359,7 +344,7 @@ export class WasteManagementDashboardController {
       );
 
       // Parse the JSON data from the gRPC response
-      const parsedData = JSON.parse(result.data || '{"jobId":null,"status":"FAILED"}');
+      const parsedData = parseGrpcJson(result.data, '{"jobId":null,"status":"FAILED"}');
 
       return {
         success: result.success,
@@ -407,65 +392,9 @@ export class WasteManagementDashboardController {
       // Parse the job data
       const jobData = result.data;
       
-      // Map status number to string
-      const statusMap: Record<number, string> = {
-        0: 'pending',
-        1: 'processing',
-        2: 'completed',
-        3: 'failed',
-      };
-      
-      const status = statusMap[jobData.status] || 'pending';
-
-      // If job is still processing or pending
-      if (status === 'pending' || status === 'processing') {
-        return {
-          success: true,
-          data: {
-            jobId: jobData._id,
-            status: status,
-            message: 'Prediction is being calculated. Please check again in a few seconds.',
-            progress: status === 'processing' ? 65 : 10,
-          },
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      // If job failed
-      if (status === 'failed') {
-        return {
-          success: false,
-          error: {
-            code: 'PREDICTION_FAILED',
-            message: jobData.errorMessage || 'ML model processing failed. Please try again.',
-            details: jobData.errorMessage || 'Model inference timeout or invalid input parameters',
-          },
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      // If job is completed
-      let predictionData = null;
-      if (jobData.resultData) {
-        try {
-          const parsedResult = typeof jobData.resultData === 'string' 
-            ? JSON.parse(jobData.resultData) 
-            : jobData.resultData;
-          predictionData = parsedResult;
-        } catch (e) {
-          this.logger.error(`Failed to parse result data: ${e}`);
-        }
-      }
-
-      return {
-        success: true,
-        data: {
-          jobId: jobData._id,
-          status: 'completed',
-          prediction: predictionData,
-        },
-        timestamp: new Date().toISOString(),
-      };
+      const response = buildQuickPredictionStatus(jobData);
+      response.timestamp = new Date().toISOString();
+      return response;
     } catch (error: any) {
       this.logger.error(`Failed to get quick prediction status: ${error.message}`);
       throw error;

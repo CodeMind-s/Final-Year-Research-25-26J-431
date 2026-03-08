@@ -282,7 +282,7 @@ export class WasteManagementService {
       }
     );
 
-    const count = predictions.length;
+    const count = predictions.filter((p) => p.production_volume).length || 1;
 
     return {
       production_volume: Math.round(sum.production_volume / count),
