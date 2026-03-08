@@ -2,7 +2,11 @@
   "name": "@brinex-server/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "test:unit": "jest --config=jest.unit.config.cjs --runInBand",
+    "test:integration": "jest --config=jest.integration.config.cjs",
+    "test:waste:all": "npm run test:unit && npm run test:integration"
+  },
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",
