@@ -11,17 +11,21 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 module.exports = {
-  displayName: 'crystallization-service',
+  displayName: 'crystallization-service-e2e',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   rootDir: __dirname,
-  roots: ['<rootDir>/src'],
-  testMatch: ['**/*.spec.ts', '**/*.test.ts'],
+  roots: ['<rootDir>/tests/e2e'],
+  testMatch: [
+    '<rootDir>/tests/e2e/**/*.spec.ts',
+    '<rootDir>/tests/e2e/**/*.test.ts',
+  ],
   testPathIgnorePatterns: ['/node_modules/'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: 'test-output/jest/coverage',
-  silent: true,
+  // E2E tests need more time for MongoDB/memory server setup
+  testTimeout: 30000,
+  forceExit: true,
 };

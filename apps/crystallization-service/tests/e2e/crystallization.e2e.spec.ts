@@ -3,14 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
-import * as path from 'path';
-
-// Load .env.test if available
-try {
-  require('dotenv').config({ path: path.join(__dirname, '../../.env.test') });
-} catch {
-  // dotenv not required — env vars may already be set
-}
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import {
   DailyMeasurement,
@@ -28,13 +21,16 @@ import {
   CrystallizationModelPerformance,
   CrystallizationModelPerformanceSchema,
 } from '../../src/app/crystallization/schemas/crystallization-model-performance.schema';
+import {
+  LandownerMonthlyProductionPrediction,
+  LandownerMonthlyProductionPredictionSchema,
+} from '../../src/app/crystallization/schemas/landowner-monthly-production-prediction.schema';
 import { CrystallizationService } from '../../src/app/crystallization/crystallization.service';
-
-const testMongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/crystallization-test';
 
 describe('Crystallization Service E2E Tests', () => {
   let app: INestApplication;
   let moduleRef: TestingModule;
+  let mongoServer: MongoMemoryServer;
   let dailyMeasurementModel: Model<any>;
   let dailyPredictionModel: Model<any>;
   let monthlyPredictionModel: Model<any>;
@@ -66,9 +62,12 @@ describe('Crystallization Service E2E Tests', () => {
   };
 
   beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+
     moduleRef = await Test.createTestingModule({
       imports: [
-        MongooseModule.forRoot(testMongoUri, {
+        MongooseModule.forRoot(mongoUri, {
           serverSelectionTimeoutMS: 10000,
           connectTimeoutMS: 10000,
         }),
@@ -77,6 +76,7 @@ describe('Crystallization Service E2E Tests', () => {
           { name: DailyParameterPrediction.name, schema: DailyParameterPredictionSchema },
           { name: MonthlyProductionPrediction.name, schema: MonthlyProductionPredictionSchema },
           { name: CrystallizationModelPerformance.name, schema: CrystallizationModelPerformanceSchema },
+          { name: LandownerMonthlyProductionPrediction.name, schema: LandownerMonthlyProductionPredictionSchema },
         ]),
       ],
       providers: [
@@ -125,6 +125,9 @@ describe('Crystallization Service E2E Tests', () => {
 
     if (app) {
       await app.close();
+    }
+    if (mongoServer) {
+      await mongoServer.stop();
     }
   }, 15000);
 
@@ -430,6 +433,23 @@ describe('Crystallization Service E2E Tests', () => {
 
   describe('Model Performance', () => {
     beforeAll(async () => {
+      const sampleConfidence = {
+        overallScore: 0.85,
+        overallRating: 'Good',
+        yieldRatio: 1.2,
+        yieldStatus: 'Above Average',
+        decliningTrend: false,
+        improvingTrend: true,
+        formulaR2: 0.91,
+        holdoutMae: 0.45,
+        nHistoryMonths: 12,
+        formulaFitScore: 0.88,
+        holdoutScore: 0.82,
+        dataVolumeScore: 0.90,
+        yieldScore: 0.87,
+        date: new Date('2099-03-01'),
+      };
+
       const records = [
         {
           model_type: 'LSTM',
@@ -442,6 +462,7 @@ describe('Crystallization Service E2E Tests', () => {
             validation_r2_score: 0.90,
             validation_accuracy: 0.93,
           },
+          confidence: sampleConfidence,
         },
         {
           model_type: 'LSTM',
@@ -454,6 +475,7 @@ describe('Crystallization Service E2E Tests', () => {
             validation_r2_score: 0.92,
             validation_accuracy: 0.94,
           },
+          confidence: { ...sampleConfidence, overallScore: 0.90, date: new Date('2099-03-02') },
         },
       ];
 
