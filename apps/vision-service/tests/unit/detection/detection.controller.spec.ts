@@ -8,6 +8,7 @@ import { WhitenessService } from '../../../src/app/inference/whiteness.service';
 import { ROIService } from '../../../src/app/roi/roi.service';
 import { BatchService } from '../../../src/app/batch/batch.service';
 import { DetectionSession } from '../../../src/app/detection/schemas/detection-session.schema';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   TEST_USER_ID,
   TEST_SESSION_ID,
@@ -83,6 +84,7 @@ describe('DetectionController', () => {
         { provide: WhitenessService, useValue: mockWhitenessService },
         { provide: ROIService, useValue: mockROIService },
         { provide: BatchService, useValue: mockBatchService },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: getModelToken(DetectionSession.name), useValue: sessionModel },
       ],
     }).compile();
