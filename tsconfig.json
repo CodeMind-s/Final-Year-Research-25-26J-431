@@ -32,6 +32,12 @@
     },
     {
       "path": "./apps/compass-service"
+    },
+    {
+      "path": "./apps/waste-valorization-service"
+    },
+    {
+      "path": "./apps/gemini-service"
     }
   ]
 }

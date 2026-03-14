@@ -278,10 +278,10 @@ export class VisionGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('frame')
   async handleFrame(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { data: string; timestamp: number },
+    @MessageBody() data: Buffer,
   ) {
     try {
-      const imageBuffer = Buffer.from(data.data, 'base64');
+      const imageBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
       const settings = this.clientSettings.get(client.id);
 
       const result = await firstValueFrom(
