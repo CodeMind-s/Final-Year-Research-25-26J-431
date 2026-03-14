@@ -27,15 +27,27 @@ export class WhitenessService {
       return [];
     }
 
+    // Single decode: convert image to raw RGB pixels once
+    const { data: rawPixels, info } = await sharp(imageBuffer)
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const stride = info.width * 3;
+
     const results: BoundingBoxWithWhiteness[] = [];
 
     for (const box of boxes) {
       try {
-        const whitenessPercentage = await this.calculateBoxWhiteness(
-          imageBuffer,
-          box,
-          frameWidth,
-          frameHeight,
+        const whitenessPercentage = this.calculateWhitenessFromRegion(
+          rawPixels,
+          stride,
+          Math.floor(box.x * info.width),
+          Math.floor(box.y * info.height),
+          Math.floor(box.width * info.width),
+          Math.floor(box.height * info.height),
+          info.width,
+          info.height,
         );
 
         const isPure = box.className === 'pure';
@@ -60,38 +72,50 @@ export class WhitenessService {
     return results;
   }
 
-  private async calculateBoxWhiteness(
-    imageBuffer: Buffer,
-    box: BoundingBoxResult,
-    frameWidth: number,
-    frameHeight: number,
-  ): Promise<number> {
-    const left = Math.floor(box.x * frameWidth);
-    const top = Math.floor(box.y * frameHeight);
-    const width = Math.max(this.MIN_CROP_SIZE, Math.floor(box.width * frameWidth));
-    const height = Math.max(this.MIN_CROP_SIZE, Math.floor(box.height * frameHeight));
+  private calculateWhitenessFromRegion(
+    rawPixels: Buffer,
+    stride: number,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    imgWidth: number,
+    imgHeight: number,
+  ): number {
+    width = Math.max(this.MIN_CROP_SIZE, width);
+    height = Math.max(this.MIN_CROP_SIZE, height);
 
-    const clampedLeft = Math.max(0, Math.min(left, frameWidth - width));
-    const clampedTop = Math.max(0, Math.min(top, frameHeight - height));
-    const clampedWidth = Math.min(width, frameWidth - clampedLeft);
-    const clampedHeight = Math.min(height, frameHeight - clampedTop);
+    const clampedLeft = Math.max(0, Math.min(left, imgWidth - width));
+    const clampedTop = Math.max(0, Math.min(top, imgHeight - height));
+    const clampedWidth = Math.min(width, imgWidth - clampedLeft);
+    const clampedHeight = Math.min(height, imgHeight - clampedTop);
 
     if (clampedWidth < this.MIN_CROP_SIZE || clampedHeight < this.MIN_CROP_SIZE) {
       return 0;
     }
 
-    const croppedBuffer = await sharp(imageBuffer)
-      .extract({
-        left: clampedLeft,
-        top: clampedTop,
-        width: clampedWidth,
-        height: clampedHeight,
-      })
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    let totalWhiteness = 0;
+    let pixelCount = 0;
 
-    return this.calculateWhitenessFromRGB(croppedBuffer);
+    for (let row = clampedTop; row < clampedTop + clampedHeight; row++) {
+      const rowOffset = row * stride + clampedLeft * 3;
+      for (let col = 0; col < clampedWidth; col++) {
+        const i = rowOffset + col * 3;
+        const r = rawPixels[i] / 255;
+        const g = rawPixels[i + 1] / 255;
+        const b = rawPixels[i + 2] / 255;
+
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const v = max;
+        const s = max === 0 ? 0 : (max - min) / max;
+
+        totalWhiteness += v * (1 - s);
+        pixelCount++;
+      }
+    }
+
+    return pixelCount > 0 ? (totalWhiteness / pixelCount) * 100 : 0;
   }
 
   private calculateWhitenessFromRGB(rgbBuffer: Buffer): number {
