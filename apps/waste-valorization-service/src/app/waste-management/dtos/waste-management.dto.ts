@@ -86,6 +86,11 @@ export class WastePredictionEntry {
 
   @ApiProperty({ description: 'Total liquid waste in L' })
   total_liquid_waste: number;
+  
+  // Computed metrics
+  waste_to_production_ratio_percent?: number | null;
+  solid_waste_percentage_percent?: number | null;
+  valorization_potential?: number | null;
 }
 
 export class WasteAverages {
@@ -135,6 +140,9 @@ export class WasteAverages {
 
   @ApiProperty({ description: 'Average total liquid waste in L' })
   total_liquid_waste: number;
+  waste_to_production_ratio_percent?: number | null;
+  solid_waste_percentage_percent?: number | null;
+  valorization_potential?: number | null;
 }
 
 export class GetWastePredictionsResponseDto {
@@ -160,6 +168,45 @@ export class GetWastePredictionsGrpcDto {
 }
 
 export class GetWastePredictionsGrpcResponseDto {
+  success: boolean;
+  data: string; // JSON stringified data
+  timestamp: string;
+  message?: string;
+}
+
+// Monthly prediction DTOs
+export class WastePredictionMonthlyEntry {
+  month: string; // YYYY-MM
+  predicted_waste: number;
+  production_volume: number;
+  rain_sum: number;
+  temperature_mean: number;
+  humidity_mean: number;
+  wind_speed_mean: number;
+  type: 'historical' | 'predicted';
+  solid_waste_gypsum: number;
+  solid_waste_limestone: number;
+  solid_waste_industrial_salt: number;
+  total_solid_waste: number;
+  liquid_waste_bittern: number;
+  potential_epsom_salt: number;
+  potential_potash: number;
+  potential_magnesium_oil: number;
+  total_liquid_waste: number;
+  // Computed metrics
+  waste_to_production_ratio_percent?: number | null;
+  solid_waste_percentage_percent?: number | null;
+  valorization_potential?: number | null;
+}
+
+export class GetWasteMonthlyPredictionsGrpcDto {
+  startDate?: string;
+  endDate?: string;
+  includeAverages?: boolean;
+  userId?: string;
+}
+
+export class GetWasteMonthlyPredictionsGrpcResponseDto {
   success: boolean;
   data: string; // JSON stringified data
   timestamp: string;

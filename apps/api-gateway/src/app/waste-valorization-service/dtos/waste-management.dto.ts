@@ -155,6 +155,73 @@ export class GetWastePredictionsResponseDto {
   timestamp: string;
 }
 
+export class WastePredictionMonthlyEntry {
+  @ApiProperty({ description: 'Month in YYYY-MM format', example: '2026-03' })
+  month: string;
+
+  @ApiProperty({ description: 'Predicted waste in kg for the month', example: 125000 })
+  predicted_waste: number;
+
+  @ApiProperty({ description: 'Production volume in kg for the month', example: 1500000 })
+  production_volume: number;
+
+  @ApiProperty({ description: 'Average rain sum in mm for the month', example: 600 })
+  rain_sum: number;
+
+  @ApiProperty({ description: 'Average temperature in Celsius for the month', example: 28 })
+  temperature_mean: number;
+
+  @ApiProperty({ description: 'Average humidity percentage for the month', example: 85 })
+  humidity_mean: number;
+
+  @ApiProperty({ description: 'Average wind speed in km/h for the month', example: 15 })
+  wind_speed_mean: number;
+
+  @ApiProperty({ description: 'Type of entry', enum: ['historical', 'predicted'], example: 'historical' })
+  type: 'historical' | 'predicted';
+
+  @ApiProperty({ description: 'Gypsum waste in kg for the month', example: 36000 })
+  solid_waste_gypsum: number;
+
+  @ApiProperty({ description: 'Limestone residue in kg for the month', example: 26000 })
+  solid_waste_limestone: number;
+
+  @ApiProperty({ description: 'Low-grade industrial salt in kg for the month', example: 18000 })
+  solid_waste_industrial_salt: number;
+
+  @ApiProperty({ description: 'Total solid waste in kg for the month', example: 80000 })
+  total_solid_waste: number;
+
+  @ApiProperty({ description: 'Bittern waste brine in L for the month', example: 30000 })
+  liquid_waste_bittern: number;
+
+  @ApiProperty({ description: 'Recoverable Epsom salt (MgSO4) in kg for the month', example: 6000 })
+  potential_epsom_salt: number;
+
+  @ApiProperty({ description: 'Recoverable potash (K2O) in kg for the month', example: 4200 })
+  potential_potash: number;
+
+  @ApiProperty({ description: 'Recoverable magnesium oil in L for the month', example: 1800 })
+  potential_magnesium_oil: number;
+
+  @ApiProperty({ description: 'Total liquid waste in L for the month', example: 36000 })
+  total_liquid_waste: number;
+}
+
+export class GetWasteMonthlyPredictionsResponseDto {
+  @ApiProperty({ description: 'Success status', example: true })
+  success: boolean;
+
+  @ApiProperty({ description: 'Response data' })
+  data: {
+    predictions: WastePredictionMonthlyEntry[];
+    averages?: WasteAverages;
+  };
+
+  @ApiProperty({ description: 'Response timestamp', example: '2026-03-03T10:00:00Z' })
+  timestamp: string;
+}
+
 // Quick Prediction DTOs
 export class QuickPredictionDto {
   @ApiProperty({ description: 'Production volume in kg', example: 50000 })
@@ -193,4 +260,64 @@ export class QuickPredictionResponseDto {
 
   @ApiProperty({ description: 'Response timestamp', example: '2026-03-04T10:00:00Z' })
   timestamp: string;
+}
+
+export class PriceEstimatesDto {
+  @ApiProperty({ description: 'Epsom salt unit price', example: 0.5, required: false })
+  epsom_salt?: number | null;
+
+  @ApiProperty({ description: 'Potash unit price', example: 0.8, required: false })
+  potash?: number | null;
+
+  @ApiProperty({ description: 'Magnesium oil unit price', example: 1.2, required: false })
+  magnesium_oil?: number | null;
+
+  @ApiProperty({ description: 'Gypsum unit price', example: 0.05, required: false })
+  gypsum?: number | null;
+
+  @ApiProperty({ description: 'Limestone unit price', example: 0.03, required: false })
+  limestone?: number | null;
+
+  @ApiProperty({ description: 'Industrial salt unit price', example: 0.02, required: false })
+  industrial_salt?: number | null;
+
+  @ApiProperty({ description: 'Site id (optional)', required: false })
+  site_id?: string | null;
+  
+  @ApiProperty({ description: 'Currency code for the prices (ISO 4217), e.g. LKR', example: 'LKR', required: false })
+  currency?: string | null;
+}
+
+export class UpsertPriceEstimatesDto {
+  @ApiProperty({ description: 'Epsom salt unit price', example: 0.5, required: false })
+  @IsOptional()
+  epsom_salt?: number | null;
+
+  @ApiProperty({ description: 'Potash unit price', example: 0.8, required: false })
+  @IsOptional()
+  potash?: number | null;
+
+  @ApiProperty({ description: 'Magnesium oil unit price', example: 1.2, required: false })
+  @IsOptional()
+  magnesium_oil?: number | null;
+
+  @ApiProperty({ description: 'Gypsum unit price', example: 0.05, required: false })
+  @IsOptional()
+  gypsum?: number | null;
+
+  @ApiProperty({ description: 'Limestone unit price', example: 0.03, required: false })
+  @IsOptional()
+  limestone?: number | null;
+
+  @ApiProperty({ description: 'Industrial salt unit price', example: 0.02, required: false })
+  @IsOptional()
+  industrial_salt?: number | null;
+
+  @ApiProperty({ description: 'Site id (optional)', required: false })
+  @IsOptional()
+  site_id?: string | null;
+  
+  @ApiProperty({ description: 'Currency code for the prices (ISO 4217), e.g. LKR', example: 'LKR', required: false })
+  @IsOptional()
+  currency?: string | null;
 }

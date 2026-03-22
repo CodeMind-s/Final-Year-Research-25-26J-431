@@ -6,17 +6,20 @@ import {
   WastePrediction,
   WastePredictionSchema,
 } from './schemas/waste-prediction.schema';
+import { PriceEstimate, PriceEstimateSchema } from './schemas/price-estimate.schema';
+import { PriceEstimateService } from './price-estimate.service';
 import { JobsModule } from '../jobs/jobs.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: WastePrediction.name, schema: WastePredictionSchema },
+      { name: PriceEstimate.name, schema: PriceEstimateSchema },
     ]),
     JobsModule,
   ],
   controllers: [WasteManagementController],
-  providers: [WasteManagementService],
+  providers: [WasteManagementService, PriceEstimateService],
   exports: [WasteManagementService],
 })
 export class WasteManagementModule {}
