@@ -12,6 +12,14 @@ service WasteValorizationJobService {
 service WasteValorizationManagementService {
   rpc GetWastePredictions(GetWastePredictionsRequest) returns (GetWastePredictionsResponse);
   rpc QuickPrediction(QuickPredictionRequest) returns (QuickPredictionResponse);
+  // Monthly aggregated time series for waste predictions
+  rpc GetWasteMonthlyPredictions(GetWasteMonthlyPredictionsRequest) returns (GetWasteMonthlyPredictionsResponse);
+  // Price estimates management
+  rpc GetPriceEstimates(GetPriceEstimatesRequest) returns (GetPriceEstimatesResponse);
+  rpc UpsertPriceEstimates(UpsertPriceEstimatesRequest) returns (UpsertPriceEstimatesResponse);
+  // Prediction reports
+  rpc GetPredictionReportSummary(GetPredictionReportSummaryRequest) returns (GetPredictionReportSummaryResponse);
+  rpc GetPredictionReportDetailed(GetPredictionReportDetailedRequest) returns (GetPredictionReportDetailedResponse);
 }
 
 enum JobStatus {
@@ -134,6 +142,86 @@ message QuickPredictionRequest {
 message QuickPredictionResponse {
   bool success = 1;
   string data = 2;       // JSON stringified prediction data
+  string timestamp = 3;
+  string message = 4;
+}
+
+message GetWasteMonthlyPredictionsRequest {
+  string startDate = 1;  // ISO date string (YYYY-MM-DD)
+  string endDate = 2;    // ISO date string (YYYY-MM-DD)
+  bool includeAverages = 3;
+  string userId = 4;     // Optional user ID for filtering
+}
+
+message GetWasteMonthlyPredictionsResponse {
+  bool success = 1;
+  string data = 2;       // JSON stringified monthly predictions data
+  string timestamp = 3;
+  string message = 4;
+}
+
+message GetPriceEstimatesRequest {
+  string siteId = 1;
+}
+
+message GetPriceEstimatesResponse {
+  bool success = 1;
+  string data = 2; // JSON stringified price object
+  string timestamp = 3;
+  string message = 4;
+}
+
+message UpsertPriceEstimatesRequest {
+  string siteId = 1;
+  string userId = 2;
+  double epsom_salt = 3;
+  double potash = 4;
+  double magnesium_oil = 5;
+  double gypsum = 6;
+  double limestone = 7;
+  double industrial_salt = 8;
+  string currency = 9;
+}
+
+message UpsertPriceEstimatesResponse {
+  bool success = 1;
+  string data = 2; // JSON stringified price object
+  string timestamp = 3;
+  string message = 4;
+}
+
+message GetPredictionReportSummaryRequest {
+  string siteId = 1;
+  string startMonth = 2; // YYYY-MM
+  string endMonth = 3; // YYYY-MM
+  string currency = 4; // optional
+}
+
+message PredictionByProduct {
+  string product = 1;
+  double qty = 2;
+  double income = 3;
+  double unit_price = 4;
+}
+
+message GetPredictionReportSummaryResponse {
+  bool success = 1;
+  string data = 2; // JSON stringified summary
+  string timestamp = 3;
+  string message = 4;
+}
+
+message GetPredictionReportDetailedRequest {
+  string siteId = 1;
+  string startMonth = 2; // YYYY-MM
+  string endMonth = 3; // YYYY-MM
+  string currency = 4; // optional
+  string format = 5; // json/csv/pdf
+}
+
+message GetPredictionReportDetailedResponse {
+  bool success = 1;
+  string data = 2; // JSON stringified detailed report
   string timestamp = 3;
   string message = 4;
 }

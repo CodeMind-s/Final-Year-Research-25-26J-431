@@ -26,8 +26,11 @@ import {
 import {
   GetWastePredictionsQueryDto,
   GetWastePredictionsResponseDto,
+  GetWasteMonthlyPredictionsResponseDto,
   QuickPredictionDto,
   QuickPredictionResponseDto,
+  PriceEstimatesDto,
+  UpsertPriceEstimatesDto,
 } from './dtos/waste-management.dto';
 import {
   toGrpcJobType,
@@ -240,9 +243,9 @@ export class WasteValorizationController {
   }
 }
 
-// New controller for waste management dashboard under salt-society prefix
-@ApiTags('Salt Society - Waste Management')
-@Controller('salt-society/waste-management')
+// Controller for waste management dashboard (public path)
+@ApiTags('Waste Management')
+@Controller('waste-management')
 export class WasteManagementDashboardController {
   private wasteValorizationManagementService: any;
   private wasteValorizationJobService: any;
@@ -251,6 +254,34 @@ export class WasteManagementDashboardController {
   constructor(@Inject('WASTE_VALORIZATION_PACKAGE') private client: ClientGrpcProxy) {
     this.wasteValorizationManagementService = this.client.getService('WasteValorizationManagementService');
     this.wasteValorizationJobService = this.client.getService('WasteValorizationJobService');
+  }
+
+  @Get('prices')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get price estimates for site (defaults if none)' })
+  @ApiQuery({ name: 'siteId', required: false })
+  async getPriceEstimates(@Query('siteId') siteId: string | undefined, @Req() req: any): Promise<any> {
+    try {
+      const requestData: any = { siteId: siteId || '' };
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.GetPriceEstimates(requestData).pipe(
+          catchError((error) => {
+            this.logger.error('GetPriceEstimates error', error);
+            const errMsg = error && (error.message || error.details) ? (error.message || error.details) : JSON.stringify(error);
+            throw new HttpException(`Failed to get price estimates: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      const parsed = parseGrpcJson(result.data, '{}');
+      return { success: result.success, data: parsed, timestamp: result.timestamp };
+    } catch (err) {
+      this.logger.error('Failed to get price estimates', err);
+      throw err;
+    }
   }
 
   @Get('predictions')
@@ -301,6 +332,157 @@ export class WasteManagementDashboardController {
     } catch (error: any) {
       this.logger.error(`Failed to get waste predictions: ${error.message}`);
       throw error;
+    }
+  }
+
+  @Get('predictions/monthly')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Waste Predictions Monthly (aggregated by month)' })
+  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD), defaults to 12 months ago' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD), defaults to 3 months in future' })
+  @ApiQuery({ name: 'includeAverages', required: false, type: Boolean, description: 'Include averages, defaults to true' })
+  @ApiResponse({ status: 200, description: 'Monthly predictions retrieved successfully', type: GetWasteMonthlyPredictionsResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid date format or range' })
+  async getWasteMonthlyPredictions(
+    @Query() query: GetWastePredictionsQueryDto,
+    @Req() req: any
+  ): Promise<GetWasteMonthlyPredictionsResponseDto> {
+    try {
+      const requestData = {
+        startDate: query.startDate || '',
+        endDate: query.endDate || '',
+        includeAverages: query.includeAverages !== undefined ? query.includeAverages : true,
+        userId: req.user?.userId || '',
+      };
+
+      this.logger.debug(`GetWasteMonthlyPredictions request: ${JSON.stringify(requestData)}`);
+
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.GetWasteMonthlyPredictions(requestData).pipe(
+          catchError((error) => {
+            this.logger.error('Get Waste Monthly Predictions error', error);
+            const errMsg = error && error.message ? error.message : JSON.stringify(error);
+            throw new HttpException(`Failed to get monthly predictions: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      const parsedData = parseGrpcJson(result.data, '{"predictions":[]}');
+
+      return {
+        success: result.success,
+        data: parsedData,
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get monthly waste predictions: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Get('reports/predictions/detailed')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get detailed prediction reports (per-month breakdown)' })
+  @ApiQuery({ name: 'site_id', required: true })
+  @ApiQuery({ name: 'start_month', required: true, description: 'YYYY-MM' })
+  @ApiQuery({ name: 'end_month', required: true, description: 'YYYY-MM' })
+  @ApiQuery({ name: 'currency', required: false })
+  @ApiQuery({ name: 'format', required: false, description: 'json|csv|pdf' })
+  async getPredictionReportDetailed(@Query() query: any, @Req() req: any): Promise<any> {
+    try {
+      const payload: any = { siteId: query.site_id, startMonth: query.start_month, endMonth: query.end_month, currency: query.currency, format: query.format };
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.GetPredictionReportDetailed(payload).pipe(
+          catchError((error) => {
+            this.logger.error('GetPredictionReportDetailed error', error);
+            const errMsg = error && (error.message || error.details) ? (error.message || error.details) : JSON.stringify(error);
+            throw new HttpException(`Failed to get detailed report: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      const parsed = parseGrpcJson(result.data, '{"rows":[]}');
+      return { success: result.success, data: parsed, timestamp: result.timestamp };
+    } catch (err) {
+      this.logger.error('Failed to get detailed report', err);
+      throw err;
+    }
+  }
+
+  @Get('reports/predictions/summary')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get prediction report summary (aggregated totals)' })
+  @ApiQuery({ name: 'site_id', required: true })
+  @ApiQuery({ name: 'start_month', required: true, description: 'YYYY-MM' })
+  @ApiQuery({ name: 'end_month', required: true, description: 'YYYY-MM' })
+  @ApiQuery({ name: 'currency', required: false })
+  async getPredictionReportSummary(@Query() query: any, @Req() req: any): Promise<any> {
+    try {
+      const payload: any = { siteId: query.site_id, startMonth: query.start_month, endMonth: query.end_month, currency: query.currency };
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.GetPredictionReportSummary(payload).pipe(
+          catchError((error) => {
+            this.logger.error('GetPredictionReportSummary error', error);
+            const errMsg = error && (error.message || error.details) ? (error.message || error.details) : JSON.stringify(error);
+            throw new HttpException(`Failed to get summary report: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      const parsed = parseGrpcJson(result.data, '{}');
+      return { success: result.success, data: parsed, timestamp: result.timestamp };
+    } catch (err) {
+      this.logger.error('Failed to get summary report', err);
+      throw err;
+    }
+  }
+
+  @Post('prices')
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
+  @Roles(Role.SALTSOCIETY, Role.LANDOWNER)
+  @SubscriptionCheck(0)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upsert price estimates for a site' })
+  @ApiBody({ type: UpsertPriceEstimatesDto })
+  async upsertPriceEstimates(@Body() body: UpsertPriceEstimatesDto, @Req() req: any): Promise<any> {
+    try {
+      const userId = req.user?.userId || null;
+      const payload: any = {
+        siteId: body.site_id || null,
+        userId,
+      };
+      if (body.epsom_salt !== undefined) payload.epsom_salt = body.epsom_salt;
+      if (body.potash !== undefined) payload.potash = body.potash;
+      if (body.magnesium_oil !== undefined) payload.magnesium_oil = body.magnesium_oil;
+      if (body.gypsum !== undefined) payload.gypsum = body.gypsum;
+      if (body.limestone !== undefined) payload.limestone = body.limestone;
+      if (body.industrial_salt !== undefined) payload.industrial_salt = body.industrial_salt;
+      if (body.currency !== undefined) payload.currency = body.currency;
+
+      const result: any = await firstValueFrom(
+        this.wasteValorizationManagementService.UpsertPriceEstimates(payload).pipe(
+          catchError((error) => {
+            this.logger.error('UpsertPriceEstimates error', error);
+            const errMsg = error && (error.message || error.details) ? (error.message || error.details) : JSON.stringify(error);
+            throw new HttpException(`Failed to upsert price estimates: ${errMsg}`, HttpStatus.BAD_REQUEST);
+          })
+        )
+      );
+
+      const parsed = parseGrpcJson(result.data, '{}');
+      return { success: result.success, data: parsed, timestamp: result.timestamp };
+    } catch (err) {
+      this.logger.error('Failed to upsert price estimates', err);
+      throw err;
     }
   }
 
