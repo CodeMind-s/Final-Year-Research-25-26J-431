@@ -1,7 +1,9 @@
 // Shared k6 configuration for vision service load tests
 
-export const BASE_URL = __ENV.API_BASE_URL || 'http://localhost:3400/api/v1';
-export const WS_URL = __ENV.WS_URL || 'ws://localhost:3400/vision';
+export const BASE_URL =
+  __ENV.API_BASE_URL || 'http://localhost:3400/api/v1';
+export const WS_URL =
+  __ENV.WS_URL || 'ws://localhost:3400/vision';
 export const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
 
 export const defaultHeaders = {

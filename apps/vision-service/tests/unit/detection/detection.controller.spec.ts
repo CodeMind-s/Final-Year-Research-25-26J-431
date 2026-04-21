@@ -8,6 +8,7 @@ import { WhitenessService } from '../../../src/app/inference/whiteness.service';
 import { ROIService } from '../../../src/app/roi/roi.service';
 import { BatchService } from '../../../src/app/batch/batch.service';
 import { DetectionSession } from '../../../src/app/detection/schemas/detection-session.schema';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   TEST_USER_ID,
   TEST_SESSION_ID,
@@ -25,6 +26,7 @@ describe('DetectionController', () => {
   let whitenessService: jest.Mocked<WhitenessService>;
   let roiService: jest.Mocked<ROIService>;
   let batchService: jest.Mocked<BatchService>;
+  let eventEmitter: jest.Mocked<EventEmitter2>;
   let sessionModel: any;
 
   beforeEach(async () => {
@@ -83,6 +85,7 @@ describe('DetectionController', () => {
         { provide: WhitenessService, useValue: mockWhitenessService },
         { provide: ROIService, useValue: mockROIService },
         { provide: BatchService, useValue: mockBatchService },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: getModelToken(DetectionSession.name), useValue: sessionModel },
       ],
     }).compile();
@@ -93,6 +96,7 @@ describe('DetectionController', () => {
     whitenessService = module.get(WhitenessService);
     roiService = module.get(ROIService);
     batchService = module.get(BatchService);
+    eventEmitter = module.get(EventEmitter2);
   });
 
   describe('processFrame', () => {
@@ -106,7 +110,8 @@ describe('DetectionController', () => {
       expect(roiService.getDefaultROI).toHaveBeenCalled();
       expect(roiService.calculateROIStats).toHaveBeenCalled();
       expect(roiService.markBoxesWithROI).toHaveBeenCalled();
-      expect(whitenessService.calculateWhiteness).toHaveBeenCalled();
+      // whitenessService.calculateWhiteness is only called when shouldSave is true
+      expect(whitenessService.calculateWhiteness).not.toHaveBeenCalled();
 
       expect(result).toHaveProperty('frameId');
       expect(result).toHaveProperty('pureCount');
@@ -137,14 +142,14 @@ describe('DetectionController', () => {
         user_id: TEST_USER_ID,
       });
 
-      expect(detectionService.create).toHaveBeenCalled();
-      expect(detectionService.incrementSessionStats).toHaveBeenCalledWith(
-        TEST_SESSION_ID,
-        expect.any(Number),
-        expect.any(Number),
-        expect.any(Number),
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'detection.created',
+        expect.objectContaining({
+          sessionId: TEST_SESSION_ID,
+          batchId: TEST_BATCH_ID,
+        }),
       );
-      expect(batchService.setCurrentBatchSnapshot).toHaveBeenCalled();
+      expect(batchService.getCurrentBatchStats).toHaveBeenCalledWith(TEST_BATCH_ID);
     });
 
     it('should not save detection when saveDetection is false', async () => {

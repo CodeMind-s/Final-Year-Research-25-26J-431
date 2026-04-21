@@ -1,5 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DetectionService } from './detection.service';
 import { InferenceService } from '../inference/inference.service';
 import { WhitenessService } from '../inference/whiteness.service';
@@ -17,6 +18,7 @@ export class DetectionController {
     private readonly whitenessService: WhitenessService,
     private readonly roiService: ROIService,
     private readonly batchService: BatchService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectModel(DetectionSession.name)
     private readonly sessionModel: Model<DetectionSessionDocument>,
   ) {}
@@ -40,66 +42,67 @@ export class DetectionController {
     const roiStats = this.roiService.calculateROIStats(result.boundingBoxes, roi);
     const boundingBoxesWithROI = this.roiService.markBoxesWithROI(result.boundingBoxes, roi);
 
-    const boundingBoxesWithWhiteness = await this.whitenessService.calculateWhiteness(
-      imageBuffer,
-      boundingBoxesWithROI,
-      result.frameWidth,
-      result.frameHeight,
-    );
+    const shouldSave = data.saveDetection && !!data.batchId;
 
-    const whitenessStats = this.whitenessService.calculateAggregateStats(boundingBoxesWithWhiteness);
-    const roiWhitenessStats = this.whitenessService.calculateROIAggregateStats(boundingBoxesWithWhiteness);
+    let boundingBoxesWithWhiteness;
+    let whitenessStats = { avgWhiteness: 0, avgQualityScore: 0 };
+    let roiWhitenessStats = { avgWhiteness: 0, avgQualityScore: 0 };
+
+    if (shouldSave) {
+      boundingBoxesWithWhiteness = await this.whitenessService.calculateWhiteness(
+        imageBuffer,
+        boundingBoxesWithROI,
+        result.frameWidth,
+        result.frameHeight,
+      );
+      whitenessStats = this.whitenessService.calculateAggregateStats(boundingBoxesWithWhiteness);
+      roiWhitenessStats = this.whitenessService.calculateROIAggregateStats(boundingBoxesWithWhiteness);
+    } else {
+      boundingBoxesWithWhiteness = boundingBoxesWithROI.map((box) => ({
+        ...box,
+        whitenessPercentage: 0,
+        qualityScore: 0,
+      }));
+    }
 
     let batchStats = null;
 
-    if (data.saveDetection && data.batchId) {
-      await this.detectionService.create({
-        userId: data.user_id || '',
-        frameWidth: result.frameWidth,
-        frameHeight: result.frameHeight,
-        processingTimeMs: result.processingTimeMs,
+    if (shouldSave) {
+      // Emit event for async persistence instead of blocking DB writes
+      this.eventEmitter.emit('detection.created', {
+        dto: {
+          userId: data.user_id || '',
+          frameWidth: result.frameWidth,
+          frameHeight: result.frameHeight,
+          processingTimeMs: result.processingTimeMs,
+          sessionId: data.sessionId,
+          batchId: data.batchId,
+          roiPureCount: roiStats.pureCount,
+          roiImpureCount: roiStats.impureCount,
+          roiUnwantedCount: roiStats.unwantedCount,
+          roiTotalCount: roiStats.totalCount,
+          roiPurityPercentage: roiStats.purityPercentage,
+          avgWhiteness: whitenessStats.avgWhiteness,
+          avgQualityScore: whitenessStats.avgQualityScore,
+          roiAvgWhiteness: roiWhitenessStats.avgWhiteness,
+          roiAvgQualityScore: roiWhitenessStats.avgQualityScore,
+          boundingBoxes: boundingBoxesWithWhiteness.map((box) => ({
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            classId: box.classId,
+            className: box.className,
+            confidence: box.confidence,
+            whitenessPercentage: box.whitenessPercentage,
+            qualityScore: box.qualityScore,
+          })),
+        },
         sessionId: data.sessionId,
         batchId: data.batchId,
-        roiPureCount: roiStats.pureCount,
-        roiImpureCount: roiStats.impureCount,
-        roiUnwantedCount: roiStats.unwantedCount,
-        roiTotalCount: roiStats.totalCount,
-        roiPurityPercentage: roiStats.purityPercentage,
-        avgWhiteness: whitenessStats.avgWhiteness,
-        avgQualityScore: whitenessStats.avgQualityScore,
-        roiAvgWhiteness: roiWhitenessStats.avgWhiteness,
-        roiAvgQualityScore: roiWhitenessStats.avgQualityScore,
-        boundingBoxes: boundingBoxesWithWhiteness.map((box) => ({
-          x: box.x,
-          y: box.y,
-          width: box.width,
-          height: box.height,
-          classId: box.classId,
-          className: box.className,
-          confidence: box.confidence,
-          whitenessPercentage: box.whitenessPercentage,
-          qualityScore: box.qualityScore,
-        })),
+        roiStats,
+        roiWhitenessStats,
       });
-
-      if (data.sessionId) {
-        await this.detectionService.incrementSessionStats(
-          data.sessionId,
-          roiStats.pureCount,
-          roiStats.impureCount,
-          roiStats.unwantedCount,
-        );
-      }
-
-      await this.batchService.setCurrentBatchSnapshot(
-        data.batchId,
-        roiStats.pureCount,
-        roiStats.impureCount,
-        roiStats.unwantedCount,
-        roiStats.totalCount,
-        roiWhitenessStats.avgWhiteness,
-        roiWhitenessStats.avgQualityScore,
-      );
 
       batchStats = await this.batchService.getCurrentBatchStats(data.batchId);
     }

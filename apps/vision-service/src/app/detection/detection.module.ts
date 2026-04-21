@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DetectionService } from './detection.service';
 import { DetectionController } from './detection.controller';
+import { DetectionBufferService } from './detection-buffer.service';
+import { DetectionPersistenceListener } from './detection-persistence.listener';
 import { Detection, DetectionSchema } from './schemas/detection.schema';
 import {
   DetectionSession,
@@ -24,7 +26,7 @@ import { BatchModule } from '../batch/batch.module';
     BatchModule,
   ],
   controllers: [DetectionController],
-  providers: [DetectionService],
+  providers: [DetectionService, DetectionBufferService, DetectionPersistenceListener],
   exports: [DetectionService],
 })
 export class DetectionModule {}

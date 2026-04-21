@@ -15,15 +15,13 @@ module.exports = {
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   rootDir: __dirname,
-  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  roots: ['<rootDir>/src'],
   testMatch: ['**/*.spec.ts', '**/*.test.ts'],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    process.env.CI === 'true' && !process.env.MONGO_URI ? '<rootDir>/tests/e2e/' : null,
-  ].filter(Boolean),
+  testPathIgnorePatterns: ['/node_modules/'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
+  silent: true,
 };

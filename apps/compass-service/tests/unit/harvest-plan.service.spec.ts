@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HarvestPlanService } from '../../src/app/harvest-plan/harvest-plan.service';
 import { HarvestPlan, HarvestStatus } from '../../src/app/harvest-plan/schemas/harvest-plan.schema';
+import { DistributorOffer } from '../../src/app/distributor-offers/schemas/distributor-offer.schema';
 
 describe('HarvestPlanService', () => {
   let service: HarvestPlanService;
@@ -51,6 +52,13 @@ describe('HarvestPlanService', () => {
         {
           provide: getModelToken(HarvestPlan.name),
           useValue: mockHarvestPlanModel,
+        },
+        {
+          provide: getModelToken(DistributorOffer.name),
+          useValue: {
+            find: jest.fn(),
+            aggregate: jest.fn(),
+          },
         },
       ],
     }).compile();

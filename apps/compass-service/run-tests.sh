@@ -53,19 +53,19 @@ run_tests() {
     case $test_type in
         "unit")
             echo -e "\n${YELLOW}Running unit tests...${NC}"
-            npx nx test compass-service
+            npx jest --config apps/compass-service/jest.config.js
             ;;
         "coverage")
-            echo -e "\n${YELLOW}Running tests with coverage...${NC}"
-            npx nx test compass-service --coverage
+            echo -e "\n${YELLOW}Running unit tests with coverage...${NC}"
+            npx jest --config apps/compass-service/jest.config.js --coverage
             ;;
         "watch")
-            echo -e "\n${YELLOW}Running tests in watch mode...${NC}"
-            npx nx test compass-service --watch
+            echo -e "\n${YELLOW}Running unit tests in watch mode...${NC}"
+            npx jest --config apps/compass-service/jest.config.js --watch
             ;;
         "e2e")
             echo -e "\n${YELLOW}Running E2E tests...${NC}"
-            npx nx test:e2e compass-service || echo -e "${YELLOW}⚠️  E2E tests not configured${NC}"
+            npx jest --config apps/compass-service/jest.e2e.config.js
             ;;
         "all")
             echo -e "\n${YELLOW}Running all tests...${NC}"

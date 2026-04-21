@@ -101,6 +101,55 @@ export class DetectionService {
     return detection.save();
   }
 
+  async createMany(dtos: CreateDetectionDto[]): Promise<void> {
+    if (dtos.length === 0) return;
+
+    const docs = dtos.map((dto) => {
+      const impureCount = dto.boundingBoxes.filter((b) => b.classId === 0).length;
+      const pureCount = dto.boundingBoxes.filter((b) => b.classId === 1).length;
+      const unwantedCount = dto.boundingBoxes.filter((b) => b.classId === 2).length;
+      const totalCount = dto.boundingBoxes.length;
+      const saltCount = pureCount + impureCount;
+      const purityPercentage = saltCount > 0 ? (pureCount / saltCount) * 100 : 100;
+
+      return {
+        userId: new Types.ObjectId(dto.userId),
+        frameWidth: dto.frameWidth,
+        frameHeight: dto.frameHeight,
+        processingTimeMs: dto.processingTimeMs,
+        pureCount,
+        impureCount,
+        unwantedCount,
+        totalCount,
+        purityPercentage,
+        sessionId: dto.sessionId ? new Types.ObjectId(dto.sessionId) : null,
+        batchId: dto.batchId ? new Types.ObjectId(dto.batchId) : null,
+        roiPureCount: dto.roiPureCount ?? 0,
+        roiImpureCount: dto.roiImpureCount ?? 0,
+        roiUnwantedCount: dto.roiUnwantedCount ?? 0,
+        roiTotalCount: dto.roiTotalCount ?? 0,
+        roiPurityPercentage: dto.roiPurityPercentage,
+        avgWhiteness: dto.avgWhiteness,
+        avgQualityScore: dto.avgQualityScore,
+        roiAvgWhiteness: dto.roiAvgWhiteness,
+        roiAvgQualityScore: dto.roiAvgQualityScore,
+        boundingBoxes: dto.boundingBoxes.map((box) => ({
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          classId: box.classId,
+          className: box.className,
+          confidence: box.confidence,
+          whitenessPercentage: box.whitenessPercentage,
+          qualityScore: box.qualityScore,
+        })),
+      };
+    });
+
+    await this.detectionModel.insertMany(docs);
+  }
+
   async findAll(filter: DetectionFilter) {
     const { page = 1, limit = 20, startDate, endDate, minPurity, maxPurity, sessionId, userId } = filter;
     const skip = (page - 1) * limit;

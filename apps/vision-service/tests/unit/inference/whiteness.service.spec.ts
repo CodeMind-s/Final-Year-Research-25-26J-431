@@ -3,10 +3,11 @@ jest.mock('sharp', () => {
     extract: jest.fn().mockReturnThis(),
     removeAlpha: jest.fn().mockReturnThis(),
     raw: jest.fn().mockReturnThis(),
-    toBuffer: jest.fn().mockResolvedValue(
+    toBuffer: jest.fn().mockResolvedValue({
       // 10x10 RGB pixels — pure white (255,255,255)
-      Buffer.alloc(10 * 10 * 3, 255),
-    ),
+      data: Buffer.alloc(10 * 10 * 3, 255),
+      info: { width: 10, height: 10, channels: 3, size: 300 },
+    }),
   }));
   mockSharp.default = mockSharp;
   return mockSharp;
@@ -47,26 +48,18 @@ describe('WhitenessService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should handle errors gracefully and return 0 for failed boxes', async () => {
+    it('should propagate errors when image decoding fails', async () => {
       const sharp = require('sharp');
       sharp.mockImplementationOnce(() => ({
-        extract: jest.fn().mockReturnThis(),
         removeAlpha: jest.fn().mockReturnThis(),
         raw: jest.fn().mockReturnThis(),
         toBuffer: jest.fn().mockRejectedValue(new Error('Sharp error')),
       }));
 
       const boxes = [createMockBoundingBox()];
-      const result = await service.calculateWhiteness(
-        Buffer.from('fake-image'),
-        boxes,
-        640,
-        480,
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].whitenessPercentage).toBe(0);
-      expect(result[0].qualityScore).toBe(0);
+      await expect(
+        service.calculateWhiteness(Buffer.from('fake-image'), boxes, 640, 480),
+      ).rejects.toThrow('Sharp error');
     });
 
     it('should calculate high whiteness for white pixels', async () => {

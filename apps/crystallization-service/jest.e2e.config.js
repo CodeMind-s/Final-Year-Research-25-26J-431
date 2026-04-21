@@ -11,24 +11,21 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 module.exports = {
-  displayName: 'compass-service',
+  displayName: 'crystallization-service-e2e',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   rootDir: __dirname,
-  roots: ['<rootDir>/tests/unit'],
+  roots: ['<rootDir>/tests/e2e'],
   testMatch: [
-    '<rootDir>/tests/unit/**/*.spec.ts',
-    '<rootDir>/tests/unit/**/*.test.ts',
+    '<rootDir>/tests/e2e/**/*.spec.ts',
+    '<rootDir>/tests/e2e/**/*.test.ts',
   ],
   testPathIgnorePatterns: ['/node_modules/'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: 'test-output/jest/coverage',
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.spec.ts',
-    '!src/main.ts',
-  ],
+  // E2E tests need more time for MongoDB/memory server setup
+  testTimeout: 30000,
+  forceExit: true,
 };

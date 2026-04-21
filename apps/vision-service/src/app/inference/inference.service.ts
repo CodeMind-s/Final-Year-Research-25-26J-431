@@ -17,8 +17,30 @@ export class InferenceService implements OnModuleInit {
     private readonly preprocessingService: PreprocessingService,
     private readonly postprocessingService: PostprocessingService,
   ) {
-    this.modelPath = process.env.VISION_MODEL_PATH || process.env.MODEL_PATH || 'apps/vision-service/models/best.onnx';
+    const int8Path = process.env.VISION_MODEL_PATH_INT8;
+    this.modelPath = int8Path || process.env.VISION_MODEL_PATH || process.env.MODEL_PATH || 'apps/vision-service/models/best.onnx';
     this.inputSize = parseInt(process.env.VISION_INPUT_SIZE || process.env.INPUT_SIZE || '320', 10);
+  }
+
+  private getExecutionProviders(): string[] {
+    const provider = process.env.VISION_EXECUTION_PROVIDER || 'cpu';
+    const providers: string[] = [];
+
+    switch (provider.toLowerCase()) {
+      case 'cuda':
+        providers.push('CUDAExecutionProvider');
+        break;
+      case 'tensorrt':
+        providers.push('TensorrtExecutionProvider');
+        break;
+      case 'directml':
+        providers.push('DmlExecutionProvider');
+        break;
+    }
+
+    // Always include CPU as fallback
+    providers.push('CPUExecutionProvider');
+    return providers;
   }
 
   async onModuleInit() {
@@ -29,8 +51,11 @@ export class InferenceService implements OnModuleInit {
     try {
       this.logger.log(`Loading ONNX model from: ${this.modelPath}`);
 
+      const executionProviders = this.getExecutionProviders();
+      this.logger.log(`Using execution providers: ${executionProviders.join(', ')}`);
+
       this.session = await ort.InferenceSession.create(this.modelPath, {
-        executionProviders: ['cpu'],
+        executionProviders,
         graphOptimizationLevel: 'all',
       });
 
