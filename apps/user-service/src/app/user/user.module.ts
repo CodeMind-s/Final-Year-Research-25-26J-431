@@ -8,6 +8,7 @@ import { ServiceProviderDetails, ServiceProviderDetailsSchema } from './schemas/
 import { LaboratoryDetails, LaboratoryDetailsSchema } from './schemas/laboratory-details.schema';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { getKafkaClientConfig } from '@brinex-server/kafka-config';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -45,10 +46,7 @@ console.log('DEBUG: LandOwnerDetailsSchema value:', LandOwnerDetailsSchema);
         name: 'AUDIT_LOG_SERVICE',
         transport: Transport.KAFKA,
         options: {
-          client: {
-            clientId: 'user-service-audit',
-            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
-          },
+          client: getKafkaClientConfig('user-service-audit'),
           consumer: {
             groupId: 'user-audit-consumer-group',
           },

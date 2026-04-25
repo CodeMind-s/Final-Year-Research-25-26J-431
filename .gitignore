@@ -50,6 +50,7 @@ test-output
 
 
 .env
+deploy/.env.azure
 
 package-lock.json
 yarn.lock

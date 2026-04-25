@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
+import { getGrpcCredentials } from '../../grpc-credentials';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { join } from 'path';
             package: 'user',
             protoPath: join(__dirname, 'proto/user.proto'),
             url: process.env.USER_SERVICE_URL || 'localhost:50053',
+            credentials: getGrpcCredentials(),
           },
         },
         {
@@ -25,6 +27,7 @@ import { join } from 'path';
             package: 'auth',
             protoPath: join(__dirname, 'proto/auth.proto'),
             url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+            credentials: getGrpcCredentials(),
           },
         },
       ]),

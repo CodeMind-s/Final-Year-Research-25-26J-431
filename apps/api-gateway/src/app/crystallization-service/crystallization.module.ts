@@ -7,6 +7,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { CrystallizationController } from './crystallization.controller';
+import { getGrpcCredentials } from '../../grpc-credentials';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CrystallizationController } from './crystallization.controller';
           package: 'crystallization',
           protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
           url: process.env.CRYSTALLIZATION_SERVICE_URL || 'localhost:50054',
+          credentials: getGrpcCredentials(),
           loader: {
             keepCase: true,
             longs: String,

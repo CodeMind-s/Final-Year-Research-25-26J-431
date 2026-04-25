@@ -15,6 +15,7 @@ import { VisionModule } from './vision-service/vision.module';
 import { PaymentModule } from './payment/payment.module';
 import { WasteValorizationModule } from './waste-valorization-service/waste-valorization.module';
 import { AiModule } from './ai-service/ai.module';
+import { getGrpcCredentials } from '../grpc-credentials';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AiModule } from './ai-service/ai.module';
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+          credentials: getGrpcCredentials(),
         },
       },
       {
@@ -36,6 +38,7 @@ import { AiModule } from './ai-service/ai.module';
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
           url: process.env.USER_SERVICE_URL || 'localhost:50053',
+          credentials: getGrpcCredentials(),
         },
       },
     ]),

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { getKafkaClientConfig } from '@brinex-server/kafka-config';
 import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
 import { CrystallizationController } from './crystallization.controller';
@@ -41,10 +42,7 @@ import { LandownerMonthlyProductionPrediction, LandownerMonthlyProductionPredict
         name: 'AUDIT_LOG_SERVICE',
         transport: Transport.KAFKA,
         options: {
-          client: {
-            clientId: 'crystallization-service',
-            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
-          },
+          client: getKafkaClientConfig('crystallization-service'),
           consumer: {
             groupId: 'crystallization-audit-consumer-group',
           },

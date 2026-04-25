@@ -1,0 +1,11 @@
+{
+  "name": "@brinex-server/kafka-config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": {
+      "@brinex-server/source": "./index.ts",
+      "default": "./index.ts"
+    }
+  }
+}

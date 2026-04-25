@@ -1,0 +1,195 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Comma-separated list of services to deploy (or "all")'
+        required: false
+        default: 'all'
+
+permissions:
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-brinex
+  ACR_NAME: brinexacr
+  ACA_ENV: brinex-env
+  EVENTHUB_NAMESPACE: brinex-kafka
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ── Detect which services changed ──────────────────────────────────────────
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          if [[ "${{ github.event.inputs.services }}" != "" && "${{ github.event.inputs.services }}" != "all" ]]; then
+            # Manual trigger with specific services
+            SERVICES=$(echo "${{ github.event.inputs.services }}" | tr ',' '\n' | jq -R . | jq -sc .)
+            echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # All deployable services
+          ALL_SERVICES=(
+            api-gateway auth-service user-service crystallization-service
+            crystallization-onnx-service vision-service payment-service
+            compass-service waste-valorization-service gemini-service
+            email-service audit-log-service compass-ml-service
+          )
+
+          if [[ "${{ github.event.inputs.services }}" == "all" ]]; then
+            SERVICES=$(printf '%s\n' "${ALL_SERVICES[@]}" | jq -R . | jq -sc .)
+            echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Auto-detect from changed files
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          CHANGED_SERVICES=()
+
+          for SVC in "${ALL_SERVICES[@]}"; do
+            if echo "$CHANGED" | grep -q "^apps/$SVC/"; then
+              CHANGED_SERVICES+=("$SVC")
+            fi
+          done
+
+          # Shared code changes → deploy everything
+          if echo "$CHANGED" | grep -qE "^(packages/|proto/|Dockerfile|package\.json)"; then
+            CHANGED_SERVICES=("${ALL_SERVICES[@]}")
+          fi
+
+          if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
+            echo "services=[]" >> "$GITHUB_OUTPUT"
+          else
+            SERVICES=$(printf '%s\n' "${CHANGED_SERVICES[@]}" | sort -u | jq -R . | jq -sc .)
+            echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Print detected services
+        run: echo "Services to deploy:${{ steps.changes.outputs.services }}"
+
+  # ── Build & Push changed images ────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Determine Dockerfile
+        id: dockerfile
+        run: |
+          SVC="${{ matrix.service }}"
+          case "$SVC" in
+            crystallization-onnx-service)
+              echo "path=apps/crystallization-onnx-service/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "build_arg=" >> "$GITHUB_OUTPUT"
+              ;;
+            vision-service)
+              echo "path=apps/vision-service/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "build_arg=" >> "$GITHUB_OUTPUT"
+              ;;
+            compass-ml-service)
+              echo "path=apps/compass-ml-service/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "build_arg=" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "path=Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "build_arg=--build-arg SERVICE_NAME=$SVC" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Build and push image
+        run: |
+          ACR_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer -o tsv)
+          docker build \
+            ${{ steps.dockerfile.outputs.build_arg }} \
+            -t "$ACR_SERVER/${{ matrix.service }}:${{ env.IMAGE_TAG }}" \
+            -t "$ACR_SERVER/${{ matrix.service }}:latest" \
+            -f ${{ steps.dockerfile.outputs.path }} .
+          docker push "$ACR_SERVER/${{ matrix.service }}:${{ env.IMAGE_TAG }}"
+          docker push "$ACR_SERVER/${{ matrix.service }}:latest"
+
+  # ── Deploy to Container Apps ───────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push]
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+      max-parallel: 4
+      fail-fast: false
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update container image
+        run: |
+          ACR_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer -o tsv)
+          az containerapp update \
+            --name ${{ matrix.service }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "$ACR_SERVER/${{ matrix.service }}:${{ env.IMAGE_TAG }}"
+
+  # ── Verify deployment ──────────────────────────────────────────────────────
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Check API Gateway health
+        run: |
+          API_URL=$(az containerapp show --name api-gateway \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "API Gateway URL: https://$API_URL/api/v1"
+
+          for i in {1..5}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$API_URL/api/v1" || echo "000")
+            if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "301" ]]; then
+              echo "API Gateway is healthy (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $HTTP_CODE — waiting 15s..."
+            sleep 15
+          done
+          echo "::warning::API Gateway health check did not return 200 after 5 attempts"
+
+      - name: List all services
+        run: |
+          az containerapp list --resource-group ${{ env.RESOURCE_GROUP }} \
+            -o table

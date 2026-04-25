@@ -7,6 +7,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app/app.module';
+import { getKafkaClientConfig } from '@brinex-server/kafka-config';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -14,10 +15,7 @@ async function bootstrap() {
     {
       transport: Transport.KAFKA,
       options: {
-        client: {
-          clientId: 'audit-log-service',
-          brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
-        },
+        client: getKafkaClientConfig('audit-log-service'),
         consumer: {
           groupId: 'audit-log-consumer-group',
         },

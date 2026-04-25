@@ -11,6 +11,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { getKafkaClientConfig } from '@brinex-server/kafka-config';
 import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
@@ -32,10 +33,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
         name: 'EMAIL_SERVICE',
         transport: Transport.KAFKA,
         options: {
-          client: {
-            clientId: 'auth-service-email',
-            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
-          },
+          client: getKafkaClientConfig('auth-service-email'),
           consumer: {
             groupId: 'auth-email-consumer-group',
           },
@@ -45,10 +43,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
         name: 'AUDIT_LOG_SERVICE',
         transport: Transport.KAFKA,
         options: {
-          client: {
-            clientId: 'auth-service-audit',
-            brokers: [process.env.KAFKA_BROKER || 'localhost:29092'],
-          },
+          client: getKafkaClientConfig('auth-service-audit'),
           consumer: {
             groupId: 'auth-audit-consumer-group',
           },

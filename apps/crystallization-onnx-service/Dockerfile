@@ -33,6 +33,9 @@ COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
 COPY apps/payment-service/package.json ./apps/payment-service/
 
+# Copy shared workspace packages
+COPY packages/ ./packages/
+
 # Install all dependencies — CACHED when only source code changes
 # --mount=type=cache persists npm download cache across Docker builds
 RUN --mount=type=cache,target=/root/.npm \
