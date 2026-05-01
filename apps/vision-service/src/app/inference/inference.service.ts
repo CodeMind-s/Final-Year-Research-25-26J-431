@@ -28,18 +28,17 @@ export class InferenceService implements OnModuleInit {
 
     switch (provider.toLowerCase()) {
       case 'cuda':
-        providers.push('CUDAExecutionProvider');
+        providers.push('cuda');
         break;
       case 'tensorrt':
-        providers.push('TensorrtExecutionProvider');
+        providers.push('tensorrt');
         break;
       case 'directml':
-        providers.push('DmlExecutionProvider');
+        providers.push('dml');
         break;
     }
 
-    // Always include CPU as fallback
-    providers.push('CPUExecutionProvider');
+    providers.push('cpu');
     return providers;
   }
 
