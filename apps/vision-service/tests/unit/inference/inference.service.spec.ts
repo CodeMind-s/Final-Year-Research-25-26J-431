@@ -99,7 +99,7 @@ describe('InferenceService', () => {
 
       expect(ort.InferenceSession.create).toHaveBeenCalledWith(
         'test-model.onnx',
-        expect.objectContaining({ executionProviders: ['CPUExecutionProvider'], graphOptimizationLevel: 'all' }),
+        expect.objectContaining({ executionProviders: ['cpu'], graphOptimizationLevel: 'all' }),
       );
     });
 
