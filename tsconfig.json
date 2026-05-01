@@ -4,6 +4,9 @@
   "files": [],
   "references": [
     {
+      "path": "./packages/kafka-config"
+    },
+    {
       "path": "./apps/api-gateway"
     },
     {
