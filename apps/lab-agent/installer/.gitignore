@@ -1,0 +1,2 @@
+# Don't commit the binary — fetch per README.md before packaging.
+mkcert.exe
