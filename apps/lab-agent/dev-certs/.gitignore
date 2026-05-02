@@ -1,0 +1,5 @@
+# Dev-only self-signed certs for `nx serve lab-agent`.
+# Never commit private keys.
+*
+!.gitignore
+!README.md
