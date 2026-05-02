@@ -1,0 +1,8 @@
+Drop the trained YOLOv8 model here as `best.onnx`.
+
+The webpack assets pipeline copies everything under `apps/lab-agent/src/assets/`
+to `dist/apps/lab-agent/assets/` at build time, and `main.ts` defaults
+`VISION_MODEL_PATH` to `<dist>/assets/models/best.onnx` when the env var is unset.
+
+For development without a model file, point `VISION_MODEL_PATH` at the
+existing `apps/vision-service/models/best.onnx`.
