@@ -85,6 +85,7 @@
     "class-validator": "^0.14.2",
     "eventemitter2": "^6.4.9",
     "expo-server-sdk": "^4.0.0",
+    "jose": "^5.9.6",
     "kafkajs": "^2.2.4",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
@@ -97,6 +98,6 @@
     "rxjs": "^7.8.2",
     "sharp": "^0.34.5",
     "twilio": "^5.9.0",
-    "uuid": "^13.0.0"
+    "uuid": "^9.0.1"
   }
 }
