@@ -1,18 +1,21 @@
 import {
+  Body,
   Controller,
-  Get,
   Delete,
-  Param,
-  Query,
-  Req,
-  Inject,
-  Logger,
+  Get,
   HttpException,
   HttpStatus,
+  Inject,
+  Logger,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
 } from '@nestjs/common';
 import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom, catchError } from 'rxjs';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/decorators/role.enum';
@@ -25,6 +28,11 @@ import {
   StatsDailyQueryDto,
   StatsTrendsQueryDto,
 } from './dtos/detection-filter.dto';
+import {
+  CreateSessionDto,
+  CreateBatchDto,
+  SaveDetectionDto,
+} from './dtos/vision-write.dto';
 
 @ApiTags('Vision')
 @ApiBearerAuth()
@@ -51,6 +59,145 @@ export class VisionController {
             throw new HttpException('Vision service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
           }),
         ),
+      );
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Post('sessions')
+  @RequirePlan(2)
+  @ApiOperation({
+    summary: 'Create a detection session',
+    description: 'Used by the Lab Agent to start a session before pushing detections.',
+  })
+  @ApiBody({ type: CreateSessionDto })
+  @ApiResponse({ status: 201, description: 'Session created' })
+  async createSession(@Body() body: CreateSessionDto, @Req() req: any) {
+    try {
+      return await firstValueFrom(
+        this.visionService
+          .CreateSession({
+            cameraSource: body.cameraSource,
+            roi: body.roi,
+            user_id: req.user.userId,
+          })
+          .pipe(
+            catchError((error: any) => {
+              this.logger.error(`CreateSession error: ${error.message}`);
+              throw new HttpException('Failed to create session', HttpStatus.BAD_REQUEST);
+            }),
+          ),
+      );
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Patch('sessions/:id/end')
+  @RequirePlan(2)
+  @ApiOperation({
+    summary: 'End a detection session',
+    description: 'Closes the session; totals are computed from detections already saved during the session.',
+  })
+  @ApiResponse({ status: 200, description: 'Session ended' })
+  async endSession(@Param('id') id: string, @Req() _req: any) {
+    try {
+      return await firstValueFrom(
+        this.visionService.EndSession({ sessionId: id }).pipe(
+          catchError((error: any) => {
+            this.logger.error(`EndSession error: ${error.message}`);
+            throw new HttpException('Failed to end session', HttpStatus.BAD_REQUEST);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Post('batches')
+  @RequirePlan(2)
+  @ApiOperation({ summary: 'Create a batch within a session' })
+  @ApiBody({ type: CreateBatchDto })
+  @ApiResponse({ status: 201, description: 'Batch created' })
+  async createBatch(@Body() body: CreateBatchDto, @Req() req: any) {
+    try {
+      return await firstValueFrom(
+        this.visionService
+          .CreateBatch({
+            sessionId: body.sessionId,
+            roi: body.roi,
+            user_id: req.user.userId,
+          })
+          .pipe(
+            catchError((error: any) => {
+              this.logger.error(`CreateBatch error: ${error.message}`);
+              throw new HttpException('Failed to create batch', HttpStatus.BAD_REQUEST);
+            }),
+          ),
+      );
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Patch('batches/:id/end')
+  @RequirePlan(2)
+  @ApiOperation({ summary: 'End a batch' })
+  @ApiResponse({ status: 200, description: 'Batch ended' })
+  async endBatch(@Param('id') id: string, @Req() _req: any) {
+    try {
+      return await firstValueFrom(
+        this.visionService.EndBatch({ batchId: id }).pipe(
+          catchError((error: any) => {
+            this.logger.error(`EndBatch error: ${error.message}`);
+            throw new HttpException('Failed to end batch', HttpStatus.BAD_REQUEST);
+          }),
+        ),
+      );
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  @Post('detections')
+  @RequirePlan(2)
+  @ApiOperation({
+    summary: 'Persist a detection from the Lab Agent',
+    description:
+      'Cloud-write endpoint: the Lab Agent runs inference locally and POSTs the result here. No inference happens server-side; counts and aggregates are trusted in v1.',
+  })
+  @ApiBody({ type: SaveDetectionDto })
+  @ApiResponse({ status: 201, description: 'Detection saved', schema: { example: { id: '6630c2...' } } })
+  async saveDetection(@Body() body: SaveDetectionDto, @Req() req: any) {
+    try {
+      return await firstValueFrom(
+        this.visionService
+          .SaveDetection({
+            user_id: req.user.userId,
+            sessionId: body.sessionId,
+            batchId: body.batchId,
+            frameWidth: body.frameWidth,
+            frameHeight: body.frameHeight,
+            processingTimeMs: body.processingTimeMs,
+            roiPureCount: body.roiPureCount,
+            roiImpureCount: body.roiImpureCount,
+            roiUnwantedCount: body.roiUnwantedCount,
+            roiTotalCount: body.roiTotalCount,
+            roiPurityPercentage: body.roiPurityPercentage,
+            avgWhiteness: body.avgWhiteness,
+            avgQualityScore: body.avgQualityScore,
+            roiAvgWhiteness: body.roiAvgWhiteness,
+            roiAvgQualityScore: body.roiAvgQualityScore,
+            boundingBoxes: body.boundingBoxes,
+          })
+          .pipe(
+            catchError((error: any) => {
+              this.logger.error(`SaveDetection error: ${error.message}`);
+              throw new HttpException('Failed to save detection', HttpStatus.BAD_REQUEST);
+            }),
+          ),
       );
     } catch (error: any) {
       throw error;

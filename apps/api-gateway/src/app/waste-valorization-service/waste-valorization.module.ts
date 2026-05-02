@@ -9,11 +9,12 @@ import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { WasteValorizationController, WasteManagementDashboardController } from './waste-valorization.controller';
 import { getGrpcCredentials } from '../../grpc-credentials';
+import { getJwtVerifyOptions } from '../auth/jwt-config';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+      ...getJwtVerifyOptions(),
       global: true,
     }),
     ClientsModule.register([
