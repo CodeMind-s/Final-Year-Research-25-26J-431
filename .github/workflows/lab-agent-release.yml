@@ -1,0 +1,119 @@
+name: Lab Agent Release
+
+# Builds, signs, and publishes the Brinex Lab Agent installer.
+# Triggered manually (release cuts are explicit, not automatic) or by
+# pushing a tag that matches `lab-agent-v*`.
+
+on:
+  push:
+    tags:
+      - 'lab-agent-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.0.0). Read from package.json if blank.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # for creating GitHub Releases
+
+jobs:
+  build:
+    name: Build, sign, package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Stage mkcert
+        # mkcert.exe is gitignored — pull from the internal mirror or pin
+        # via a release artifact. URL must be HTTPS + checksum-verified.
+        env:
+          MKCERT_URL: ${{ vars.MKCERT_URL }}
+          MKCERT_SHA256: ${{ vars.MKCERT_SHA256 }}
+        run: |
+          if (-not $env:MKCERT_URL) {
+            throw "MKCERT_URL repo variable is not set. See apps/lab-agent/installer/README.md."
+          }
+          Invoke-WebRequest -Uri $env:MKCERT_URL -OutFile apps\lab-agent\installer\mkcert.exe
+          $hash = (Get-FileHash apps\lab-agent\installer\mkcert.exe -Algorithm SHA256).Hash
+          if ($hash -ne $env:MKCERT_SHA256) {
+            throw "mkcert.exe SHA-256 mismatch: got $hash, expected $env:MKCERT_SHA256"
+          }
+        shell: pwsh
+
+      - name: Stage best.onnx
+        # Model is too large for the repo; fetch from the artifact bucket.
+        env:
+          MODEL_URL: ${{ secrets.LAB_AGENT_MODEL_URL }}
+        run: |
+          if (-not $env:MODEL_URL) {
+            throw "LAB_AGENT_MODEL_URL secret is not set."
+          }
+          New-Item -ItemType Directory -Force apps\lab-agent\src\assets\models | Out-Null
+          Invoke-WebRequest -Uri $env:MODEL_URL -OutFile apps\lab-agent\src\assets\models\best.onnx
+        shell: pwsh
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Package (signed if WIN_CSC_LINK is set)
+        env:
+          # electron-builder picks these up automatically and invokes signtool.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          NX_NO_CLOUD: 'true'
+          NX_DAEMON: 'false'
+        run: npx nx run @brinex-server/lab-agent:package
+        shell: pwsh
+
+      - name: Verify signature
+        if: ${{ env.WIN_CSC_LINK != '' }}
+        run: |
+          $sig = Get-AuthenticodeSignature .\dist\installer\Brinex*Setup*.exe
+          if ($sig.Status -ne 'Valid') {
+            throw "Authenticode status: $($sig.Status) — expected Valid"
+          }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
+        shell: pwsh
+
+      - name: Generate SHA-256
+        run: |
+          $exe = Get-ChildItem .\dist\installer\Brinex*Setup*.exe | Select-Object -First 1
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash
+          "$hash  $($exe.Name)" | Out-File "$($exe.FullName).sha256" -Encoding ASCII
+          Write-Host "SHA-256: $hash"
+        shell: pwsh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-agent-installer
+          path: |
+            dist/installer/*.exe
+            dist/installer/*.exe.blockmap
+            dist/installer/*.sha256
+            dist/installer/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/lab-agent-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/installer/*.exe
+            dist/installer/*.exe.blockmap
+            dist/installer/*.sha256
+            dist/installer/latest.yml
+          generate_release_notes: true
+          fail_on_unmatched_files: true
