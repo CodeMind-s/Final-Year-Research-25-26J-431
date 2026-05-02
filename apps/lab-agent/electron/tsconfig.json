@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "../../../dist/apps/lab-agent/electron",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": false,
+    "resolveJsonModule": true,
+    "types": ["node", "electron"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["assets/**"]
+}
