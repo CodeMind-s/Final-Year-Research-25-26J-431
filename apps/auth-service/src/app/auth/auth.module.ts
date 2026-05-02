@@ -13,6 +13,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { getKafkaClientConfig } from '@brinex-server/kafka-config';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { getJwtModuleOptions } from './jwt-config';
 
 @Module({
   imports: [
@@ -24,10 +25,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
       { name: LaboratoryDetails.name, schema: LaboratoryDetailsSchema },
     ]),
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
-      signOptions: { expiresIn: '7d' },
-    }),
+    JwtModule.register(getJwtModuleOptions()),
     ClientsModule.register([
       {
         name: 'EMAIL_SERVICE',

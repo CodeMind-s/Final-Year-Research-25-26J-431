@@ -22,6 +22,7 @@ service VisionService {
   rpc GetDetections(GetDetectionsRequest) returns (DetectionListResponse);
   rpc GetDetection(GetDetectionRequest) returns (DetectionResponse);
   rpc DeleteDetection(DeleteDetectionRequest) returns (DeleteResponse);
+  rpc SaveDetection(SaveDetectionRequest) returns (DetectionId);
 
   // Statistics
   rpc GetStatsSummary(GetStatsSummaryRequest) returns (StatsSummaryResponse);
@@ -287,6 +288,32 @@ message DetectionListResponse {
 message DeleteResponse {
   bool success = 1;
   string message = 2;
+}
+
+// SaveDetection — agent-side inference path; persists a single detection
+// without running inference on the cloud. Counts and whiteness aggregates
+// are pre-computed by the lab agent and trusted in v1.
+message SaveDetectionRequest {
+  string user_id = 1;
+  string sessionId = 2;
+  string batchId = 3;
+  int32 frameWidth = 4;
+  int32 frameHeight = 5;
+  double processingTimeMs = 6;
+  int32 roiPureCount = 7;
+  int32 roiImpureCount = 8;
+  int32 roiUnwantedCount = 9;
+  int32 roiTotalCount = 10;
+  double roiPurityPercentage = 11;
+  double avgWhiteness = 12;
+  double avgQualityScore = 13;
+  double roiAvgWhiteness = 14;
+  double roiAvgQualityScore = 15;
+  repeated BoundingBox boundingBoxes = 16;
+}
+
+message DetectionId {
+  string id = 1;
 }
 
 // ─── Statistics ────────────────────────────────────────────
