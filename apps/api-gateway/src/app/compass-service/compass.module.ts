@@ -10,11 +10,13 @@ import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { CompassController } from './compass.controller';
 import { DistributorOfferController } from './distributor-offer.controller';
 import { DealController } from './deal.controller';
+import { getGrpcCredentials } from '../../grpc-credentials';
+import { getJwtVerifyOptions } from '../auth/jwt-config';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+      ...getJwtVerifyOptions(),
       global: true,
     }),
     ClientsModule.register([
@@ -25,6 +27,7 @@ import { DealController } from './deal.controller';
           package: 'harvestplan',
           protoPath: join(__dirname, 'proto/harvestPlan.proto'),
           url: process.env.COMPASS_SERVICE_URL || 'localhost:50052',
+          credentials: getGrpcCredentials(),
           loader: {
             keepCase: true,
             longs: String,
@@ -41,6 +44,7 @@ import { DealController } from './deal.controller';
           package: 'crystallization',
           protoPath: join(__dirname, 'proto/dailyMeasurements.proto'),
           url: process.env.CRYSTALLIZATION_SERVICE_URL || 'localhost:50054',
+          credentials: getGrpcCredentials(),
           loader: {
             keepCase: true,
             longs: String,
@@ -57,6 +61,7 @@ import { DealController } from './deal.controller';
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+          credentials: getGrpcCredentials(),
         },
       },
       {
@@ -66,6 +71,7 @@ import { DealController } from './deal.controller';
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
           url: process.env.USER_SERVICE_URL || 'localhost:50053',
+          credentials: getGrpcCredentials(),
         },
       },
     ]),

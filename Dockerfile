@@ -24,11 +24,15 @@ COPY apps/audit-log-service/package.json ./apps/audit-log-service/
 COPY apps/crystallization-service/package.json ./apps/crystallization-service/
 COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-service/
 COPY apps/email-service/package.json ./apps/email-service/
+COPY apps/lab-agent/package.json ./apps/lab-agent/
 COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
 COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/compass-service/package.json ./apps/compass-service/
 COPY apps/waste-valorization-service/package.json ./apps/waste-valorization-service/
+
+# Copy shared workspace packages (full source needed for workspace resolution)
+COPY packages/ ./packages/
 
 # Install all dependencies — this layer is CACHED when only source.json files change
 # --mount=type=cache persists npm download cache across Docker builds for faster installs
@@ -51,6 +55,11 @@ COPY types/ ./types/
 # Build argument for service name
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
+
+# Nx plugin discovery can stall in containerized FS layers; disable the daemon
+# and the 10-min plugin-load timeout for deterministic builds.
+ENV NX_DAEMON=false
+ENV NX_PLUGIN_NO_TIMEOUTS=true
 
 # Build the specific service
 RUN npx nx build ${SERVICE_NAME} --configuration=production --skip-nx-cache

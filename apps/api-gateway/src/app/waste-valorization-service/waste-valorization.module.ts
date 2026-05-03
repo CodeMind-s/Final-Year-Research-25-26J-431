@@ -8,11 +8,13 @@ import { SubscriptionGuard } from '../auth/guards/subscription.guard';
 import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { WasteValorizationController, WasteManagementDashboardController } from './waste-valorization.controller';
+import { getGrpcCredentials } from '../../grpc-credentials';
+import { getJwtVerifyOptions } from '../auth/jwt-config';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+      ...getJwtVerifyOptions(),
       global: true,
     }),
     ClientsModule.register([
@@ -23,6 +25,7 @@ import { WasteValorizationController, WasteManagementDashboardController } from 
           package: 'wasteval',
           protoPath: join(__dirname, 'proto/wasteValorization.proto'),
           url: process.env.WASTE_VALORIZATION_SERVICE_URL || 'localhost:50058',
+          credentials: getGrpcCredentials(),
           loader: {
             keepCase: true,
             longs: String,
@@ -39,6 +42,7 @@ import { WasteValorizationController, WasteManagementDashboardController } from 
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+          credentials: getGrpcCredentials(),
         },
       },
     ]),

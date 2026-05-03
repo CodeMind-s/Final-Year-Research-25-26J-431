@@ -1,0 +1,6 @@
+# Drop tray.png (16x16 or 24x24 PNG) and tray.ico (multi-size .ico) here
+# before running `npm run package`. The PNG is what Electron uses for the
+# in-app tray; the .ico is what NSIS uses for the Start menu / installer.
+#
+# Until they exist, the tray falls back to a transparent placeholder image
+# (so the app still runs in dev) and electron-builder refuses to package.

@@ -1,0 +1,83 @@
+appId: com.brinex.lab-agent
+productName: Brinex Lab Agent
+copyright: Copyright (c) 2026 Brinex
+
+# Where electron-builder finds the compiled JS and where it writes the
+# installer. electron-builder resolves these relative to the process cwd
+# (which is the workspace root when invoked via `nx run …:package`), NOT
+# relative to this config file.
+directories:
+  # Output to a temp dir outside the workspace — Windows Search Indexer keeps
+  # opening just-extracted files inside our project dir, racing electron-
+  # builder's unpack-then-replace step on app.asar. C:\temp\ isn't indexed.
+  output: C:\temp\brinex-installer
+  buildResources: apps/lab-agent/electron/assets
+
+# Skip @electron/rebuild — it scans the entire workspace node_modules and tries
+# to rebuild every native module (including bcrypt from auth-service, which we
+# don't need). The two native modules we DO ship (onnxruntime-node, sharp) come
+# with prebuilt binaries that work with Electron's Node ABI as-is.
+npmRebuild: false
+
+# Files included in the asar archive. We ship the bundled NestJS dist + the
+# Electron entry, plus the two native modules ONNX runtime and sharp depend on.
+files:
+  - "dist/apps/lab-agent/**/*"
+  - "node_modules/onnxruntime-node/**/*"
+  - "node_modules/sharp/**/*"
+  - "node_modules/@img/sharp-*/**/*"
+  # Electron's loader needs package.json at app root.
+  - "package.json"
+
+# asar disabled: electron-builder on Windows occasionally fails to delete the
+# default app.asar that gets unpacked from the Electron release before writing
+# ours (file-handle race). Loose files under resources/app/ work fine — only
+# trade-off is slightly slower cold start. Re-enable later for production.
+asar: false
+
+# When asar is enabled, native .node binaries need explicit unpacking. Kept
+# here in case asar gets re-enabled.
+asarUnpack:
+  - "**/onnxruntime-node/**"
+  - "**/sharp/**"
+  - "**/@img/sharp-*/**"
+
+# Bundled YOLO model + mkcert binary. Live outside asar so they can be
+# replaced without repackaging the whole app.
+extraResources:
+  - from: "apps/lab-agent/src/assets/models/best.onnx"
+    to: "models/best.onnx"
+    # If the file is missing during dev, electron-builder will warn — that's
+    # fine; production CI will have the model staged before this runs.
+  - from: "apps/lab-agent/installer/mkcert.exe"
+    to: "mkcert.exe"
+    # Pinned mkcert release used to issue the localhost cert on first launch.
+    # See apps/lab-agent/installer/README.md for the download URL.
+
+win:
+  target: nsis
+  icon: apps/lab-agent/electron/assets/tray.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
+  # electron-builder runs signtool automatically when WIN_CSC_LINK +
+  # WIN_CSC_KEY_PASSWORD are set in the env (see RELEASE.md). With those
+  # unset (e.g., dev builds) the installer ships unsigned and SmartScreen
+  # warns on first run — expected.
+  signingHashAlgorithms:
+    - sha256
+  rfc3161TimeStampServer: http://timestamp.digicert.com
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Brinex Lab Agent
+  uninstallDisplayName: Brinex Lab Agent
+  installerIcon: apps/lab-agent/electron/assets/tray.ico
+  uninstallerIcon: apps/lab-agent/electron/assets/tray.ico
+
+# Where the Electron runtime expects to find our entry point. Resolves to
+# dist/apps/lab-agent/electron/main.js after the tsc step in `npm run package`.
+extraMetadata:
+  main: dist/apps/lab-agent/electron/main.js

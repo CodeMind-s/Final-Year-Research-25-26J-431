@@ -9,11 +9,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { RolesGuard } from './guards/roles.guard';
 import { PlanAccessGuard } from './guards/plan-access.guard';
+import { getGrpcCredentials } from '../../grpc-credentials';
+import { getJwtVerifyOptions } from './jwt-config';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+      ...getJwtVerifyOptions(),
       global: true,
     }),
     ClientsModule.register([
@@ -24,6 +26,7 @@ import { PlanAccessGuard } from './guards/plan-access.guard';
           package: 'auth',
           protoPath: join(__dirname, 'proto/auth.proto'),
           url: process.env.AUTH_SERVICE_URL || 'localhost:50000',
+          credentials: getGrpcCredentials(),
         },
       },
       {
@@ -33,6 +36,7 @@ import { PlanAccessGuard } from './guards/plan-access.guard';
           package: 'user',
           protoPath: join(__dirname, 'proto/user.proto'),
           url: process.env.USER_SERVICE_URL || 'localhost:50053',
+          credentials: getGrpcCredentials(),
         },
       },
     ]),

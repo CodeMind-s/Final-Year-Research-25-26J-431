@@ -303,6 +303,86 @@ export class DetectionController {
     return { success: true, message: 'Detection deleted successfully' };
   }
 
+  @GrpcMethod('VisionService', 'SaveDetection')
+  async saveDetection(data: {
+    user_id: string;
+    sessionId?: string;
+    batchId?: string;
+    frameWidth: number;
+    frameHeight: number;
+    processingTimeMs: number;
+    roiPureCount?: number;
+    roiImpureCount?: number;
+    roiUnwantedCount?: number;
+    roiTotalCount?: number;
+    roiPurityPercentage?: number;
+    avgWhiteness?: number;
+    avgQualityScore?: number;
+    roiAvgWhiteness?: number;
+    roiAvgQualityScore?: number;
+    boundingBoxes: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      classId: number;
+      className: string;
+      confidence: number;
+      whitenessPercentage?: number;
+      qualityScore?: number;
+    }[];
+  }) {
+    const detection = await this.detectionService.create({
+      userId: data.user_id,
+      frameWidth: data.frameWidth,
+      frameHeight: data.frameHeight,
+      processingTimeMs: data.processingTimeMs,
+      sessionId: data.sessionId || undefined,
+      batchId: data.batchId || undefined,
+      roiPureCount: data.roiPureCount,
+      roiImpureCount: data.roiImpureCount,
+      roiUnwantedCount: data.roiUnwantedCount,
+      roiTotalCount: data.roiTotalCount,
+      roiPurityPercentage: data.roiPurityPercentage,
+      avgWhiteness: data.avgWhiteness,
+      avgQualityScore: data.avgQualityScore,
+      roiAvgWhiteness: data.roiAvgWhiteness,
+      roiAvgQualityScore: data.roiAvgQualityScore,
+      boundingBoxes: data.boundingBoxes ?? [],
+    });
+
+    const promises: Promise<unknown>[] = [];
+
+    if (data.sessionId) {
+      promises.push(
+        this.detectionService.incrementSessionStats(
+          data.sessionId,
+          data.roiPureCount ?? 0,
+          data.roiImpureCount ?? 0,
+          data.roiUnwantedCount ?? 0,
+        ),
+      );
+    }
+
+    if (data.batchId) {
+      promises.push(
+        this.batchService.setCurrentBatchSnapshot(
+          data.batchId,
+          data.roiPureCount ?? 0,
+          data.roiImpureCount ?? 0,
+          data.roiUnwantedCount ?? 0,
+          data.roiTotalCount ?? 0,
+          data.roiAvgWhiteness,
+          data.roiAvgQualityScore,
+        ),
+      );
+    }
+
+    await Promise.all(promises);
+
+    return { id: detection._id.toString() };
+  }
+
   private toSessionResponse(session: DetectionSessionDocument) {
     return {
       id: session._id.toString(),

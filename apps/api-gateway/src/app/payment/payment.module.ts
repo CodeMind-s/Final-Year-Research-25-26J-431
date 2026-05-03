@@ -4,6 +4,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { GrpcExceptionFilter } from '../../filters/grpc-exception.filter';
 import { PaymentController } from './payment.controller';
+import { getGrpcCredentials } from '../../grpc-credentials';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PaymentController } from './payment.controller';
           package: 'payment',
           protoPath: join(__dirname, 'proto/payment.proto'),
           url: process.env.PAYMENT_SERVICE_URL || 'localhost:50056',
+          credentials: getGrpcCredentials(),
           loader: {
             keepCase: true,
             longs: String,

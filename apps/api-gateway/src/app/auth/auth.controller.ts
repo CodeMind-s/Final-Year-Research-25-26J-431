@@ -7,6 +7,7 @@ import { SignInDto, VerifyOtpDto, OAuthProfileDto, AuthResponseDto, LoginDto, La
 import { JwtService } from '@nestjs/jwt';
 import { Role } from './decorators/role.enum';
 import { Roles } from './decorators/roles.decorator';
+import { getJwks } from './jwt-config';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -22,6 +23,23 @@ export class AuthController {
   ) {
     this.authService = this.authClient.getService('AuthService');
     this.userService = this.userClient.getService('UserService');
+  }
+
+  @Public()
+  @Get('jwks')
+  @ApiOperation({
+    summary: 'JSON Web Key Set',
+    description:
+      'Public RSA key(s) used to verify access tokens. Empty when running in legacy HS256 mode. ' +
+      'The Lab Agent fetches this on startup to verify lab user JWTs locally.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'JWKS document',
+    schema: { example: { keys: [{ kty: 'RSA', kid: 'abc123', use: 'sig', alg: 'RS256', n: '...', e: 'AQAB' }] } },
+  })
+  getJwks() {
+    return getJwks();
   }
 
   @Public()

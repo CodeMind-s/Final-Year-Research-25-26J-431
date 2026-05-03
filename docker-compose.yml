@@ -58,6 +58,9 @@ services:
       - NOTIFY_LK_API_KEY=${NOTIFY_LK_API_KEY}
       - NOTIFY_LK_SENDER_ID=${NOTIFY_LK_SENDER_ID}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - JWT_ISSUER=${JWT_ISSUER}
     networks:
       - app-network
     depends_on:
@@ -294,6 +297,8 @@ services:
     environment:
       - PORT=3400
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - JWT_ISSUER=${JWT_ISSUER}
       - KAFKA_BROKER=kafka:9092
       - AUTH_SERVICE_URL=auth-service:50000
       - USER_SERVICE_URL=user-service:50053
@@ -316,6 +321,28 @@ services:
       - audit-log-service
       - gemini-service
       - email-service
+    restart: unless-stopped
+
+  lab-agent:
+    build:
+      context: .
+      dockerfile: apps/lab-agent/Dockerfile
+    container_name: lab-agent
+    ports:
+      - "5005:5005"
+    environment:
+      - LAB_AGENT_PORT=5005
+      - FRONTEND_ORIGIN=http://localhost:3000
+      - BRINEX_CLOUD_URL=http://api-gateway:3400/api/v1
+      - JWT_ISSUER=${JWT_ISSUER}
+      - VISION_MODEL_PATH=/app/models/best.onnx
+      - NODE_ENV=development
+    networks:
+      - app-network
+    volumes:
+      - ./apps/vision-service/models:/app/models:ro
+    depends_on:
+      - api-gateway
     restart: unless-stopped
 
   ngrok:

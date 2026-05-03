@@ -1,16 +1,19 @@
 // apps/api-gateway/src/strategies/jwt.strategy.ts
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { getVerifierMaterial } from '../jwt-config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor() {
+    const material = getVerifierMaterial();
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'secret',
+      secretOrKey:
+        material.type === 'public' ? material.publicKey : material.secret,
+      algorithms: material.algorithms,
     });
   }
 

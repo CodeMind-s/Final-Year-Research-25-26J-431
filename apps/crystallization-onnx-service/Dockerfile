@@ -29,9 +29,13 @@ COPY apps/audit-log-service/package.json ./apps/audit-log-service/
 COPY apps/crystallization-service/package.json ./apps/crystallization-service/
 COPY apps/crystallization-onnx-service/package.json ./apps/crystallization-onnx-service/
 COPY apps/email-service/package.json ./apps/email-service/
+COPY apps/lab-agent/package.json ./apps/lab-agent/
 COPY apps/user-service/package.json ./apps/user-service/
 COPY apps/vision-service/package.json ./apps/vision-service/
 COPY apps/payment-service/package.json ./apps/payment-service/
+
+# Copy shared workspace packages
+COPY packages/ ./packages/
 
 # Install all dependencies — CACHED when only source code changes
 # --mount=type=cache persists npm download cache across Docker builds
