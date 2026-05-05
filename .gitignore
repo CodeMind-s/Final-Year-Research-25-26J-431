@@ -60,4 +60,4 @@ CLAUDE.md
 
 # ONNX model files
 **/models/*.onnx
-/docs/
+
